@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh api:*)",
+      "Bash(git -C \"C:/Users/Robin/Applications Dev/Flint\" rev-parse --git-path sdd)",
+      "Read(//c/Users/Robin/Applications Dev/Flint/Flint/$\\(git -C \"C:/Users/Robin/Applications Dev/Flint\" rev-parse --git-path sdd\\)/**)",
+      "Bash(bash:*)",
+      "Read(//c/Users/Robin/Applications Dev/Flint/**)",
+      "Bash(mkdir -p context brand_context .cron .claude skills/heartbeat skills/wrap-up skills/start-here skills/daily-briefing)"
+    ]
+  }
+}

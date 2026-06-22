@@ -5,7 +5,7 @@ One-time brand context interview. Asks Robin 5 questions and writes the answers 
 
 ## Trigger
 Robin says: "start here", "setup", "build my brand context", "run start-here".
-Also auto-triggers if brand_context/voice-profile.md contains only comments (never been filled in).
+Also auto-triggers if brand_context/voice-profile.md contains no content lines outside the # heading and HTML comment block (i.e., it still looks like the scaffold stub — no real answers yet).
 
 ## Prerequisites
 - brand_context/ directory exists (stub files are fine — this skill overwrites them)
@@ -45,10 +45,13 @@ Also auto-triggers if brand_context/voice-profile.md contains only comments (nev
     sentence length, formality level, any example phrases Robin provided]
    ```
 
-   **brand_context/positioning.md** — structured version of Q2 answer:
+   **brand_context/positioning.md** — structured version of Q2 answer, with Q4 goals appended:
    ```markdown
    # Positioning
-   [Extract: what the business does, who for, key differentiator, unique angle]
+   [Extract from Q2: what the business does, who for, key differentiator, unique angle]
+
+   ## Current Goals (90 days)
+   [Extract from Q4: specific targets — revenue, content output, launches, audience growth]
    ```
 
    **brand_context/icp.md** — structured version of Q3 answer:
@@ -71,6 +74,7 @@ Also auto-triggers if brand_context/voice-profile.md contains only comments (nev
 
 8. **Confirm**
    Say: "Brand context built. Files written:" then list each file with one line describing what's now in it.
+   Note: positioning.md contains both positioning (Q2) and 90-day goals (Q4).
    Say: "Edit any file directly, or run /start-here again to redo the interview."
 
 ## Output

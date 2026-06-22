@@ -15,7 +15,7 @@ Also triggered by: "run heartbeat", "sync skills", "refresh registry".
 
 1. **Scan skills/ directory**
    - List every direct subdirectory of skills/ that contains a SKILL.md file
-   - For each, record: folder name (= skill name) and the line immediately after `## Purpose` in that SKILL.md (= description)
+   - For each, record: folder name (= skill name) and the first sentence (up to and including the first full stop) of the line immediately after `## Purpose` in that SKILL.md (= description)
    - Example: `skills/heartbeat/SKILL.md` → skill name `heartbeat`, description `Self-maintenance scan at session start.`
 
 2. **Load current registry**
@@ -48,4 +48,4 @@ Updated CLAUDE.md: current skill registry, detected MCP servers, current timesta
 ## Edge Cases
 - skills/ subfolder with no SKILL.md → skip silently, do not register
 - CLAUDE.md missing a required section → create the section with correct markdown heading
-- .claude/settings.json missing or invalid JSON → skip MCP scan, append `(MCP scan skipped — settings.json missing)` to report
+- .claude/settings.json not found → skip MCP scan, append `(MCP scan skipped — settings.json not found)` to report. .claude/settings.json exists but contains invalid JSON → skip MCP scan, append `(MCP scan skipped — settings.json is not valid JSON)` to report.

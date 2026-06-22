@@ -15,8 +15,10 @@ Also runs automatically when scheduled via .cron/schedule.json.
 
 1. **Read context**
    - Read context/memory.md — note any stated priorities, ongoing projects, key facts
+   - Read context/user.md — note the Current Focus section for today's priorities
    - Read context/learnings.md — read the most recent entry (top of file) for open threads and feedback
    - Check if `context/[yesterday's date].md` exists — if yes, extract its "Open Threads" and "Next Session" sections
+   - Check if `context/YYYY-MM-DD-briefing.md` exists (today's date) — if yes, this is a repeat run
 
 2. **Compose briefing**
    Format the output exactly as:
@@ -41,14 +43,16 @@ Also runs automatically when scheduled via .cron/schedule.json.
     If not: "No log from yesterday."]
    ```
 
+   Write the composed briefing to `context/YYYY-MM-DD-briefing.md` (always, even on first run — this enables repeat detection).
+
 3. **Deliver and offer**
-   Print the briefing, then say: "What would you like to work on?"
+   If a repeat run was detected in step 1, prepend "(repeat briefing)" to the title. Print the briefing, then say: "What would you like to work on?"
 
 ## Output
-Briefing printed to chat. No files modified.
+Briefing printed to chat. `context/YYYY-MM-DD-briefing.md` (written to enable repeat detection).
 
 ## Edge Cases
 - All context files empty (very first session) → deliver a "fresh start" briefing:
   "Memory is empty and no past sessions found. Run /start-here to build your brand context, or just tell me what you're working on."
-- Run multiple times in one day → deliver again, note: "(repeat briefing — context unchanged since this morning)"
+- Run multiple times in one day → briefing file detected in step 1, (repeat briefing) added to title. Briefing is still delivered in full.
 - Run via cron with no active chat → write briefing to `context/YYYY-MM-DD-briefing.md` instead of printing to chat
