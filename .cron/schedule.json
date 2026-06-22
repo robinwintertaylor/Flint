@@ -1,0 +1,11 @@
+{
+  "_comment": "Scheduled skill chains. Cron daemon wired in Sub-project 3.",
+  "schedules": [
+    {
+      "name": "Morning Briefing",
+      "cron": "0 7 * * 1-5",
+      "chain": ["daily-briefing"],
+      "description": "Weekday morning summary — activate in Sub-project 3"
+    }
+  ]
+}
