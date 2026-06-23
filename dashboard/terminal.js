@@ -1,12 +1,14 @@
 import pty from 'node-pty';
 import { watch, existsSync, writeFileSync, statSync, openSync, readSync, closeSync } from 'fs';
-import { getAgent, setAgentStatus, broadcastToAgent } from './agents.js';
-import { writeUsage } from './db.js';
+import { getAgent, setAgentStatus, broadcastToAgent, broadcastGlobal } from './agents.js';
+import { writeUsage, getAgentWorktree } from './db.js';
+import { createSuggestion } from './suggestions.js';
 import { readTasks, writeTasks } from './tasks.js';
 import { getProjectForAgent, updateProject } from './projects.js';
 
 const COST_REGEX = /Total cost:\s+\$?([\d.]+)/i;
 const MODEL_REGEX = /Model:\s+(\S+)/i;
+const SUGGESTION_REGEX = /^## SUGGESTION:\s*(.+?)(?=\n\n|\n##|\n$|$)/ms;
 const MAX_SUMMARY_LINES = 50;
 
 export function injectProjectContext(agentName) {
@@ -75,6 +77,14 @@ export function spawnAgent(name, workdir, model) {
         lastCost = parseFloat(costMatch[1]);
       }
     }
+
+    const suggMatch = data.match(SUGGESTION_REGEX);
+    if (suggMatch) {
+      const suggestion = createSuggestion(name, suggMatch[1].trim());
+      if (suggestion) {
+        broadcastGlobal({ type: 'suggestion', suggestion });
+      }
+    }
   });
 
   ptyProcess.onExit(() => {
@@ -82,6 +92,12 @@ export function spawnAgent(name, workdir, model) {
     const project = getProjectForAgent(name);
     if (project && outputBuffer.length > 0) {
       updateProject(project.id, { last_summary: outputBuffer.join('\n') });
+    }
+
+    // Notify UI if agent had an isolated worktree
+    const worktree = getAgentWorktree(name);
+    if (worktree?.worktree_branch) {
+      broadcastToAgent(name, { type: 'worktree_pending', agent: name, branch: worktree.worktree_branch });
     }
 
     agent.ptyProcess = null;

@@ -78,3 +78,83 @@ test('getAgentWorktree returns null when no worktree set', () => {
   const wt = getAgentWorktree('plain-agent');
   assert.ok(!wt?.worktree_branch);
 });
+
+// --- HTTP tests ---
+
+describe('Suggestion HTTP routes', () => {
+  let server;
+  let port;
+
+  before(async () => {
+    const { createApp } = await import('../server.js');
+    server = createApp();
+    await new Promise(r => server.listen(0, r));
+    port = server.address().port;
+  });
+
+  after(() => new Promise(r => server.close(r)));
+
+  test('GET /suggestions returns only non-dismissed', async () => {
+    // createSuggestion was called in DB tests above — some should exist
+    const res = await fetch(`http://localhost:${port}/suggestions`);
+    assert.equal(res.status, 200);
+    const list = await res.json();
+    assert.ok(Array.isArray(list));
+    assert.ok(list.every(s => s.status !== 'dismissed'), 'no dismissed in response');
+  });
+
+  test('PATCH /suggestions/:id updates status', async () => {
+    // Insert a fresh suggestion
+    createSuggestion('http-test-agent', 'A testable suggestion');
+    const allRes = await fetch(`http://localhost:${port}/suggestions`);
+    const all = await allRes.json();
+    const row = all.find(s => s.agent_name === 'http-test-agent');
+    assert.ok(row);
+
+    const patchRes = await fetch(`http://localhost:${port}/suggestions/${row.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'noted' }),
+    });
+    assert.equal(patchRes.status, 200);
+    const body = await patchRes.json();
+    assert.equal(body.ok, true);
+  });
+});
+
+describe('Worktree HTTP routes', () => {
+  let server;
+  let port;
+
+  before(async () => {
+    const { createApp } = await import('../server.js');
+    server = createApp();
+    await new Promise(r => server.listen(0, r));
+    port = server.address().port;
+  });
+
+  after(() => new Promise(r => server.close(r)));
+
+  test('GET /worktrees returns empty array when no worktrees active', async () => {
+    const res = await fetch(`http://localhost:${port}/worktrees`);
+    assert.equal(res.status, 200);
+    const list = await res.json();
+    assert.ok(Array.isArray(list));
+  });
+
+  test('POST /worktrees/:agent/merge returns 404 for unknown agent', async () => {
+    const res = await fetch(`http://localhost:${port}/worktrees/nonexistent-agent/merge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    assert.equal(res.status, 404);
+  });
+
+  test('DELETE /worktrees/:agent returns 404 for unknown agent', async () => {
+    const res = await fetch(`http://localhost:${port}/worktrees/nonexistent-agent`, {
+      method: 'DELETE',
+    });
+    assert.equal(res.status, 404);
+  });
+});

@@ -4,8 +4,10 @@ import { createServer } from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-import { initDb, getTodayCost, getMonthCost, closeDb } from './db.js';
-import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, broadcastToAgent } from './agents.js';
+import { initDb, getTodayCost, getMonthCost, closeDb, upsertAgentLog, setAgentWorktree, getAgentWorktree } from './db.js';
+import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, broadcastToAgent, addGlobalWsClient, removeGlobalWsClient } from './agents.js';
+import { listSuggestions, updateSuggestion } from './suggestions.js';
+import { listWorktrees, createWorktree, mergeWorktree, discardWorktree } from './worktrees.js';
 import { spawnAgent, writeToAgent, observeLogFile } from './terminal.js';
 import { readTasks, writeTasks, appendTask } from './tasks.js';
 import {
@@ -168,11 +170,55 @@ export function createApp() {
     res.json({ ok: true });
   });
 
+  // --- Suggestion routes ---
+
+  app.get('/suggestions', (_req, res) => {
+    res.json(listSuggestions());
+  });
+
+  app.patch('/suggestions/:id', (req, res) => {
+    const id = Number(req.params.id);
+    const { status } = req.body ?? {};
+    const VALID = ['new', 'noted', 'dismissed'];
+    if (!VALID.includes(status)) return res.status(400).json({ error: 'invalid status' });
+    updateSuggestion(id, { status });
+    res.json({ ok: true });
+  });
+
+  // --- Worktree routes ---
+
+  app.get('/worktrees', (_req, res) => {
+    res.json(listWorktrees());
+  });
+
+  app.post('/worktrees/:agent/merge', (req, res) => {
+    try {
+      mergeWorktree(req.params.agent);
+      broadcastToAgent(req.params.agent, { type: 'worktree_merged', agent: req.params.agent });
+      res.json({ ok: true });
+    } catch (err) {
+      if (err.message.includes('No worktree')) return res.status(404).json({ error: err.message });
+      res.status(400).json({ error: `merge conflict: ${err.message}` });
+    }
+  });
+
+  app.delete('/worktrees/:agent', (req, res) => {
+    try {
+      discardWorktree(req.params.agent);
+      broadcastToAgent(req.params.agent, { type: 'worktree_discarded', agent: req.params.agent });
+      res.json({ ok: true });
+    } catch (err) {
+      if (err.message.includes('No worktree')) return res.status(404).json({ error: err.message });
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // --- WebSocket ---
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
   wss.on('connection', (ws) => {
+    addGlobalWsClient(ws);
     ws.on('error', () => {}); // prevent unhandled error events on connection failures
 
     function safeSend(ws, obj) {
@@ -205,10 +251,19 @@ export function createApp() {
           break;
 
         case 'spawn': {
-          const { agent: name, workdir, model } = msg;
+          const { agent: name, workdir, model, isolate } = msg;
           if (!name || !workdir) break;
           registerAgent(name, 'spawn', workdir, null, model);
-          if (!TEST_MODE) spawnAgent(name, workdir, model);
+          upsertAgentLog(name, { mode: 'spawn', workdir, status: 'running' });
+          if (!TEST_MODE) {
+            let spawnDir = workdir;
+            if (isolate) {
+              const { worktreePath, branch } = createWorktree(name);
+              setAgentWorktree(name, worktreePath, branch);
+              spawnDir = worktreePath;
+            }
+            spawnAgent(name, spawnDir, model);
+          }
           broadcastToAgent(name, { type: 'status', agent: name, status: 'running' });
           break;
         }
@@ -232,6 +287,7 @@ export function createApp() {
     });
 
     ws.on('close', () => {
+      removeGlobalWsClient(ws);
       for (const name of subscriptions) removeWsClient(name, ws);
     });
   });
