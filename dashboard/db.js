@@ -27,6 +27,20 @@ export function initDb(dbPath = DEFAULT_DB) {
       status    TEXT,
       last_seen DATETIME
     );
+    CREATE TABLE IF NOT EXISTS projects (
+      id           INTEGER PRIMARY KEY,
+      name         TEXT NOT NULL UNIQUE,
+      status       TEXT NOT NULL DEFAULT 'active',
+      notes        TEXT DEFAULT '',
+      last_summary TEXT DEFAULT '',
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS project_agents (
+      project_id INTEGER NOT NULL REFERENCES projects(id),
+      agent_name TEXT NOT NULL,
+      PRIMARY KEY (project_id, agent_name)
+    );
   `);
   return _db;
 }
@@ -67,7 +81,7 @@ export function getCostsByProvider() {
   return { todayRows, monthRows };
 }
 
-function getDb() {
+export function getDb() {
   if (!_db) throw new Error('DB not initialised — call initDb() first');
   return _db;
 }

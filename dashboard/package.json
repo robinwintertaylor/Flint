@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node server.js",
     "dev":   "node --watch server.js",
-    "test":  "node --test tests/db.test.js tests/tasks.test.js tests/agents.test.js tests/server.test.js"
+    "test":  "node --test tests/db.test.js tests/tasks.test.js tests/agents.test.js tests/server.test.js tests/projects.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
