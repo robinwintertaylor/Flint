@@ -52,3 +52,10 @@ export function getMonthCost() {
   ).get();
   return row.total;
 }
+
+export function closeDb() {
+  if (_db) {
+    _db.close();
+    _db = null;
+  }
+}
