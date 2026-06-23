@@ -57,6 +57,7 @@ Flint/
 ├── cron/
 │   ├── daemon.js             ← reads .cron/schedule.json, registers node-cron schedules
 │   └── runner.js             ← executes chain entries: spawn (PTY) or api (router call)
+│                               (node-pty imported from dashboard/node_modules via root package.json workspaces or direct path)
 │
 ├── bin/
 │   └── flint.js              ← CLI: ask, models, config, costs subcommands
@@ -126,7 +127,7 @@ Request: `{ taskType?, prompt, systemPrompt?, model?, provider? }`
 Response: `{ text, model, provider, costUsd, durationMs }`
 
 **`GET /llm/models`**
-Returns all configured models per provider, derived from `router.json` tiers plus any extras. Used by dashboard model picker.
+Returns all models per provider as defined in `router.json` tiers. Used by dashboard model picker. No dynamic fetching from provider APIs.
 
 Response: `{ anthropic: [...], openai: [...], google: [...], azure: [...], openrouter: [...] }`
 
