@@ -92,7 +92,7 @@ tasks/*.md            ← read/written by both dashboard and agents
 - Bidirectional where ConPTY attach succeeds; falls back to observe-only if it fails
 
 **Observe** (log file tail — read-only, always works)
-- User runs `scripts/attach.ps1 research` → starts claude, pipes stdout to `logs/research.log`
+- User runs `scripts/attach.ps1 research` → starts claude, pipes stdout to `C:\Users\Robin\Applications Dev\Flint\logs\research.log`
 - `POST /agents/observe` `{name, logPath}` → `fs.watch` on log file, streams new lines to browser
 - Read-only panel (no stdin input)
 
