@@ -318,7 +318,7 @@ function renderProjects(projects) {
     card.innerHTML = `
       <div class="project-card-header">
         <span class="project-card-name">${escHtml(p.name)}</span>
-        <span class="badge badge-${p.status}">${p.status}</span>
+        <span class="badge badge-${escHtml(p.status)}">${escHtml(p.status)}</span>
       </div>
       <div class="project-card-meta">Agents: ${escHtml(agentStr)}</div>
       <div class="project-card-meta">Week: $${p.costWeek.toFixed(4)} &nbsp; Month: $${p.costMonth.toFixed(4)}</div>
@@ -389,7 +389,7 @@ async function openEditProjectModal(projectId) {
     row.innerHTML = `<span style="font-size:13px">${escHtml(agentName)}</span>
       <button style="background:none;border:none;color:#f85149;cursor:pointer;font-size:12px" data-unlink="${escHtml(agentName)}">×</button>`;
     row.querySelector('[data-unlink]').addEventListener('click', async () => {
-      await fetch(`/projects/${p.id}/agents/${agentName}`, { method: 'DELETE' });
+      await fetch(`/projects/${p.id}/agents/${encodeURIComponent(agentName)}`, { method: 'DELETE' });
       openEditProjectModal(p.id);
     });
     agentsDiv.appendChild(row);
