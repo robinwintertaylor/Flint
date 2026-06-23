@@ -8,6 +8,10 @@ import { initDb, getTodayCost, getMonthCost, closeDb } from './db.js';
 import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, broadcastToAgent } from './agents.js';
 import { spawnAgent, writeToAgent, observeLogFile } from './terminal.js';
 import { readTasks, writeTasks, appendTask } from './tasks.js';
+import {
+  listProjects, getProject, createProject, updateProject,
+  linkAgent, unlinkAgent,
+} from './projects.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT ?? 3000;
@@ -99,6 +103,65 @@ export function createApp() {
     } catch {
       res.json({ error: 'router not running' });
     }
+  });
+
+  // --- Project routes ---
+
+  app.get('/projects', (_req, res) => {
+    res.json(listProjects());
+  });
+
+  app.get('/projects/:id', (req, res) => {
+    const p = getProject(Number(req.params.id));
+    if (!p) return res.status(404).json({ error: 'project not found' });
+    res.json(p);
+  });
+
+  app.post('/projects', (req, res) => {
+    const { name, notes } = req.body ?? {};
+    if (!name) return res.status(400).json({ error: 'name required' });
+    try {
+      const id = createProject({ name, notes: notes ?? '' });
+      res.status(201).json(getProject(id));
+    } catch (err) {
+      if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'project name already exists' });
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.patch('/projects/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!getProject(id)) return res.status(404).json({ error: 'project not found' });
+    const { name, status, notes } = req.body ?? {};
+    const fields = {};
+    if (name !== undefined) fields.name = name;
+    if (status !== undefined) fields.status = status;
+    if (notes !== undefined) fields.notes = notes;
+    updateProject(id, fields);
+    res.json(getProject(id));
+  });
+
+  app.delete('/projects/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!getProject(id)) return res.status(404).json({ error: 'project not found' });
+    updateProject(id, { status: 'archived' });
+    res.json({ ok: true });
+  });
+
+  app.post('/projects/:id/agents', (req, res) => {
+    const id = Number(req.params.id);
+    if (!getProject(id)) return res.status(404).json({ error: 'project not found' });
+    const { agentName } = req.body ?? {};
+    if (!agentName) return res.status(400).json({ error: 'agentName required' });
+    linkAgent(id, agentName);
+    res.json({ ok: true });
+  });
+
+  app.delete('/projects/:id/agents/:agentName', (req, res) => {
+    const id = Number(req.params.id);
+    if (!getProject(id)) return res.status(404).json({ error: 'project not found' });
+    unlinkAgent(id, req.params.agentName);
+    res.json({ ok: true });
   });
 
   // --- WebSocket ---

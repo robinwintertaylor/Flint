@@ -101,3 +101,97 @@ test('getProjectForAgent returns null for unlinked agent', () => {
   initDb(':memory:');
   assert.equal(getProjectForAgent('ghost-agent'), null);
 });
+
+// --- HTTP route tests ---
+
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const TMP2 = join(tmpdir(), 'flint-proj-routes-' + Date.now());
+mkdirSync(TMP2, { recursive: true });
+
+// Set env vars for server import
+process.env.FLINT_DB_PATH   = join(TMP2, 'usage.sqlite');
+process.env.FLINT_AGENTS_FILE = join(TMP2, 'agents.json');
+process.env.FLINT_TASKS_DIR   = join(TMP2, 'tasks');
+process.env.FLINT_TEST_MODE   = '1';
+writeFileSync(process.env.FLINT_AGENTS_FILE, '[]');
+
+const { createApp, closeDb: closeDb2 } = await import('../server.js');
+
+let srv, base;
+
+before(async () => {
+  srv = createApp();
+  await new Promise(resolve => srv.listen(0, resolve));
+  base = `http://localhost:${srv.address().port}`;
+});
+
+after(async () => {
+  await new Promise(resolve => srv.close(resolve));
+  closeDb2();
+  rmSync(TMP2, { recursive: true, force: true });
+  delete process.env.FLINT_DB_PATH;
+  delete process.env.FLINT_AGENTS_FILE;
+  delete process.env.FLINT_TASKS_DIR;
+  delete process.env.FLINT_TEST_MODE;
+});
+
+async function req(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${base}${path}`, opts);
+  return { status: res.status, body: await res.json() };
+}
+
+test('GET /projects returns empty array initially', async () => {
+  const { status, body } = await req('GET', '/projects');
+  assert.equal(status, 200);
+  assert.ok(Array.isArray(body));
+});
+
+test('POST /projects creates a project', async () => {
+  const { status, body } = await req('POST', '/projects', { name: 'Test Project', notes: 'hello' });
+  assert.equal(status, 201);
+  assert.equal(body.name, 'Test Project');
+  assert.equal(body.notes, 'hello');
+  assert.ok(typeof body.id === 'number');
+});
+
+test('POST /projects returns 400 when name missing', async () => {
+  const { status } = await req('POST', '/projects', { notes: 'oops' });
+  assert.equal(status, 400);
+});
+
+test('PATCH /projects/:id updates status', async () => {
+  const { body: created } = await req('POST', '/projects', { name: 'Patchable' });
+  const { status, body } = await req('PATCH', `/projects/${created.id}`, { status: 'paused' });
+  assert.equal(status, 200);
+  assert.equal(body.status, 'paused');
+});
+
+test('DELETE /projects/:id archives project', async () => {
+  const { body: created } = await req('POST', '/projects', { name: 'Archivable' });
+  const { status } = await req('DELETE', `/projects/${created.id}`);
+  assert.equal(status, 200);
+  const { body: list } = await req('GET', '/projects');
+  assert.ok(!list.find(p => p.id === created.id));
+});
+
+test('POST /projects/:id/agents links agent', async () => {
+  const { body: created } = await req('POST', '/projects', { name: 'Linkable' });
+  const { status } = await req('POST', `/projects/${created.id}/agents`, { agentName: 'research' });
+  assert.equal(status, 200);
+  const { body: proj } = await req('GET', `/projects/${created.id}`);
+  assert.ok(proj.agents.includes('research'));
+});
+
+test('DELETE /projects/:id/agents/:name unlinks agent', async () => {
+  const { body: created } = await req('POST', '/projects', { name: 'Unlinkable' });
+  await req('POST', `/projects/${created.id}/agents`, { agentName: 'code' });
+  const { status } = await req('DELETE', `/projects/${created.id}/agents/code`);
+  assert.equal(status, 200);
+  const { body: proj } = await req('GET', `/projects/${created.id}`);
+  assert.ok(!proj.agents.includes('code'));
+});
