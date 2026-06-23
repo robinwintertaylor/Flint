@@ -1,7 +1,7 @@
 import { readFileSync, watchFile } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import nodeCron from '../router/node_modules/node-cron/src/index.js';
+import nodeCron from '../router/node_modules/node-cron/src/node-cron.js';
 import { runEntry } from './runner.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
