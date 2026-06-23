@@ -6,12 +6,15 @@ import { writeUsage } from './db.js';
 const COST_REGEX = /Total cost:\s+\$?([\d.]+)/i;
 const MODEL_REGEX = /Model:\s+(\S+)/i;
 
-export function spawnAgent(name, workdir) {
+export function spawnAgent(name, workdir, model) {
   const agent = getAgent(name);
   if (!agent) throw new Error(`Agent "${name}" not registered`);
   if (agent.ptyProcess) throw new Error(`Agent "${name}" already has a running process`);
 
-  const ptyProcess = pty.spawn('claude', ['--dangerously-skip-permissions'], {
+  const args = ['--dangerously-skip-permissions'];
+  if (model) args.push('--model', model);
+
+  const ptyProcess = pty.spawn('claude', args, {
     name: 'xterm-256color',
     cols: 220,
     rows: 50,

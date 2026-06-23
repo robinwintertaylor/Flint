@@ -81,6 +81,26 @@ export function createApp() {
     res.json({ costs, monthTotal: getMonthCost() });
   });
 
+  app.get('/router/models', async (_req, res) => {
+    try {
+      const r = await fetch('http://localhost:3001/llm/models');
+      const data = await r.json();
+      res.json(data);
+    } catch {
+      res.json({ error: 'router not running' });
+    }
+  });
+
+  app.get('/router/config', async (_req, res) => {
+    try {
+      const r = await fetch('http://localhost:3001/llm/config');
+      const data = await r.json();
+      res.json(data);
+    } catch {
+      res.json({ error: 'router not running' });
+    }
+  });
+
   // --- WebSocket ---
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
@@ -118,10 +138,10 @@ export function createApp() {
           break;
 
         case 'spawn': {
-          const { agent: name, workdir } = msg;
+          const { agent: name, workdir, model } = msg;
           if (!name || !workdir) break;
-          registerAgent(name, 'spawn', workdir);
-          if (!TEST_MODE) spawnAgent(name, workdir);
+          registerAgent(name, 'spawn', workdir, null, model);
+          if (!TEST_MODE) spawnAgent(name, workdir, model);
           broadcastToAgent(name, { type: 'status', agent: name, status: 'running' });
           break;
         }

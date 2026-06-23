@@ -12,6 +12,7 @@ function connect() {
   ws.addEventListener('open', () => {
     ws.send(JSON.stringify({ type: 'agents' }));
     fetchCosts();
+    populateModelDropdown();
   });
 
   ws.addEventListener('message', ({ data }) => {
@@ -212,7 +213,8 @@ document.getElementById('modal-spawn').addEventListener('click', () => {
   const name = document.getElementById('modal-name').value.trim();
   const workdir = document.getElementById('modal-workdir').value.trim();
   if (!name || !workdir) return;
-  ws.send(JSON.stringify({ type: 'spawn', agent: name, workdir }));
+  const model = document.getElementById('modal-model').value;
+  ws.send(JSON.stringify({ type: 'spawn', agent: name, workdir, ...(model ? { model } : {}) }));
   ensurePanel({ name, mode: 'spawn', status: 'running' });
   document.getElementById('modal').classList.add('hidden');
   document.getElementById('modal-name').value = '';
@@ -229,5 +231,28 @@ document.getElementById('btn-refresh').addEventListener('click', () => {
 window.addEventListener('resize', () => {
   Object.values(terminals).forEach(({ fitAddon }) => fitAddon.fit());
 });
+
+async function populateModelDropdown() {
+  try {
+    const res = await fetch('/router/models');
+    if (!res.ok) return; // router not running — leave default only
+    const models = await res.json();
+    if (models.error) return;
+    const select = document.getElementById('modal-model');
+    for (const [provider, list] of Object.entries(models)) {
+      const group = document.createElement('optgroup');
+      group.label = provider;
+      for (const m of list) {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        group.appendChild(opt);
+      }
+      select.appendChild(group);
+    }
+  } catch {
+    // router not running — dropdown stays at default only
+  }
+}
 
 connect();
