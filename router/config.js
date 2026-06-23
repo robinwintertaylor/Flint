@@ -27,6 +27,7 @@ export function resolveRoute(taskType, providerOverride) {
   const tier    = String(taskDef?.tier ?? cfg.defaultTier);
   const provider = providerOverride ?? taskDef?.provider ?? cfg.defaultProvider;
   const model    = cfg.tiers[tier][provider];
+  if (!model) throw new Error(`No model configured for provider "${provider}" at tier ${tier}`);
   return { provider, model, tier: Number(tier) };
 }
 

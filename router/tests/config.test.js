@@ -87,3 +87,7 @@ test('resetConfig clears cache so next getConfig re-reads', () => {
   process.env.FLINT_ROUTER_CONFIG = orig;
   resetConfig();
 });
+
+test('resolveRoute throws for provider not in tier', () => {
+  assert.throws(() => resolveRoute('research', 'nonexistent-provider'), /No model configured/);
+});
