@@ -178,7 +178,7 @@ const [,, subcommand, ...rest] = process.argv;
 const COMMANDS = { ask: cmdAsk, models: cmdModels, config: cmdConfig, costs: cmdCosts, project: cmdProject };
 const cmd = COMMANDS[subcommand];
 if (!cmd) {
-  console.error(`Usage: flint <ask|models|config|costs>`);
+  console.error(`Usage: flint <ask|models|config|costs|project>`);
   process.exit(1);
 }
 
