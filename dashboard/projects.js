@@ -1,15 +1,18 @@
 import { getDb } from './db.js';
 
 function projectCost(db, projectId, period) {
-  const filter = period === 'week'
-    ? `date(timestamp) >= date('now', '-7 days')`
-    : `strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now')`;
-  const row = db.prepare(`
-    SELECT COALESCE(SUM(cost_usd), 0) AS total FROM usage
-    WHERE agent_name IN (SELECT agent_name FROM project_agents WHERE project_id = ?)
-    AND ${filter}
-  `).get(projectId);
-  return row.total;
+  const stmt = period === 'week'
+    ? db.prepare(`
+        SELECT COALESCE(SUM(cost_usd), 0) AS total FROM usage
+        WHERE agent_name IN (SELECT agent_name FROM project_agents WHERE project_id = ?)
+        AND date(timestamp) >= date('now', '-7 days')
+      `)
+    : db.prepare(`
+        SELECT COALESCE(SUM(cost_usd), 0) AS total FROM usage
+        WHERE agent_name IN (SELECT agent_name FROM project_agents WHERE project_id = ?)
+        AND strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now')
+      `);
+  return stmt.get(projectId).total;
 }
 
 function hydrate(row) {
@@ -45,7 +48,7 @@ export function createProject({ name, notes = '' }) {
   const result = db.prepare(
     `INSERT INTO projects (name, notes) VALUES (?, ?)`
   ).run(name, notes);
-  return result.lastInsertRowid;
+  return Number(result.lastInsertRowid);
 }
 
 export function updateProject(id, fields) {
