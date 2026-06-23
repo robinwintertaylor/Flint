@@ -1,11 +1,20 @@
 {
-  "_comment": "Scheduled skill chains. Cron daemon wired in Sub-project 3.",
   "schedules": [
     {
       "name": "Morning Briefing",
       "cron": "0 7 * * 1-5",
+      "type": "spawn",
       "chain": ["daily-briefing"],
-      "description": "Weekday morning summary — activate in Sub-project 3"
+      "workdir": "C:\\Users\\Robin\\Applications Dev\\Flint",
+      "description": "Weekday morning summary — spawns Claude Code session"
+    },
+    {
+      "name": "Weekly Research Digest",
+      "cron": "0 9 * * 1",
+      "type": "api",
+      "taskType": "research",
+      "prompt": "Summarise this week's key AI developments relevant to Robin's work",
+      "description": "Monday morning research — calls router API directly"
     }
   ]
 }

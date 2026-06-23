@@ -1,0 +1,14 @@
+{
+  "name": "flint",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start":     "node start.js",
+    "dashboard": "node dashboard/server.js",
+    "router":    "node router/server.js",
+    "cron":      "node cron/daemon.js"
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0"
+  }
+}
