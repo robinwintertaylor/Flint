@@ -11,6 +11,18 @@ let AGENTS_FILE = process.env.FLINT_AGENTS_FILE ?? DEFAULT_AGENTS_FILE;
 // name → { name, mode, status, workdir, logPath, ptyProcess, watcher, wsClients }
 const registry = new Map();
 
+const globalWsClients = new Set();
+
+export function addGlobalWsClient(ws) { globalWsClients.add(ws); }
+export function removeGlobalWsClient(ws) { globalWsClients.delete(ws); }
+
+export function broadcastGlobal(data) {
+  const json = JSON.stringify(data);
+  for (const ws of globalWsClients) {
+    if (ws.readyState === 1) ws.send(json);
+  }
+}
+
 export function initAgents(agentsFile) {
   if (agentsFile) AGENTS_FILE = agentsFile;
   registry.clear();

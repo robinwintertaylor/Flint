@@ -41,7 +41,16 @@ export function initDb(dbPath = DEFAULT_DB) {
       agent_name TEXT NOT NULL,
       PRIMARY KEY (project_id, agent_name)
     );
+    CREATE TABLE IF NOT EXISTS suggestions (
+      id          INTEGER PRIMARY KEY,
+      agent_name  TEXT NOT NULL,
+      content     TEXT NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'new',
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
+  try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
+  try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
   return _db;
 }
 
@@ -79,6 +88,36 @@ export function getCostsByProvider() {
   const todayRows  = db.prepare(`SELECT model, SUM(cost_usd) as total FROM usage WHERE DATE(timestamp) = date('now') GROUP BY model`).all();
   const monthRows  = db.prepare(`SELECT model, SUM(cost_usd) as total FROM usage WHERE strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now') GROUP BY model`).all();
   return { todayRows, monthRows };
+}
+
+export function upsertAgentLog(name, { mode, workdir, status } = {}) {
+  _db.prepare(`
+    INSERT INTO agents_log (name, mode, workdir, status, last_seen)
+    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(name) DO UPDATE SET
+      mode = excluded.mode,
+      workdir = excluded.workdir,
+      status = excluded.status,
+      last_seen = excluded.last_seen
+  `).run(name, mode ?? null, workdir ?? null, status ?? null);
+}
+
+export function setAgentWorktree(name, worktreePath, worktreeBranch) {
+  getDb().prepare(
+    `UPDATE agents_log SET worktree_path = ?, worktree_branch = ? WHERE name = ?`
+  ).run(worktreePath, worktreeBranch, name);
+}
+
+export function clearAgentWorktree(name) {
+  getDb().prepare(
+    `UPDATE agents_log SET worktree_path = NULL, worktree_branch = NULL WHERE name = ?`
+  ).run(name);
+}
+
+export function getAgentWorktree(name) {
+  return getDb().prepare(
+    `SELECT worktree_path, worktree_branch FROM agents_log WHERE name = ?`
+  ).get(name);
 }
 
 export function getDb() {
