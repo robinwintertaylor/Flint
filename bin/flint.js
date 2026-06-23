@@ -173,12 +173,57 @@ async function cmdProjectUnlink(args) {
   console.log(`Unlinked agent "${agentName}" from project ${id}.`);
 }
 
+async function cmdSuggestions(args) {
+  const [sub, ...rest] = args;
+  if (sub === 'list') {
+    const list = await dashGet('/suggestions');
+    if (!list.length) { console.log('No suggestions.'); return; }
+    for (const s of list) {
+      const date = (s.created_at ?? '').slice(0, 16).replace('T', ' ');
+      console.log(`[${s.id}] ${s.agent_name} [${s.status}] ${date}`);
+      console.log(`  ${String(s.content).slice(0, 80).replace(/\n/g, ' ')}`);
+    }
+  } else if (sub === 'dismiss') {
+    const [id] = rest;
+    if (!id) { console.error('Usage: flint suggestions dismiss <id>'); process.exit(1); }
+    await dashPatch(`/suggestions/${id}`, { status: 'dismissed' });
+    console.log(`Suggestion ${id} dismissed.`);
+  } else {
+    console.error('Usage: flint suggestions <list|dismiss>');
+    process.exit(1);
+  }
+}
+
+async function cmdWorktree(args) {
+  const [sub, ...rest] = args;
+  if (sub === 'list') {
+    const list = await dashGet('/worktrees');
+    if (!list.length) { console.log('No active worktrees.'); return; }
+    for (const w of list) {
+      console.log(`${w.name} | ${w.worktree_branch} | ${w.worktree_path} | ${w.status}`);
+    }
+  } else if (sub === 'merge') {
+    const [agent] = rest;
+    if (!agent) { console.error('Usage: flint worktree merge <agent>'); process.exit(1); }
+    await dashPost(`/worktrees/${encodeURIComponent(agent)}/merge`, {});
+    console.log(`Merged worktree for agent "${agent}".`);
+  } else if (sub === 'discard') {
+    const [agent] = rest;
+    if (!agent) { console.error('Usage: flint worktree discard <agent>'); process.exit(1); }
+    await dashDelete(`/worktrees/${encodeURIComponent(agent)}`);
+    console.log(`Discarded worktree for agent "${agent}".`);
+  } else {
+    console.error('Usage: flint worktree <list|merge|discard>');
+    process.exit(1);
+  }
+}
+
 const [,, subcommand, ...rest] = process.argv;
 
-const COMMANDS = { ask: cmdAsk, models: cmdModels, config: cmdConfig, costs: cmdCosts, project: cmdProject };
+const COMMANDS = { ask: cmdAsk, models: cmdModels, config: cmdConfig, costs: cmdCosts, project: cmdProject, suggestions: cmdSuggestions, worktree: cmdWorktree };
 const cmd = COMMANDS[subcommand];
 if (!cmd) {
-  console.error(`Usage: flint <ask|models|config|costs|project>`);
+  console.error(`Usage: flint <ask|models|config|costs|project|suggestions|worktree>`);
   process.exit(1);
 }
 
