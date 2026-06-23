@@ -40,14 +40,14 @@ function connect() {
         break;
 
       case 'worktree_pending': {
-        const headerRight = document.getElementById(`header-right-${msg.agent}`);
+        const headerRight = document.getElementById(`header-right-${escHtml(msg.agent)}`);
         if (!headerRight) break;
         // Hide kill button, show merge/discard
         headerRight.innerHTML = `
-          <span class="panel-cost" id="cost-${msg.agent}">$0.00 today</span>
+          <span class="panel-cost" id="cost-${escHtml(msg.agent)}">$0.00 today</span>
           <button class="btn-merge" data-agent="${msg.agent}">Merge</button>
           <button class="btn-discard" data-agent="${msg.agent}">Discard</button>
-          <span id="worktree-error-${msg.agent}" style="color:#f85149;font-size:11px"></span>
+          <span id="worktree-error-${escHtml(msg.agent)}" style="color:#f85149;font-size:11px"></span>
         `;
         headerRight.querySelector('.btn-merge').addEventListener('click', () => {
           fetch(`/worktrees/${msg.agent}/merge`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
@@ -516,10 +516,10 @@ document.getElementById('btn-projects').addEventListener('click', () => {
 });
 
 function restoreKillButton(agentName) {
-  const headerRight = document.getElementById(`header-right-${agentName}`);
+  const headerRight = document.getElementById(`header-right-${escHtml(agentName)}`);
   if (!headerRight) return;
   headerRight.innerHTML = `
-    <span class="panel-cost" id="cost-${agentName}">$0.00 today</span>
+    <span class="panel-cost" id="cost-${escHtml(agentName)}">$0.00 today</span>
     <button class="btn-kill" data-agent="${agentName}">Kill</button>
   `;
   headerRight.querySelector('.btn-kill').addEventListener('click', () => {
