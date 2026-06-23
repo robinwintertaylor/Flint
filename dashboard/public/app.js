@@ -13,6 +13,7 @@ function connect() {
     ws.send(JSON.stringify({ type: 'agents' }));
     fetchCosts();
     populateModelDropdown();
+    fetchSuggestions();
   });
 
   ws.addEventListener('message', ({ data }) => {
@@ -37,13 +38,62 @@ function connect() {
       case 'cost':
         updateAgentCost(msg.agent, msg.today);
         break;
+
+      case 'worktree_pending': {
+        const headerRight = document.getElementById(`header-right-${msg.agent}`);
+        if (!headerRight) break;
+        // Hide kill button, show merge/discard
+        headerRight.innerHTML = `
+          <span class="panel-cost" id="cost-${msg.agent}">$0.00 today</span>
+          <button class="btn-merge" data-agent="${msg.agent}">Merge</button>
+          <button class="btn-discard" data-agent="${msg.agent}">Discard</button>
+          <span id="worktree-error-${msg.agent}" style="color:#f85149;font-size:11px"></span>
+        `;
+        headerRight.querySelector('.btn-merge').addEventListener('click', () => {
+          fetch(`/worktrees/${msg.agent}/merge`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+            .then(r => r.json())
+            .then(data => {
+              if (data.ok) {
+                restoreKillButton(msg.agent);
+                const badge = document.getElementById(`isolated-badge-${msg.agent}`);
+                if (badge) badge.remove();
+              } else {
+                const errEl = document.getElementById(`worktree-error-${msg.agent}`);
+                if (errEl) errEl.textContent = data.error ?? 'merge failed';
+              }
+            });
+        });
+        headerRight.querySelector('.btn-discard').addEventListener('click', () => {
+          if (!confirm(`Discard worktree for "${msg.agent}"? This cannot be undone.`)) return;
+          fetch(`/worktrees/${msg.agent}`, { method: 'DELETE' })
+            .then(r => r.json())
+            .then(data => {
+              if (data.ok) {
+                restoreKillButton(msg.agent);
+                const badge = document.getElementById(`isolated-badge-${msg.agent}`);
+                if (badge) badge.remove();
+              }
+            });
+        });
+        break;
+      }
+
+      case 'worktree_merged':
+      case 'worktree_discarded':
+        restoreKillButton(msg.agent);
+        break;
+
+      case 'suggestion':
+        renderSuggestionCard(msg.suggestion);
+        showSuggestionsStrip();
+        break;
     }
   });
 
   ws.addEventListener('close', () => setTimeout(connect, 2000));
 }
 
-function ensurePanel({ name, mode, status }) {
+function ensurePanel({ name, mode, status, isolate }) {
   if (document.getElementById(`panel-${name}`)) return;
 
   const panel = document.createElement('div');
@@ -55,8 +105,9 @@ function ensurePanel({ name, mode, status }) {
         <span class="panel-name">${name}</span>
         <span class="badge badge-${status}" id="badge-${name}">${status}</span>
         ${mode === 'observe' ? '<span class="badge badge-observe">observe</span>' : ''}
+        ${isolate ? `<span class="badge badge-isolated" id="isolated-badge-${name}">isolated</span>` : ''}
       </div>
-      <div style="display:flex;align-items:center;gap:6px">
+      <div style="display:flex;align-items:center;gap:6px" id="header-right-${name}">
         <span class="panel-cost" id="cost-${name}">$0.00 today</span>
         <button class="btn-kill" data-agent="${name}">Kill</button>
       </div>
@@ -214,11 +265,17 @@ document.getElementById('modal-spawn').addEventListener('click', () => {
   const workdir = document.getElementById('modal-workdir').value.trim();
   if (!name || !workdir) return;
   const model = document.getElementById('modal-model').value;
-  ws.send(JSON.stringify({ type: 'spawn', agent: name, workdir, ...(model ? { model } : {}) }));
-  ensurePanel({ name, mode: 'spawn', status: 'running' });
+  const isolate = document.getElementById('modal-isolate').checked;
+  ws.send(JSON.stringify({
+    type: 'spawn', agent: name, workdir,
+    ...(model ? { model } : {}),
+    ...(isolate ? { isolate: true } : {}),
+  }));
+  ensurePanel({ name, mode: 'spawn', status: 'running', isolate });
   document.getElementById('modal').classList.add('hidden');
   document.getElementById('modal-name').value = '';
   document.getElementById('modal-workdir').value = '';
+  document.getElementById('modal-isolate').checked = false;
 });
 
 // Refresh button
@@ -457,5 +514,72 @@ document.getElementById('btn-projects').addEventListener('click', () => {
     document.getElementById('btn-projects').textContent = '← Agents';
   }
 });
+
+function restoreKillButton(agentName) {
+  const headerRight = document.getElementById(`header-right-${agentName}`);
+  if (!headerRight) return;
+  headerRight.innerHTML = `
+    <span class="panel-cost" id="cost-${agentName}">$0.00 today</span>
+    <button class="btn-kill" data-agent="${agentName}">Kill</button>
+  `;
+  headerRight.querySelector('.btn-kill').addEventListener('click', () => {
+    ws.send(JSON.stringify({ type: 'kill', agent: agentName }));
+  });
+}
+
+function showSuggestionsStrip() {
+  document.getElementById('suggestions-strip').classList.remove('hidden');
+}
+
+function renderSuggestionCard(s) {
+  const strip = document.getElementById('suggestions-strip');
+  if (document.getElementById(`suggestion-${s.id}`)) return; // already rendered
+  const date = (s.created_at ?? '').slice(11, 16);
+  const card = document.createElement('div');
+  card.className = `suggestion-card${s.status === 'noted' ? ' noted' : ''}`;
+  card.id = `suggestion-${s.id}`;
+  card.innerHTML = `
+    <div class="suggestion-meta">
+      <span>${escHtml(s.agent_name)} · ${escHtml(date)}</span>
+      <div class="suggestion-actions">
+        <button data-action="note" data-id="${s.id}">Noted</button>
+        <button data-action="dismiss" data-id="${s.id}">Dismiss</button>
+      </div>
+    </div>
+    <div class="suggestion-content">${escHtml(s.content)}</div>
+  `;
+  card.querySelector('[data-action="note"]').addEventListener('click', () => {
+    fetch(`/suggestions/${s.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'noted' }),
+    }).then(() => card.classList.add('noted'));
+  });
+  card.querySelector('[data-action="dismiss"]').addEventListener('click', () => {
+    fetch(`/suggestions/${s.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'dismissed' }),
+    }).then(() => {
+      card.remove();
+      if (!document.querySelector('.suggestion-card')) {
+        document.getElementById('suggestions-strip').classList.add('hidden');
+      }
+    });
+  });
+  strip.appendChild(card);
+}
+
+function fetchSuggestions() {
+  fetch('/suggestions')
+    .then(r => r.json())
+    .then(list => {
+      if (!list.length) return;
+      list.forEach(s => renderSuggestionCard(s));
+      showSuggestionsStrip();
+    })
+    .catch(() => {});
+  setTimeout(fetchSuggestions, 30_000);
+}
 
 connect();

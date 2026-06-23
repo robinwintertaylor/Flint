@@ -27,6 +27,7 @@
 
   <div id="panels"></div>
   <div id="project-view" class="hidden"></div>
+  <div id="suggestions-strip" class="hidden"></div>
   <div id="proj-toolbar" style="display:none"></div>
 
   <div id="modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -45,6 +46,12 @@
         <select id="modal-model">
           <option value="">Default (agent config)</option>
         </select>
+      </div>
+      <div class="form-group" style="margin-top:8px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="modal-isolate">
+          Isolated branch (safe self-modification)
+        </label>
       </div>
       <div class="modal-actions">
         <button id="modal-cancel">Cancel</button>
