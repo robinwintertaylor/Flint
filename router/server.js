@@ -5,23 +5,14 @@ import { route } from './router.js';
 import { getModels, getConfig } from './config.js';
 import { getCostsByProvider } from '../dashboard/db.js';
 
-const MODEL_TO_PROVIDER = {
-  'claude-haiku-4-5': 'anthropic', 'claude-sonnet-4-6': 'anthropic', 'claude-opus-4-6': 'anthropic',
-  'gpt-4o-mini': 'openai', 'gpt-4o': 'openai', 'gpt-4.5': 'openai',
-  'gemini-2.0-flash': 'google', 'gemini-2.0-pro': 'google', 'gemini-2.5-pro': 'google',
-};
-
 function aggregateCosts(rows) {
   const cfg = getConfig();
   const out = {};
   for (const row of rows) {
-    // Determine provider: check model→provider map, then scan tiers
-    let provider = MODEL_TO_PROVIDER[row.model];
-    if (!provider) {
-      outer: for (const tierModels of Object.values(cfg.tiers)) {
-        for (const [p, m] of Object.entries(tierModels)) {
-          if (m === row.model) { provider = p; break outer; }
-        }
+    let provider;
+    outer: for (const tierModels of Object.values(cfg.tiers)) {
+      for (const [p, m] of Object.entries(tierModels)) {
+        if (m === row.model) { provider = p; break outer; }
       }
     }
     provider = provider ?? 'unknown';

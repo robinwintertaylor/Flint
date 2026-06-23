@@ -239,6 +239,8 @@ async function populateModelDropdown() {
     const models = await res.json();
     if (models.error) return;
     const select = document.getElementById('modal-model');
+    // Remove previously added optgroups (keep the first default option)
+    while (select.options.length > 1) select.remove(1);
     for (const [provider, list] of Object.entries(models)) {
       const group = document.createElement('optgroup');
       group.label = provider;

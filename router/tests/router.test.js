@@ -29,7 +29,11 @@ writeFileSync(process.env.FLINT_ROUTER_CONFIG, JSON.stringify(CONFIG));
 
 before(() => {});
 
-after(() => {
+after(async () => {
+  const { closeDb } = await import('../../dashboard/db.js');
+  closeDb();
+  // Brief pause so Windows releases SQLite file handles before rmSync
+  await new Promise(r => setTimeout(r, 100));
   rmSync(TMP, { recursive: true, force: true });
   delete process.env.FLINT_TEST_MODE;
   delete process.env.FLINT_DB_PATH;

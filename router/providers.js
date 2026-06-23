@@ -2,8 +2,6 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI, { AzureOpenAI } from 'openai';
 import { GoogleGenAI } from '@google/genai';
 
-const TEST_MODE = process.env.FLINT_TEST_MODE === '1';
-
 // Per-model cost rates: [inputPer1M, outputPer1M] in USD
 const TOKEN_RATES = {
   'claude-haiku-4-5':   [0.80,  4.00],
@@ -102,7 +100,7 @@ const ADAPTERS = {
 };
 
 export async function complete(provider, model, messages) {
-  if (TEST_MODE) {
+  if (process.env.FLINT_TEST_MODE === '1') {
     return { text: 'stub response', costUsd: 0.001 };
   }
   const adapter = ADAPTERS[provider];

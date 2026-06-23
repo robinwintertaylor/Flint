@@ -34,6 +34,8 @@ before(async () => {
 
 after(async () => {
   await new Promise(resolve => server.close(resolve));
+  const { closeDb } = await import('../../dashboard/db.js');
+  closeDb();
   rmSync(TMP, { recursive: true, force: true });
   delete process.env.FLINT_TEST_MODE;
   delete process.env.FLINT_DB_PATH;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initDb, writeUsage, getTodayCost, getMonthCost } from '../db.js';
+import { initDb, writeUsage, getTodayCost, getMonthCost, getCostsByProvider } from '../db.js';
 
 test('initDb creates usage and agents_log tables', () => {
   const db = initDb(':memory:');
@@ -27,4 +27,15 @@ test('getMonthCost sums all agents this month', () => {
   writeUsage({ agentName: 'b', model: 'claude', costUsd: 2.50 });
   const total = getMonthCost();
   assert.ok(total >= 3.50, `expected >= 3.50, got ${total}`);
+});
+
+test('getCostsByProvider returns todayRows and monthRows arrays with written usage', () => {
+  initDb(':memory:');
+  writeUsage({ agentName: 'test', model: 'claude-sonnet-4-6', costUsd: 0.05 });
+  const { todayRows, monthRows } = getCostsByProvider();
+  assert.ok(Array.isArray(todayRows), 'todayRows should be an array');
+  assert.ok(Array.isArray(monthRows), 'monthRows should be an array');
+  const todayEntry = todayRows.find(r => r.model === 'claude-sonnet-4-6');
+  assert.ok(todayEntry, 'todayRows should contain an entry for claude-sonnet-4-6');
+  assert.ok(todayEntry.total >= 0.05, `expected total >= 0.05, got ${todayEntry.total}`);
 });

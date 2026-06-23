@@ -3,7 +3,7 @@ import { complete } from './providers.js';
 import { initDb, writeUsage } from '../dashboard/db.js';
 
 // Initialise DB (uses FLINT_DB_PATH env or default path)
-initDb();
+initDb(process.env.FLINT_DB_PATH);
 
 export async function route(taskType, prompt, opts = {}) {
   const { model: explicitModel, provider: explicitProvider, systemPrompt } = opts;
