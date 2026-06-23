@@ -102,7 +102,7 @@ function ensurePanel({ name, mode, status, isolate }) {
   panel.innerHTML = `
     <div class="panel-header">
       <div style="display:flex;align-items:center;gap:0">
-        <span class="panel-name">${name}</span>
+        <span class="panel-name">${escHtml(name)}</span>
         <span class="badge badge-${status}" id="badge-${name}">${status}</span>
         ${mode === 'observe' ? '<span class="badge badge-observe">observe</span>' : ''}
         ${isolate ? `<span class="badge badge-isolated" id="isolated-badge-${name}">isolated</span>` : ''}
