@@ -257,4 +257,205 @@ async function populateModelDropdown() {
   }
 }
 
+// ============================================================
+// Projects tab
+// ============================================================
+
+let currentView = 'agents';
+
+function showView(view) {
+  currentView = view;
+  const panels    = document.getElementById('panels');
+  const toolbar   = document.getElementById('toolbar');
+  const projView  = document.getElementById('project-view');
+  const projBar   = document.getElementById('proj-toolbar');
+  if (view === 'projects') {
+    panels.style.display   = 'none';
+    toolbar.style.display  = 'none';
+    projView.classList.remove('hidden');
+    if (projBar) projBar.style.display = 'flex';
+    fetchProjects();
+  } else {
+    panels.style.display   = '';
+    toolbar.style.display  = '';
+    projView.classList.add('hidden');
+    if (projBar) projBar.style.display = 'none';
+  }
+}
+
+async function fetchProjects() {
+  try {
+    const res = await fetch('/projects');
+    const projects = await res.json();
+    renderProjects(projects);
+  } catch { /* silent fail */ }
+}
+
+function renderProjects(projects) {
+  const view = document.getElementById('project-view');
+  // Clear existing cards but keep the "New Project" button if injected
+  view.innerHTML = `
+    <div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center">
+      <h3 style="margin:0;font-size:15px">Projects</h3>
+      <button id="btn-new-project" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px">+ New Project</button>
+    </div>
+  `;
+  document.getElementById('btn-new-project').addEventListener('click', openNewProjectModal);
+
+  if (!projects.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'grid-column:1/-1;color:#8b949e;text-align:center;padding:40px';
+    empty.textContent = 'No active projects. Create one to get started.';
+    view.appendChild(empty);
+    return;
+  }
+
+  for (const p of projects) {
+    const card = document.createElement('div');
+    card.className = 'project-card';
+    const agentStr = p.agents.length ? p.agents.join(', ') : '(no agents)';
+    const notesSnip = (p.notes || '').slice(0, 120) + ((p.notes || '').length > 120 ? '…' : '');
+    card.innerHTML = `
+      <div class="project-card-header">
+        <span class="project-card-name">${escHtml(p.name)}</span>
+        <span class="badge badge-${p.status}">${p.status}</span>
+      </div>
+      <div class="project-card-meta">Agents: ${escHtml(agentStr)}</div>
+      <div class="project-card-meta">Week: $${p.costWeek.toFixed(4)} &nbsp; Month: $${p.costMonth.toFixed(4)}</div>
+      ${notesSnip ? `<div class="project-card-notes">${escHtml(notesSnip)}</div>` : ''}
+      <div class="project-card-footer">
+        <button class="btn-edit" data-proj-id="${p.id}">Edit</button>
+      </div>
+    `;
+    card.querySelector('[data-proj-id]').addEventListener('click', () => openEditProjectModal(p.id));
+    view.appendChild(card);
+  }
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// --- New Project modal ---
+function openNewProjectModal() {
+  document.getElementById('proj-modal-name').value = '';
+  document.getElementById('proj-modal-notes').value = '';
+  document.getElementById('proj-modal').classList.remove('hidden');
+  document.getElementById('proj-modal-name').focus();
+}
+
+document.getElementById('proj-modal-cancel').addEventListener('click', () => {
+  document.getElementById('proj-modal').classList.add('hidden');
+});
+document.getElementById('proj-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('proj-modal'))
+    document.getElementById('proj-modal').classList.add('hidden');
+});
+document.getElementById('proj-modal-create').addEventListener('click', async () => {
+  const name  = document.getElementById('proj-modal-name').value.trim();
+  const notes = document.getElementById('proj-modal-notes').value.trim();
+  if (!name) return;
+  await fetch('/projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, notes }),
+  });
+  document.getElementById('proj-modal').classList.add('hidden');
+  fetchProjects();
+});
+
+// --- Edit Project modal ---
+async function openEditProjectModal(projectId) {
+  const res = await fetch(`/projects/${projectId}`);
+  const p   = await res.json();
+
+  document.getElementById('edit-proj-id').value      = p.id;
+  document.getElementById('edit-proj-title').textContent = `Edit: ${p.name}`;
+  document.getElementById('edit-proj-name').value    = p.name;
+  document.getElementById('edit-proj-status').value  = p.status;
+  document.getElementById('edit-proj-notes').value   = p.notes || '';
+  document.getElementById('edit-proj-summary').textContent = p.last_summary || '(none)';
+
+  // Linked agents
+  const agentsDiv = document.getElementById('edit-proj-agents');
+  agentsDiv.innerHTML = '';
+  for (const agentName of p.agents) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:2px 0';
+    row.innerHTML = `<span style="font-size:13px">${escHtml(agentName)}</span>
+      <button style="background:none;border:none;color:#f85149;cursor:pointer;font-size:12px" data-unlink="${escHtml(agentName)}">×</button>`;
+    row.querySelector('[data-unlink]').addEventListener('click', async () => {
+      await fetch(`/projects/${p.id}/agents/${agentName}`, { method: 'DELETE' });
+      openEditProjectModal(p.id);
+    });
+    agentsDiv.appendChild(row);
+  }
+
+  // Agent dropdown for linking
+  const agentSelect = document.getElementById('edit-proj-agent-select');
+  agentSelect.innerHTML = '<option value="">Select agent…</option>';
+  try {
+    const agentRes = await fetch('/agents');
+    const agents   = await agentRes.json();
+    for (const a of agents) {
+      if (!p.agents.includes(a.name)) {
+        const opt = document.createElement('option');
+        opt.value = a.name;
+        opt.textContent = a.name;
+        agentSelect.appendChild(opt);
+      }
+    }
+  } catch { /* agent list unavailable */ }
+
+  document.getElementById('edit-proj-modal').classList.remove('hidden');
+}
+
+document.getElementById('edit-proj-cancel').addEventListener('click', () => {
+  document.getElementById('edit-proj-modal').classList.add('hidden');
+});
+document.getElementById('edit-proj-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('edit-proj-modal'))
+    document.getElementById('edit-proj-modal').classList.add('hidden');
+});
+document.getElementById('edit-proj-save').addEventListener('click', async () => {
+  const id     = Number(document.getElementById('edit-proj-id').value);
+  const name   = document.getElementById('edit-proj-name').value.trim();
+  const status = document.getElementById('edit-proj-status').value;
+  const notes  = document.getElementById('edit-proj-notes').value;
+  if (!name) return;
+  await fetch(`/projects/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, status, notes }),
+  });
+  document.getElementById('edit-proj-modal').classList.add('hidden');
+  fetchProjects();
+});
+document.getElementById('edit-proj-link-btn').addEventListener('click', async () => {
+  const id        = Number(document.getElementById('edit-proj-id').value);
+  const agentName = document.getElementById('edit-proj-agent-select').value;
+  if (!agentName) return;
+  await fetch(`/projects/${id}/agents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ agentName }),
+  });
+  openEditProjectModal(id);
+});
+
+// Projects tab button
+document.getElementById('btn-projects').addEventListener('click', () => {
+  if (currentView === 'projects') {
+    showView('agents');
+    document.getElementById('btn-projects').textContent = 'Projects';
+  } else {
+    showView('projects');
+    document.getElementById('btn-projects').textContent = '← Agents';
+  }
+});
+
 connect();

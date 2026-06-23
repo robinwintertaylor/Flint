@@ -12,6 +12,7 @@
     <div class="header-left">
       <span class="logo">⚡ Flint</span>
       <span id="agent-count">0 agents</span>
+      <button id="btn-projects" style="margin-left:12px;background:none;border:1px solid #30363d;color:#e6edf3;padding:2px 10px;border-radius:4px;cursor:pointer;font-size:12px;">Projects</button>
     </div>
     <div class="header-right">
       <span id="today-cost">Today: $0.00</span>
@@ -25,6 +26,7 @@
   </div>
 
   <div id="panels"></div>
+  <div id="project-view" class="hidden"></div>
 
   <div id="modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="modal-box">
@@ -46,6 +48,51 @@
       <div class="modal-actions">
         <button id="modal-cancel">Cancel</button>
         <button id="modal-spawn">Spawn</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="proj-modal" class="hidden" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <h2>New Project</h2>
+      <label>Name<input id="proj-modal-name" type="text" placeholder="My Project" autocomplete="off"></label>
+      <label>Notes<textarea id="proj-modal-notes" rows="4" placeholder="Project context and goals…" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:8px;font-family:inherit;resize:vertical"></textarea></label>
+      <div class="modal-actions">
+        <button id="proj-modal-cancel">Cancel</button>
+        <button id="proj-modal-create">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="edit-proj-modal" class="hidden" role="dialog" aria-modal="true">
+    <div class="modal-box" style="max-width:500px">
+      <h2 id="edit-proj-title">Edit Project</h2>
+      <input type="hidden" id="edit-proj-id">
+      <label>Name<input id="edit-proj-name" type="text" autocomplete="off"></label>
+      <label>Status
+        <select id="edit-proj-status">
+          <option value="active">active</option>
+          <option value="paused">paused</option>
+          <option value="done">done</option>
+          <option value="archived">archived</option>
+        </select>
+      </label>
+      <label>Notes<textarea id="edit-proj-notes" rows="5" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:8px;font-family:inherit;resize:vertical"></textarea></label>
+      <div>
+        <h4 style="margin:12px 0 6px">Last Session Summary</h4>
+        <pre id="edit-proj-summary" style="background:#161b22;padding:8px;border-radius:4px;font-size:11px;max-height:120px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:#8b949e">(none)</pre>
+      </div>
+      <div>
+        <h4 style="margin:12px 0 6px">Linked Agents</h4>
+        <div id="edit-proj-agents"></div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <select id="edit-proj-agent-select" style="flex:1;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:4px"></select>
+          <button id="edit-proj-link-btn">Link</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="edit-proj-cancel">Cancel</button>
+        <button id="edit-proj-save">Save</button>
       </div>
     </div>
   </div>

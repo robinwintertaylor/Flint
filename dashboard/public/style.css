@@ -102,3 +102,67 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 #modal-cancel { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
 #modal-spawn  { background: #1f6feb; color: #fff; }
 #modal-spawn:hover { background: #388bfd; }
+
+/* --- Projects tab --- */
+#project-view {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+@media (max-width: 1079px) {
+  #project-view { grid-template-columns: 1fr; }
+}
+.project-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+.project-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.project-card-name { font-weight: 600; font-size: 14px; }
+.badge-active    { background: #1a4731; color: #3fb950; }
+.badge-paused    { background: #3d2b00; color: #d29922; }
+.badge-done      { background: #0c2d6b; color: #58a6ff; }
+.badge-archived  { background: #21262d; color: #8b949e; }
+.project-card-meta { font-size: 12px; color: #8b949e; margin: 4px 0; }
+.project-card-notes {
+  font-size: 12px;
+  color: #c9d1d9;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 60px;
+  overflow: hidden;
+}
+.project-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.btn-edit {
+  background: none;
+  border: 1px solid #30363d;
+  color: #58a6ff;
+  padding: 2px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+#proj-toolbar {
+  display: none;
+  padding: 8px 16px;
+  border-bottom: 1px solid #21262d;
+}
+
+/* Project modals */
+#proj-modal,
+#edit-proj-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+}
