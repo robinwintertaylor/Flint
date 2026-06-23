@@ -33,10 +33,13 @@ export function resolveRoute(taskType, providerOverride) {
 
 export function getModels() {
   const cfg = getConfig();
-  const result = { anthropic: [], openai: [], google: [], azure: [], openrouter: [] };
+  const CLI_PROVIDERS = new Set(['claude-cli', 'gemini-cli', 'mistral-cli']);
+  const result = { anthropic: [], openai: [], google: [], azure: [], openrouter: [], cli: [] };
   for (const tierModels of Object.values(cfg.tiers)) {
     for (const [provider, model] of Object.entries(tierModels)) {
-      if (result[provider] && !result[provider].includes(model)) {
+      if (CLI_PROVIDERS.has(provider)) {
+        if (!result.cli.includes(model)) result.cli.push(model);
+      } else if (result[provider] && !result[provider].includes(model)) {
         result[provider].push(model);
       }
     }

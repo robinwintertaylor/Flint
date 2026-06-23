@@ -9,7 +9,12 @@ mkdirSync(TMP, { recursive: true });
 
 const CONFIG = {
   tiers: {
-    '1': { anthropic: 'claude-haiku-4-5', openai: 'gpt-4o-mini', google: 'gemini-2.0-flash', azure: 'gpt-4o-mini', openrouter: 'mistral/mistral-small' },
+    '1': {
+      anthropic: 'claude-haiku-4-5', openai: 'gpt-4o-mini',
+      google: 'gemini-2.0-flash', azure: 'gpt-4o-mini',
+      openrouter: 'mistral/mistral-small',
+      'claude-cli': 'claude', 'gemini-cli': 'gemini',
+    },
     '2': { anthropic: 'claude-sonnet-4-6', openai: 'gpt-4o', google: 'gemini-2.0-pro', azure: 'gpt-4o', openrouter: 'mistral/mistral-medium' },
     '3': { anthropic: 'claude-opus-4-6', openai: 'gpt-4.5', google: 'gemini-2.5-pro', azure: 'gpt-4.5', openrouter: 'mistral/mistral-large' }
   },
@@ -28,6 +33,9 @@ process.env.FLINT_ROUTER_CONFIG = join(TMP, 'router.json');
 writeFileSync(process.env.FLINT_ROUTER_CONFIG, JSON.stringify(CONFIG));
 
 before(() => {});
+
+import { complete } from '../providers.js';
+import { getModels, resetConfig } from '../config.js';
 
 after(async () => {
   const { closeDb } = await import('../../dashboard/db.js');
@@ -76,4 +84,23 @@ test('route records usage in sqlite', async () => {
   const cost = getTodayCost('research');
   assert.ok(cost >= 0);
   closeDb();
+});
+
+test('complete claude-cli returns stub in test mode', async () => {
+  const result = await complete('claude-cli', 'claude', [{ role: 'user', content: 'hello' }]);
+  assert.equal(result.text, 'stub response');
+  assert.equal(result.costUsd, 0.001);
+});
+
+test('complete gemini-cli returns stub in test mode', async () => {
+  const result = await complete('gemini-cli', 'gemini', [{ role: 'user', content: 'hello' }]);
+  assert.equal(result.text, 'stub response');
+});
+
+test('getModels includes cli group when router.json has cli providers', () => {
+  resetConfig();
+  const models = getModels();
+  assert.ok(Array.isArray(models.cli), 'cli group should exist');
+  assert.ok(models.cli.includes('claude'), 'cli group should include claude binary');
+  assert.ok(models.cli.includes('gemini'), 'cli group should include gemini binary');
 });

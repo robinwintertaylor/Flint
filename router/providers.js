@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI, { AzureOpenAI } from 'openai';
 import { GoogleGenAI } from '@google/genai';
+import { spawn } from 'child_process';
 
 // Per-model cost rates: [inputPer1M, outputPer1M] in USD
 const TOKEN_RATES = {
@@ -91,12 +92,81 @@ async function completeOpenRouter(model, messages) {
   return { text, costUsd };
 }
 
+// Maps provider name → extra CLI args (beyond the binary name)
+const CLI_EXTRA_ARGS = {
+  'claude-cli':  ['-p'],
+  'gemini-cli':  [],
+  'mistral-cli': ['chat', '--no-interactive'],
+};
+
+function buildCliPrompt(messages) {
+  const parts = [];
+  const system = messages.find(m => m.role === 'system');
+  if (system) {
+    parts.push(system.content);
+    parts.push('');
+  }
+  for (const m of messages.filter(m => m.role !== 'system')) {
+    parts.push(m.content);
+  }
+  return parts.join('\n');
+}
+
+async function completeCli(provider, model, messages) {
+  const extraArgs = CLI_EXTRA_ARGS[provider] ?? [];
+  const prompt = buildCliPrompt(messages);
+
+  return new Promise((resolve, reject) => {
+    let proc;
+    try {
+      proc = spawn(model, extraArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+    } catch (err) {
+      return reject(new Error(`CLI not found: ${model}`));
+    }
+
+    const timer = setTimeout(() => {
+      proc.kill();
+      reject(new Error(`CLI timeout after 120s: ${model}`));
+    }, 120_000);
+
+    const stdout = [];
+    const stderr = [];
+
+    proc.stdout.on('data', d => stdout.push(d));
+    proc.stderr.on('data', d => stderr.push(d));
+
+    proc.on('error', () => {
+      clearTimeout(timer);
+      reject(new Error(`CLI not found: ${model}`));
+    });
+
+    proc.on('exit', (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        reject(new Error(`CLI error: ${Buffer.concat(stderr).toString().trim()}`));
+      } else {
+        resolve({
+          text: Buffer.concat(stdout).toString().trim(),
+          costUsd: 0,
+          tokensIn: 0,
+          tokensOut: 0,
+        });
+      }
+    });
+
+    proc.stdin.write(prompt, () => proc.stdin.end());
+  });
+}
+
 const ADAPTERS = {
-  anthropic:  completeAnthropic,
-  openai:     completeOpenAI,
-  google:     completeGoogle,
-  azure:      completeAzure,
-  openrouter: completeOpenRouter,
+  anthropic:     completeAnthropic,
+  openai:        completeOpenAI,
+  google:        completeGoogle,
+  azure:         completeAzure,
+  openrouter:    completeOpenRouter,
+  'claude-cli':  (model, msgs) => completeCli('claude-cli',  model, msgs),
+  'gemini-cli':  (model, msgs) => completeCli('gemini-cli',  model, msgs),
+  'mistral-cli': (model, msgs) => completeCli('mistral-cli', model, msgs),
 };
 
 export async function complete(provider, model, messages) {
