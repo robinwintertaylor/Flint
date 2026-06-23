@@ -45,8 +45,8 @@ function connect() {
         // Hide kill button, show merge/discard
         headerRight.innerHTML = `
           <span class="panel-cost" id="cost-${escHtml(msg.agent)}">$0.00 today</span>
-          <button class="btn-merge" data-agent="${msg.agent}">Merge</button>
-          <button class="btn-discard" data-agent="${msg.agent}">Discard</button>
+          <button class="btn-merge" data-agent="${escHtml(msg.agent)}">Merge</button>
+          <button class="btn-discard" data-agent="${escHtml(msg.agent)}">Discard</button>
           <span id="worktree-error-${escHtml(msg.agent)}" style="color:#f85149;font-size:11px"></span>
         `;
         headerRight.querySelector('.btn-merge').addEventListener('click', () => {
@@ -150,13 +150,13 @@ function ensurePanel({ name, mode, status, isolate }) {
   ws.send(JSON.stringify({ type: 'subscribe', agent: name }));
 
   // Kill button
-  panel.querySelector(`[data-agent="${name}"]`).addEventListener('click', () => {
+  panel.querySelector('.btn-kill').addEventListener('click', () => {
     ws.send(JSON.stringify({ type: 'kill', agent: name }));
   });
 
   // Add task button + Enter key
   const taskInput = panel.querySelector(`#task-input-${name}`);
-  panel.querySelector(`[data-add="${name}"]`).addEventListener('click', () => addTask(name));
+  panel.querySelector('[data-add]').addEventListener('click', () => addTask(name));
   taskInput.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(name); });
 
   // Poll tasks every 5s
@@ -520,7 +520,7 @@ function restoreKillButton(agentName) {
   if (!headerRight) return;
   headerRight.innerHTML = `
     <span class="panel-cost" id="cost-${escHtml(agentName)}">$0.00 today</span>
-    <button class="btn-kill" data-agent="${agentName}">Kill</button>
+    <button class="btn-kill" data-agent="${escHtml(agentName)}">Kill</button>
   `;
   headerRight.querySelector('.btn-kill').addEventListener('click', () => {
     ws.send(JSON.stringify({ type: 'kill', agent: agentName }));
