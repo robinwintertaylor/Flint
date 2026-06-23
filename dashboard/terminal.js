@@ -23,6 +23,7 @@ export function spawnAgent(name, workdir) {
   setAgentStatus(name, 'running');
 
   let lastModel = 'claude';
+  let lastCost = 0;
 
   ptyProcess.onData((data) => {
     broadcastToAgent(name, { type: 'output', agent: name, data });
@@ -32,12 +33,17 @@ export function spawnAgent(name, workdir) {
 
     const costMatch = data.match(COST_REGEX);
     if (costMatch) {
-      writeUsage({ agentName: name, model: lastModel, costUsd: parseFloat(costMatch[1]) });
+      const delta = parseFloat(costMatch[1]) - lastCost;
+      if (delta > 0) {
+        writeUsage({ agentName: name, model: lastModel, costUsd: delta });
+        lastCost = parseFloat(costMatch[1]);
+      }
     }
   });
 
   ptyProcess.onExit(() => {
     agent.ptyProcess = null;
+    lastCost = 0;
     setAgentStatus(name, 'stopped');
   });
 

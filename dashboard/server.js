@@ -86,6 +86,12 @@ export function createApp() {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
   wss.on('connection', (ws) => {
+    ws.on('error', () => {}); // prevent unhandled error events on connection failures
+
+    function safeSend(ws, obj) {
+      if (ws.readyState === 1) ws.send(JSON.stringify(obj));
+    }
+
     const subscriptions = new Set();
 
     ws.on('message', (raw) => {
@@ -94,16 +100,16 @@ export function createApp() {
 
       switch (msg.type) {
         case 'agents':
-          ws.send(JSON.stringify({ type: 'agents', list: listAgents() }));
+          safeSend(ws, { type: 'agents', list: listAgents() });
           break;
 
         case 'subscribe': {
           const name = msg.agent;
           subscriptions.add(name);
           addWsClient(name, ws);
-          ws.send(JSON.stringify({ type: 'tasks', agent: name, content: readTasks(name) }));
+          safeSend(ws, { type: 'tasks', agent: name, content: readTasks(name) });
           const agent = getAgent(name);
-          if (agent) ws.send(JSON.stringify({ type: 'status', agent: name, status: agent.status }));
+          if (agent) safeSend(ws, { type: 'status', agent: name, status: agent.status });
           break;
         }
 
@@ -126,7 +132,7 @@ export function createApp() {
 
         case 'tasks_get': {
           const content = readTasks(msg.agent);
-          ws.send(JSON.stringify({ type: 'tasks', agent: msg.agent, content }));
+          safeSend(ws, { type: 'tasks', agent: msg.agent, content });
           break;
         }
 
