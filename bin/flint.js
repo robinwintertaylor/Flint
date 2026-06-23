@@ -2,6 +2,45 @@
 import { parseArgs } from 'node:util';
 
 const ROUTER_URL = process.env.FLINT_ROUTER_URL ?? 'http://localhost:3001';
+const DASHBOARD_URL = process.env.FLINT_DASHBOARD_URL ?? 'http://localhost:3000';
+
+async function dashGet(path) {
+  const res = await fetch(`${DASHBOARD_URL}${path}`);
+  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
+  return res.json();
+}
+
+async function dashPost(path, body) {
+  const res = await fetch(`${DASHBOARD_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error ?? res.statusText);
+  }
+  return res.json();
+}
+
+async function dashPatch(path, body) {
+  const res = await fetch(`${DASHBOARD_URL}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error ?? res.statusText);
+  }
+  return res.json();
+}
+
+async function dashDelete(path) {
+  const res = await fetch(`${DASHBOARD_URL}${path}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
+  return res.json();
+}
 
 async function apiGet(path) {
   const res = await fetch(`${ROUTER_URL}${path}`);
@@ -65,9 +104,78 @@ async function cmdCosts() {
   console.log(`  Total: $${data.totalMonth.toFixed(4)}`);
 }
 
+async function cmdProject(args) {
+  const [sub, ...rest] = args;
+  const subs = {
+    list:   cmdProjectList,
+    create: cmdProjectCreate,
+    status: cmdProjectStatus,
+    notes:  cmdProjectNotes,
+    link:   cmdProjectLink,
+    unlink: cmdProjectUnlink,
+  };
+  const fn = subs[sub];
+  if (!fn) {
+    console.error('Usage: flint project <list|create|status|notes|link|unlink>');
+    process.exit(1);
+  }
+  return fn(rest);
+}
+
+async function cmdProjectList() {
+  const projects = await dashGet('/projects');
+  if (!projects.length) { console.log('No active projects.'); return; }
+  for (const p of projects) {
+    const agents = p.agents.length ? p.agents.join(', ') : '(none)';
+    console.log(`[${p.id}] ${p.name} [${p.status}] | agents: ${agents} | week: $${p.costWeek.toFixed(4)} | month: $${p.costMonth.toFixed(4)}`);
+    if (p.notes) console.log(`      ${p.notes.slice(0, 80).replace(/\n/g, ' ')}`);
+  }
+}
+
+async function cmdProjectCreate(args) {
+  const { values, positionals } = parseArgs({
+    args,
+    options: { notes: { type: 'string', short: 'n' } },
+    allowPositionals: true,
+  });
+  const name = positionals.join(' ');
+  if (!name) { console.error('Usage: flint project create "name" [--notes "..."]'); process.exit(1); }
+  const proj = await dashPost('/projects', { name, notes: values.notes ?? '' });
+  console.log(`Created project [${proj.id}]: ${proj.name}`);
+}
+
+async function cmdProjectStatus(args) {
+  const [id, status] = args;
+  if (!id || !status) { console.error('Usage: flint project status <id> active|paused|done|archived'); process.exit(1); }
+  await dashPatch(`/projects/${id}`, { status });
+  console.log(`Project ${id} status → ${status}`);
+}
+
+async function cmdProjectNotes(args) {
+  const [id, ...noteParts] = args;
+  const notes = noteParts.join(' ');
+  if (!id || !notes) { console.error('Usage: flint project notes <id> "text"'); process.exit(1); }
+  await dashPatch(`/projects/${id}`, { notes });
+  console.log(`Project ${id} notes updated.`);
+}
+
+async function cmdProjectLink(args) {
+  const [id, agentName] = args;
+  if (!id || !agentName) { console.error('Usage: flint project link <id> <agent-name>'); process.exit(1); }
+  await dashPost(`/projects/${id}/agents`, { agentName });
+  console.log(`Linked agent "${agentName}" to project ${id}.`);
+}
+
+async function cmdProjectUnlink(args) {
+  const [id, agentName] = args;
+  if (!id || !agentName) { console.error('Usage: flint project unlink <id> <agent-name>'); process.exit(1); }
+  await dashDelete(`/projects/${id}/agents/${agentName}`);
+  console.log(`Unlinked agent "${agentName}" from project ${id}.`);
+}
+
 const [,, subcommand, ...rest] = process.argv;
 
-const COMMANDS = { ask: cmdAsk, models: cmdModels, config: cmdConfig, costs: cmdCosts };
+const COMMANDS = { ask: cmdAsk, models: cmdModels, config: cmdConfig, costs: cmdCosts, project: cmdProject };
 const cmd = COMMANDS[subcommand];
 if (!cmd) {
   console.error(`Usage: flint <ask|models|config|costs>`);
