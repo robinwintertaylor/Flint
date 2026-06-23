@@ -1,5 +1,10 @@
-import { test, before, after } from 'node:test';
+import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync as mkd2, rmSync as rmd2 } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 // Set env vars before any imports
 process.env.FLINT_DB_PATH = ':memory:';
@@ -19,6 +24,7 @@ after(() => {
 });
 
 test('createProject returns a numeric id', () => {
+  initDb(':memory:');
   const id = createProject({ name: 'Alpha', notes: 'first project' });
   assert.ok(typeof id === 'number' && id > 0);
 });
@@ -104,10 +110,6 @@ test('getProjectForAgent returns null for unlinked agent', () => {
 
 // --- HTTP route tests ---
 
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 const TMP2 = join(tmpdir(), 'flint-proj-routes-' + Date.now());
 mkdirSync(TMP2, { recursive: true });
 
@@ -120,141 +122,147 @@ writeFileSync(process.env.FLINT_AGENTS_FILE, '[]');
 
 const { createApp, closeDb: closeDb2 } = await import('../server.js');
 
-let srv, base;
+describe('HTTP routes', async () => {
+  let srv, base;
 
-before(async () => {
-  srv = createApp();
-  await new Promise(resolve => srv.listen(0, resolve));
-  base = `http://localhost:${srv.address().port}`;
-});
+  before(async () => {
+    srv = createApp();
+    await new Promise(resolve => srv.listen(0, resolve));
+    base = `http://localhost:${srv.address().port}`;
+  });
 
-after(async () => {
-  await new Promise(resolve => srv.close(resolve));
-  closeDb2();
-  rmSync(TMP2, { recursive: true, force: true });
-  delete process.env.FLINT_DB_PATH;
-  delete process.env.FLINT_AGENTS_FILE;
-  delete process.env.FLINT_TASKS_DIR;
-  delete process.env.FLINT_TEST_MODE;
-});
+  after(async () => {
+    await new Promise(resolve => srv.close(resolve));
+    closeDb2();
+    rmSync(TMP2, { recursive: true, force: true });
+    delete process.env.FLINT_DB_PATH;
+    delete process.env.FLINT_AGENTS_FILE;
+    delete process.env.FLINT_TASKS_DIR;
+    delete process.env.FLINT_TEST_MODE;
+  });
 
-async function req(method, path, body) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
-  if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(`${base}${path}`, opts);
-  return { status: res.status, body: await res.json() };
-}
+  async function req(method, path, body) {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(`${base}${path}`, opts);
+    return { status: res.status, body: await res.json() };
+  }
 
-test('GET /projects returns empty array initially', async () => {
-  const { status, body } = await req('GET', '/projects');
-  assert.equal(status, 200);
-  assert.ok(Array.isArray(body));
-});
+  test('GET /projects returns empty array initially', async () => {
+    const { status, body } = await req('GET', '/projects');
+    assert.equal(status, 200);
+    assert.ok(Array.isArray(body));
+  });
 
-test('POST /projects creates a project', async () => {
-  const { status, body } = await req('POST', '/projects', { name: 'Test Project', notes: 'hello' });
-  assert.equal(status, 201);
-  assert.equal(body.name, 'Test Project');
-  assert.equal(body.notes, 'hello');
-  assert.ok(typeof body.id === 'number');
-});
+  test('POST /projects creates a project', async () => {
+    const { status, body } = await req('POST', '/projects', { name: 'Test Project', notes: 'hello' });
+    assert.equal(status, 201);
+    assert.equal(body.name, 'Test Project');
+    assert.equal(body.notes, 'hello');
+    assert.ok(typeof body.id === 'number');
+  });
 
-test('POST /projects returns 400 when name missing', async () => {
-  const { status } = await req('POST', '/projects', { notes: 'oops' });
-  assert.equal(status, 400);
-});
+  test('POST /projects returns 400 when name missing', async () => {
+    const { status } = await req('POST', '/projects', { notes: 'oops' });
+    assert.equal(status, 400);
+  });
 
-test('PATCH /projects/:id updates status', async () => {
-  const { body: created } = await req('POST', '/projects', { name: 'Patchable' });
-  const { status, body } = await req('PATCH', `/projects/${created.id}`, { status: 'paused' });
-  assert.equal(status, 200);
-  assert.equal(body.status, 'paused');
-});
+  test('PATCH /projects/:id updates status', async () => {
+    const { body: created } = await req('POST', '/projects', { name: 'Patchable' });
+    const { status, body } = await req('PATCH', `/projects/${created.id}`, { status: 'paused' });
+    assert.equal(status, 200);
+    assert.equal(body.status, 'paused');
+  });
 
-test('DELETE /projects/:id archives project', async () => {
-  const { body: created } = await req('POST', '/projects', { name: 'Archivable' });
-  const { status } = await req('DELETE', `/projects/${created.id}`);
-  assert.equal(status, 200);
-  const { body: list } = await req('GET', '/projects');
-  assert.ok(!list.find(p => p.id === created.id));
-});
+  test('DELETE /projects/:id archives project', async () => {
+    const { body: created } = await req('POST', '/projects', { name: 'Archivable' });
+    const { status } = await req('DELETE', `/projects/${created.id}`);
+    assert.equal(status, 200);
+    const { body: list } = await req('GET', '/projects');
+    assert.ok(!list.find(p => p.id === created.id));
+  });
 
-test('POST /projects/:id/agents links agent', async () => {
-  const { body: created } = await req('POST', '/projects', { name: 'Linkable' });
-  const { status } = await req('POST', `/projects/${created.id}/agents`, { agentName: 'research' });
-  assert.equal(status, 200);
-  const { body: proj } = await req('GET', `/projects/${created.id}`);
-  assert.ok(proj.agents.includes('research'));
-});
+  test('POST /projects/:id/agents links agent', async () => {
+    const { body: created } = await req('POST', '/projects', { name: 'Linkable' });
+    const { status } = await req('POST', `/projects/${created.id}/agents`, { agentName: 'research' });
+    assert.equal(status, 200);
+    const { body: proj } = await req('GET', `/projects/${created.id}`);
+    assert.ok(proj.agents.includes('research'));
+  });
 
-test('DELETE /projects/:id/agents/:name unlinks agent', async () => {
-  const { body: created } = await req('POST', '/projects', { name: 'Unlinkable' });
-  await req('POST', `/projects/${created.id}/agents`, { agentName: 'code' });
-  const { status } = await req('DELETE', `/projects/${created.id}/agents/code`);
-  assert.equal(status, 200);
-  const { body: proj } = await req('GET', `/projects/${created.id}`);
-  assert.ok(!proj.agents.includes('code'));
+  test('DELETE /projects/:id/agents/:name unlinks agent', async () => {
+    const { body: created } = await req('POST', '/projects', { name: 'Unlinkable' });
+    await req('POST', `/projects/${created.id}/agents`, { agentName: 'code' });
+    const { status } = await req('DELETE', `/projects/${created.id}/agents/code`);
+    assert.equal(status, 200);
+    const { body: proj } = await req('GET', `/projects/${created.id}`);
+    assert.ok(!proj.agents.includes('code'));
+  });
+
+  test('PATCH /projects/:id returns 404 for unknown project', async () => {
+    const { status } = await req('PATCH', '/projects/99999', { status: 'paused' });
+    assert.equal(status, 404);
+  });
 });
 
 // --- Session continuity unit tests ---
-import { mkdirSync as mkd2, rmSync as rmd2, readFileSync } from 'node:fs';
-import { tmpdir as td } from 'node:os';
-import { join as j } from 'node:path';
 
-const TASK_TMP = j(td(), 'flint-tasks-' + Date.now());
+const TASK_TMP = join(tmpdir(), 'flint-tasks-' + Date.now());
 mkd2(TASK_TMP, { recursive: true });
 process.env.FLINT_TASKS_DIR = TASK_TMP;
 
 const { injectProjectContext } = await import('../terminal.js');
 const { writeTasks, readTasks } = await import('../tasks.js');
 
-after(() => {
-  rmd2(TASK_TMP, { recursive: true, force: true });
-  delete process.env.FLINT_TASKS_DIR;
-});
+describe('Session continuity', async () => {
+  after(() => {
+    rmd2(TASK_TMP, { recursive: true, force: true });
+    delete process.env.FLINT_TASKS_DIR;
+  });
 
-test('injectProjectContext prepends project block to agent task file', () => {
-  initDb(':memory:');
-  const id = createProject({ name: 'Inject Project', notes: 'My notes here' });
-  linkAgent(id, 'inject-agent');
-  writeTasks('inject-agent', '- [ ] Existing task\n');
+  test('injectProjectContext prepends project block to agent task file', () => {
+    initDb(':memory:');
+    const id = createProject({ name: 'Inject Project', notes: 'My notes here' });
+    linkAgent(id, 'inject-agent');
+    writeTasks('inject-agent', '- [ ] Existing task\n');
 
-  injectProjectContext('inject-agent');
+    injectProjectContext('inject-agent');
 
-  const content = readTasks('inject-agent');
-  assert.ok(content.includes('## Project: Inject Project'), 'project header missing');
-  assert.ok(content.includes('My notes here'), 'notes missing');
-  assert.ok(content.includes('- [ ] Existing task'), 'existing task should be preserved');
-});
+    const content = readTasks('inject-agent');
+    assert.ok(content.includes('## Project: Inject Project'), 'project header missing');
+    assert.ok(content.includes('My notes here'), 'notes missing');
+    assert.ok(content.includes('- [ ] Existing task'), 'existing task should be preserved');
+  });
 
-test('injectProjectContext is a no-op for unlinked agents', () => {
-  initDb(':memory:');
-  writeTasks('unlinked-agent', '- [ ] Solo task\n');
-  injectProjectContext('unlinked-agent');
-  const content = readTasks('unlinked-agent');
-  assert.ok(!content.includes('## Project:'), 'should not inject project block');
-  assert.ok(content.includes('- [ ] Solo task'), 'existing content must be preserved');
-});
+  test('injectProjectContext is a no-op for unlinked agents', () => {
+    initDb(':memory:');
+    writeTasks('unlinked-agent', '- [ ] Solo task\n');
+    injectProjectContext('unlinked-agent');
+    const content = readTasks('unlinked-agent');
+    assert.ok(!content.includes('## Project:'), 'should not inject project block');
+    assert.ok(content.includes('- [ ] Solo task'), 'existing content must be preserved');
+  });
 
-test('injectProjectContext includes last_summary when present', () => {
-  initDb(':memory:');
-  const id = createProject({ name: 'Summary Project', notes: 'notes' });
-  updateProject(id, { last_summary: 'Session ended at step 5' });
-  linkAgent(id, 'summary-agent');
-  writeTasks('summary-agent', '');
-  injectProjectContext('summary-agent');
-  const content = readTasks('summary-agent');
-  assert.ok(content.includes('Session ended at step 5'), 'last_summary missing');
-});
+  test('injectProjectContext includes last_summary when present', () => {
+    initDb(':memory:');
+    const id = createProject({ name: 'Summary Project', notes: 'notes' });
+    updateProject(id, { last_summary: 'Session ended at step 5' });
+    linkAgent(id, 'summary-agent');
+    writeTasks('summary-agent', '');
+    injectProjectContext('summary-agent');
+    const content = readTasks('summary-agent');
+    assert.ok(content.includes('Session ended at step 5'), 'last_summary missing');
+  });
 
-test('injectProjectContext does not double-inject on second call', () => {
-  initDb(':memory:');
-  const id = createProject({ name: 'Double Project', notes: 'once' });
-  linkAgent(id, 'double-agent');
-  writeTasks('double-agent', '- [ ] task\n');
-  injectProjectContext('double-agent');
-  injectProjectContext('double-agent');
-  const content = readTasks('double-agent');
-  const count = (content.match(/## Project:/g) ?? []).length;
-  assert.equal(count, 1, 'project header injected more than once');
+  test('injectProjectContext does not double-inject on second call', () => {
+    initDb(':memory:');
+    const id = createProject({ name: 'Double Project', notes: 'once' });
+    linkAgent(id, 'double-agent');
+    writeTasks('double-agent', '- [ ] task\n');
+    injectProjectContext('double-agent');
+    injectProjectContext('double-agent');
+    const content = readTasks('double-agent');
+    const count = (content.match(/## Project:/g) ?? []).length;
+    assert.equal(count, 1, 'project header injected more than once');
+  });
 });

@@ -56,6 +56,7 @@ export function updateProject(id, fields) {
   const allowed = ['name', 'status', 'notes', 'last_summary'];
   const updates = Object.entries(fields).filter(([k]) => allowed.includes(k));
   if (!updates.length) return;
+  // safe: k is constrained to the 'allowed' whitelist above — SQLite does not support parameterized column identifiers
   const setParts = updates.map(([k]) => `${k} = ?`).join(', ');
   const values = updates.map(([, v]) => v);
   db.prepare(
@@ -82,6 +83,7 @@ export function getProjectForAgent(agentName) {
     FROM projects p
     JOIN project_agents pa ON pa.project_id = p.id
     WHERE pa.agent_name = ?
+    AND p.status != 'archived'
     LIMIT 1
   `).get(agentName);
   return row ?? null;

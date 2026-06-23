@@ -133,11 +133,15 @@ export function createApp() {
     const id = Number(req.params.id);
     if (!getProject(id)) return res.status(404).json({ error: 'project not found' });
     const { name, status, notes } = req.body ?? {};
+    const VALID_STATUSES = ['active', 'paused', 'done', 'archived'];
+    if (status !== undefined && !VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
+    }
     const fields = {};
     if (name !== undefined) fields.name = name;
     if (status !== undefined) fields.status = status;
     if (notes !== undefined) fields.notes = notes;
-    updateProject(id, fields);
+    if (Object.keys(fields).length) updateProject(id, fields);
     res.json(getProject(id));
   });
 
