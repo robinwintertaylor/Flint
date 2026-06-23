@@ -195,3 +195,66 @@ test('DELETE /projects/:id/agents/:name unlinks agent', async () => {
   const { body: proj } = await req('GET', `/projects/${created.id}`);
   assert.ok(!proj.agents.includes('code'));
 });
+
+// --- Session continuity unit tests ---
+import { mkdirSync as mkd2, rmSync as rmd2, readFileSync } from 'node:fs';
+import { tmpdir as td } from 'node:os';
+import { join as j } from 'node:path';
+
+const TASK_TMP = j(td(), 'flint-tasks-' + Date.now());
+mkd2(TASK_TMP, { recursive: true });
+process.env.FLINT_TASKS_DIR = TASK_TMP;
+
+const { injectProjectContext } = await import('../terminal.js');
+const { writeTasks, readTasks } = await import('../tasks.js');
+
+after(() => {
+  rmd2(TASK_TMP, { recursive: true, force: true });
+  delete process.env.FLINT_TASKS_DIR;
+});
+
+test('injectProjectContext prepends project block to agent task file', () => {
+  initDb(':memory:');
+  const id = createProject({ name: 'Inject Project', notes: 'My notes here' });
+  linkAgent(id, 'inject-agent');
+  writeTasks('inject-agent', '- [ ] Existing task\n');
+
+  injectProjectContext('inject-agent');
+
+  const content = readTasks('inject-agent');
+  assert.ok(content.includes('## Project: Inject Project'), 'project header missing');
+  assert.ok(content.includes('My notes here'), 'notes missing');
+  assert.ok(content.includes('- [ ] Existing task'), 'existing task should be preserved');
+});
+
+test('injectProjectContext is a no-op for unlinked agents', () => {
+  initDb(':memory:');
+  writeTasks('unlinked-agent', '- [ ] Solo task\n');
+  injectProjectContext('unlinked-agent');
+  const content = readTasks('unlinked-agent');
+  assert.ok(!content.includes('## Project:'), 'should not inject project block');
+  assert.ok(content.includes('- [ ] Solo task'), 'existing content must be preserved');
+});
+
+test('injectProjectContext includes last_summary when present', () => {
+  initDb(':memory:');
+  const id = createProject({ name: 'Summary Project', notes: 'notes' });
+  updateProject(id, { last_summary: 'Session ended at step 5' });
+  linkAgent(id, 'summary-agent');
+  writeTasks('summary-agent', '');
+  injectProjectContext('summary-agent');
+  const content = readTasks('summary-agent');
+  assert.ok(content.includes('Session ended at step 5'), 'last_summary missing');
+});
+
+test('injectProjectContext does not double-inject on second call', () => {
+  initDb(':memory:');
+  const id = createProject({ name: 'Double Project', notes: 'once' });
+  linkAgent(id, 'double-agent');
+  writeTasks('double-agent', '- [ ] task\n');
+  injectProjectContext('double-agent');
+  injectProjectContext('double-agent');
+  const content = readTasks('double-agent');
+  const count = (content.match(/## Project:/g) ?? []).length;
+  assert.equal(count, 1, 'project header injected more than once');
+});
