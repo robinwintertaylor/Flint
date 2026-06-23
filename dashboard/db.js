@@ -59,3 +59,20 @@ export function closeDb() {
     _db = null;
   }
 }
+
+export function getCostsByProvider() {
+  const db = getDb();
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 7) + '-01';
+
+  // usage table stores model, not provider — we return by model grouped by date
+  // Router will group by provider on the JS side using its config
+  const todayRows  = db.prepare(`SELECT model, SUM(cost_usd) as total FROM usage WHERE DATE(timestamp) = ? GROUP BY model`).all(today);
+  const monthRows  = db.prepare(`SELECT model, SUM(cost_usd) as total FROM usage WHERE DATE(timestamp) >= ? GROUP BY model`).all(monthStart);
+  return { todayRows, monthRows };
+}
+
+function getDb() {
+  if (!_db) throw new Error('DB not initialised — call initDb() first');
+  return _db;
+}
