@@ -1,0 +1,16 @@
+{
+  "name": "flint-dashboard",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev":   "node --watch server.js",
+    "test":  "node --test tests/"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "express": "^4.19.2",
+    "node-pty": "^1.0.0",
+    "ws": "^8.17.0"
+  }
+}
