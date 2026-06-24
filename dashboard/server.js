@@ -14,6 +14,7 @@ import { readTasks, writeTasks, appendTask } from './tasks.js';
 import { listProjects, getProject, createProject, updateProject, linkAgent, unlinkAgent } from './projects.js';
 import { isForgejoReachable, pushBranch, createPR, getPRStatus } from './forgejo.js';
 import { info, error as logError } from './logger.js';
+import { listMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from './mcp.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -115,6 +116,31 @@ export function createApp() {
   });
   app.delete('/workspaces/:id', (req, res) => {
     removeWorkspace(Number(req.params.id));
+    res.json({ ok: true });
+  });
+
+  // --- MCP server routes ---
+
+  app.get('/mcp/servers', (_req, res) => res.json(listMcpServers()));
+
+  app.post('/mcp/servers', (req, res) => {
+    const { name, command, args = [], env = {}, scope = 'global', enabled = 1 } = req.body ?? {};
+    if (!name || !command) return res.status(400).json({ error: 'name and command required' });
+    try {
+      const id = addMcpServer({ name, command, args, env, scope, enabled });
+      res.json({ id, name, command, args, env, scope, enabled });
+    } catch {
+      res.status(409).json({ error: 'server name already registered' });
+    }
+  });
+
+  app.patch('/mcp/servers/:id', (req, res) => {
+    updateMcpServer(Number(req.params.id), req.body ?? {});
+    res.json({ ok: true });
+  });
+
+  app.delete('/mcp/servers/:id', (req, res) => {
+    removeMcpServer(Number(req.params.id));
     res.json({ ok: true });
   });
 

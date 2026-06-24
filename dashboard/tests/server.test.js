@@ -84,3 +84,43 @@ test('DELETE /agents/:name returns ok:false for unknown agent', async () => {
   const body = await r.json();
   assert.equal(body.ok, false);
 });
+
+test('GET /mcp/servers returns empty array initially', async () => {
+  const r = await req('GET', '/mcp/servers');
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), []);
+});
+
+test('POST /mcp/servers creates a server and returns it', async () => {
+  const r = await req('POST', '/mcp/servers', {
+    name: 'test-fs', command: 'npx', args: ['-y', '@mcp/fs'], env: {}, scope: 'global',
+  });
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.name, 'test-fs');
+  assert.ok(body.id, 'id should be present');
+});
+
+test('POST /mcp/servers with missing name returns 400', async () => {
+  const r = await req('POST', '/mcp/servers', { command: 'npx' });
+  assert.equal(r.status, 400);
+});
+
+test('PATCH /mcp/servers/:id toggles enabled', async () => {
+  const { id } = await req('POST', '/mcp/servers', {
+    name: 'toggler2', command: 'npx', args: [], env: {}, scope: 'global',
+  }).then(r => r.json());
+  await req('PATCH', `/mcp/servers/${id}`, { enabled: 0 });
+  const list = await req('GET', '/mcp/servers').then(r => r.json());
+  const found = list.find(s => s.id === id);
+  assert.equal(found.enabled, 0);
+});
+
+test('DELETE /mcp/servers/:id removes the server', async () => {
+  const { id } = await req('POST', '/mcp/servers', {
+    name: 'todelete2', command: 'npx', args: [], env: {}, scope: 'global',
+  }).then(r => r.json());
+  await req('DELETE', `/mcp/servers/${id}`);
+  const list = await req('GET', '/mcp/servers').then(r => r.json());
+  assert.ok(!list.find(s => s.id === id), 'server should be gone');
+});
