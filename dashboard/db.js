@@ -54,6 +54,16 @@ export function initDb(dbPath = DEFAULT_DB) {
       path       TEXT NOT NULL UNIQUE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS mcp_servers (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT NOT NULL UNIQUE,
+      command    TEXT NOT NULL,
+      args       TEXT NOT NULL DEFAULT '[]',
+      env        TEXT NOT NULL DEFAULT '{}',
+      scope      TEXT NOT NULL DEFAULT 'global',
+      enabled    INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
