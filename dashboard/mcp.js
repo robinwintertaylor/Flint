@@ -4,8 +4,10 @@ import { join } from 'path';
 
 export function listMcpServers(scope = null) {
   const db = getDb();
-  if (scope === null) return db.prepare('SELECT * FROM mcp_servers ORDER BY name').all();
-  return db.prepare('SELECT * FROM mcp_servers WHERE scope = ? ORDER BY name').all(scope);
+  const rows = scope === null
+    ? db.prepare('SELECT * FROM mcp_servers ORDER BY name').all()
+    : db.prepare('SELECT * FROM mcp_servers WHERE scope = ? ORDER BY name').all(scope);
+  return rows.map(r => ({ ...r, args: JSON.parse(r.args), env: JSON.parse(r.env) }));
 }
 
 export function addMcpServer({ name, command, args = [], env = {}, scope = 'global', enabled = 1 }) {
@@ -22,7 +24,7 @@ export function updateMcpServer(id, fields) {
   for (const [k, v] of Object.entries(fields)) {
     if (!allowed.includes(k)) continue;
     sets.push(`${k} = ?`);
-    vals.push(k === 'args' || k === 'env' ? JSON.stringify(v) : v);
+    vals.push(k === 'args' || k === 'env' ? JSON.stringify(v) : k === 'enabled' ? (v ? 1 : 0) : v);
   }
   if (!sets.length) return;
   vals.push(id);
