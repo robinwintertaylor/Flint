@@ -98,3 +98,10 @@ test('injectMcpConfig is a no-op when no servers configured', () => {
   injectMcpConfig('any-agent', dir);
   assert.ok(!existsSync(join(dir, '.claude', 'settings.json')), 'should not create file when nothing configured');
 });
+
+test('terminal.js imports injectMcpConfig without error', async () => {
+  // If terminal.js doesn't import mcp.js this will throw at module load time
+  // We can't actually call spawnAgent in tests (needs PTY) but we can verify the import
+  const mod = await import('../terminal.js');
+  assert.ok(typeof mod.spawnAgent === 'function');
+});

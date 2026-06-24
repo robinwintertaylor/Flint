@@ -7,6 +7,7 @@ import { writeUsage, getAgentWorktree } from './db.js';
 import { createSuggestion } from './suggestions.js';
 import { readTasks, writeTasks } from './tasks.js';
 import { getProjectForAgent, updateProject } from './projects.js';
+import { injectMcpConfig } from './mcp.js';
 
 function resolveBin(name) {
   try {
@@ -58,6 +59,10 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
   const bin = isVibe ? VIBE_BIN : CLAUDE_BIN;
   const args = isVibe ? [] : ['--dangerously-skip-permissions'];
   if (!isVibe && model) args.push('--model', model);
+
+  if (!isVibe) {
+    try { injectMcpConfig(name, workdir); } catch {}
+  }
 
   const ptyProcess = pty.spawn(bin, args, {
     name: 'xterm-256color',
