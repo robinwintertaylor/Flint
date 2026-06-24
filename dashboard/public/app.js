@@ -782,4 +782,94 @@ function fetchSuggestions() {
   setTimeout(fetchSuggestions, 30_000);
 }
 
+// ============================================================
+// MCP Servers modal
+// ============================================================
+
+async function renderMcpList() {
+  const list = await fetch('/mcp/servers').then(r => r.json()).catch(() => []);
+  const container = document.getElementById('mcp-list');
+  if (!list.length) {
+    container.innerHTML = '<p style="color:#8b949e;font-size:12px;margin:0">No MCP servers configured yet.</p>';
+    return;
+  }
+  container.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:#8b949e;text-align:left">
+        <th style="padding:4px 8px">Name</th><th style="padding:4px 8px">Command + Args</th>
+        <th style="padding:4px 8px">Scope</th><th style="padding:4px 8px">On</th><th></th>
+      </tr></thead>
+      <tbody>${list.map(s => {
+        const argsStr = s.args.join(' ');
+        return `<tr style="border-top:1px solid #21262d">
+          <td style="padding:4px 8px">${escHtml(s.name)}</td>
+          <td style="padding:4px 8px;color:#8b949e;font-size:11px">${escHtml(s.command)} ${escHtml(argsStr)}</td>
+          <td style="padding:4px 8px">${escHtml(s.scope)}</td>
+          <td style="padding:4px 8px"><input type="checkbox" data-mcp-toggle="${s.id}" ${s.enabled ? 'checked' : ''}></td>
+          <td style="padding:4px 8px"><button class="btn-remove" data-mcp-delete="${s.id}">Remove</button></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  `;
+  container.querySelectorAll('[data-mcp-toggle]').forEach(cb => {
+    cb.addEventListener('change', () => fetch(`/mcp/servers/${cb.dataset.mcpToggle}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: cb.checked ? 1 : 0 }),
+    }));
+  });
+  container.querySelectorAll('[data-mcp-delete]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`/mcp/servers/${btn.dataset.mcpDelete}`, { method: 'DELETE' });
+      renderMcpList();
+    });
+  });
+}
+
+async function populateMcpScopeDropdown() {
+  const agents = await fetch('/agents').then(r => r.json()).catch(() => []);
+  const sel = document.getElementById('mcp-add-scope');
+  sel.innerHTML = '<option value="global">Global (all agents)</option>';
+  agents.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.name; opt.textContent = `Agent: ${a.name}`;
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById('btn-mcp').addEventListener('click', () => {
+  document.getElementById('mcp-modal').classList.remove('hidden');
+  renderMcpList();
+  populateMcpScopeDropdown();
+});
+document.getElementById('mcp-modal-close').addEventListener('click', () =>
+  document.getElementById('mcp-modal').classList.add('hidden'));
+document.getElementById('mcp-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('mcp-modal'))
+    document.getElementById('mcp-modal').classList.add('hidden');
+});
+
+document.getElementById('mcp-add-btn').addEventListener('click', async () => {
+  const name    = document.getElementById('mcp-add-name').value.trim();
+  const command = document.getElementById('mcp-add-command').value.trim();
+  const argsStr = document.getElementById('mcp-add-args').value.trim();
+  const envStr  = document.getElementById('mcp-add-env').value.trim();
+  const scope   = document.getElementById('mcp-add-scope').value;
+  if (!name || !command) return;
+  const args = argsStr ? argsStr.split(/\s+/) : [];
+  const env = {};
+  envStr.split('\n').forEach(line => {
+    const eq = line.indexOf('=');
+    if (eq > 0) env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  });
+  await fetch('/mcp/servers', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, command, args, env, scope }),
+  });
+  document.getElementById('mcp-add-name').value = '';
+  document.getElementById('mcp-add-command').value = '';
+  document.getElementById('mcp-add-args').value = '';
+  document.getElementById('mcp-add-env').value = '';
+  renderMcpList();
+});
+
 connect();

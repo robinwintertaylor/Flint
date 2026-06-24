@@ -24,6 +24,7 @@
     <button id="btn-new-agent">+ New Agent</button>
     <button id="btn-refresh">↻ Refresh</button>
     <button id="btn-workspaces">⚙ Workspaces</button>
+    <button id="btn-mcp">⚡ MCP</button>
   </div>
 
   <div id="suggestions-strip" class="hidden"></div>
@@ -131,6 +132,30 @@
         <input id="ws-add-name" type="text" placeholder="Name (e.g. My App)" style="flex:1;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px">
         <input id="ws-add-path" type="text" placeholder="Path (e.g. C:\Projects\my-app)" style="flex:2;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px">
         <button id="ws-add-btn" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:13px">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MCP Servers modal -->
+  <div id="mcp-modal" class="hidden" role="dialog" aria-modal="true">
+    <div class="modal-box" style="max-width:640px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2 style="margin:0">MCP Servers</h2>
+        <button id="mcp-modal-close" style="background:none;border:none;color:#8b949e;font-size:18px;cursor:pointer">✕</button>
+      </div>
+      <div id="mcp-list" style="margin-bottom:16px;min-height:32px"></div>
+      <h4 style="color:#58a6ff;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Add Server</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+        <input id="mcp-add-name" type="text" placeholder="Name (e.g. filesystem)" style="background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px">
+        <input id="mcp-add-command" type="text" placeholder="Command (e.g. npx)" style="background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px">
+      </div>
+      <input id="mcp-add-args" type="text" placeholder="Args space-separated (e.g. -y @modelcontextprotocol/server-filesystem /projects)" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px;margin-bottom:6px">
+      <textarea id="mcp-add-env" rows="2" placeholder="Env vars — KEY=VALUE one per line (optional)" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px;margin-bottom:6px;resize:vertical;font-family:inherit"></textarea>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select id="mcp-add-scope" style="flex:1;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px">
+          <option value="global">Global (all agents)</option>
+        </select>
+        <button id="mcp-add-btn" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:13px">Add</button>
       </div>
     </div>
   </div>
