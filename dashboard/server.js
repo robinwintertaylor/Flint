@@ -73,6 +73,24 @@ export function createApp() {
     res.json({ defaultWorkdir: process.cwd() });
   });
 
+  app.get('/diffs/:agent', (req, res) => {
+    const worktree = getAgentWorktree(req.params.agent);
+    if (!worktree?.worktree_branch) return res.status(404).json({ error: 'no worktree for this agent' });
+    try {
+      const diff = execSync(
+        `git diff master...${worktree.worktree_branch}`,
+        { cwd: FLINT_ROOT, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 }
+      );
+      const stat = execSync(
+        `git diff --stat master...${worktree.worktree_branch}`,
+        { cwd: FLINT_ROOT, encoding: 'utf8' }
+      );
+      res.json({ branch: worktree.worktree_branch, stat: stat.trim(), diff: diff.trim() });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get('/agents', (_req, res) => {
     res.json(listAgents());
   });

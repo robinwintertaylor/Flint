@@ -238,13 +238,20 @@ node bin\flint.js worktree list
 
 ---
 
-## 6. Costs Tab
+## 6. Costs Display
 
 ### 6.1 View costs
 
-1. Click the **Costs** tab
+Look at the top-right corner of the dashboard header.
 
-**Expected:** Today's cost and monthly total displayed. Updates automatically when agents run.
+**Expected:** `Today: $0.00  Month: $0.00` — these update automatically as agents run and incur usage. No separate tab needed.
+
+To verify programmatically:
+```powershell
+node bin\flint.js costs
+```
+
+**Expected:** Breakdown by provider for today and this month.
 
 ---
 

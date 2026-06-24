@@ -561,6 +561,7 @@ function showPRLink(agentName, prUrl, prNumber) {
   headerRight.innerHTML = `
     <span class="panel-cost" id="cost-${escHtml(agentName)}">$0.00 today</span>
     <a class="btn-view-pr" href="${escHtml(prUrl)}" target="_blank" rel="noopener">View PR #${escHtml(String(prNumber))}</a>
+    <button class="btn-diff" id="diff-btn-${escHtml(agentName)}">Diff</button>
     <span class="badge badge-pr-open" id="pr-badge-${escHtml(agentName)}">open</span>
     <button class="btn-discard" id="discard-pr-${escHtml(agentName)}">Discard</button>
   `;
@@ -569,7 +570,44 @@ function showPRLink(agentName, prUrl, prNumber) {
       .then(() => restoreKillButton(agentName))
       .catch(err => console.error('Discard failed:', err));
   });
+  document.getElementById(`diff-btn-${escHtml(agentName)}`)?.addEventListener('click', () => openDiffModal(agentName));
 }
+
+function openDiffModal(agentName) {
+  document.getElementById('diff-modal-title').textContent = `Diff — ${agentName}`;
+  document.getElementById('diff-stat').textContent = 'Loading…';
+  document.getElementById('diff-content').innerHTML = '';
+  document.getElementById('diff-modal').classList.remove('hidden');
+
+  fetch(`/diffs/${encodeURIComponent(agentName)}`)
+    .then(r => r.json())
+    .then(({ branch, stat, diff }) => {
+      document.getElementById('diff-modal-title').textContent = `Diff — ${agentName} (${branch})`;
+      document.getElementById('diff-stat').textContent = stat || '(no changes)';
+      // Colour diff lines
+      const lines = (diff || '(empty diff)').split('\n').map(line => {
+        const esc = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        if (line.startsWith('+++') || line.startsWith('---')) return `<span style="color:#e6edf3;font-weight:bold">${esc}</span>`;
+        if (line.startsWith('+')) return `<span style="color:#3fb950">${esc}</span>`;
+        if (line.startsWith('-')) return `<span style="color:#f85149">${esc}</span>`;
+        if (line.startsWith('@@')) return `<span style="color:#79c0ff">${esc}</span>`;
+        if (line.startsWith('diff ') || line.startsWith('index ')) return `<span style="color:#8b949e">${esc}</span>`;
+        return esc;
+      });
+      document.getElementById('diff-content').innerHTML = lines.join('\n');
+    })
+    .catch(err => {
+      document.getElementById('diff-stat').textContent = '';
+      document.getElementById('diff-content').textContent = `Error: ${err.message}`;
+    });
+}
+
+document.getElementById('diff-modal-close').addEventListener('click', () => {
+  document.getElementById('diff-modal').classList.add('hidden');
+});
+document.getElementById('diff-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('diff-modal')) document.getElementById('diff-modal').classList.add('hidden');
+});
 
 function updatePRBadge(agentName, status) {
   const badge = document.getElementById(`pr-badge-${escHtml(agentName)}`);

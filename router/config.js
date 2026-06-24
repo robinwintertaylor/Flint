@@ -31,10 +31,24 @@ export function resolveRoute(taskType, providerOverride) {
   return { provider, model, tier: Number(tier) };
 }
 
+function configuredProviders() {
+  const set = new Set();
+  if (process.env.ANTHROPIC_API_KEY)  set.add('anthropic');
+  if (process.env.OPENAI_API_KEY)     set.add('openai');
+  if (process.env.GOOGLE_API_KEY)     set.add('google');
+  if (process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT) set.add('azure');
+  if (process.env.OPENROUTER_API_KEY) set.add('openrouter');
+  return set;
+}
+
 export function getModels() {
   const cfg = getConfig();
   const CLI_PROVIDERS = new Set(['claude-cli', 'gemini-cli', 'mistral-cli']);
-  const result = { anthropic: [], openai: [], google: [], azure: [], openrouter: [], cli: [] };
+  const active = configuredProviders();
+
+  const result = { cli: [] };
+  for (const p of active) result[p] = [];
+
   for (const tierModels of Object.values(cfg.tiers)) {
     for (const [provider, model] of Object.entries(tierModels)) {
       if (CLI_PROVIDERS.has(provider)) {

@@ -21,8 +21,10 @@ const CLAUDE_BIN = resolveBin('claude');
 
 const COST_REGEX = /Total cost:\s+\$?([\d.]+)/i;
 const MODEL_REGEX = /Model:\s+(\S+)/i;
-const SUGGESTION_REGEX = /^## SUGGESTION:\s*(.+?)(?=\n\n|\n##|\n$|$)/ms;
+const SUGGESTION_REGEX = /## SUGGESTION:\s*(.+?)(?=\n\n|\n##|$)/ms;
+const ANSI_RE = /\x1b\[[0-9;?]*[a-zA-Z]|\x1b[()][A-Z0-9]|\r/g;
 const MAX_SUMMARY_LINES = 50;
+const MAX_SUGG_BUFFER = 4000;
 
 export function injectProjectContext(agentName) {
   const project = getProjectForAgent(agentName);
@@ -68,6 +70,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
   let lastModel = 'claude';
   let lastCost = 0;
   const outputBuffer = [];
+  let suggBuffer = '';
 
   ptyProcess.onData((data) => {
     broadcastToAgent(name, { type: 'output', agent: name, data });
@@ -79,10 +82,13 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
       outputBuffer.splice(0, outputBuffer.length - MAX_SUMMARY_LINES);
     }
 
-    const modelMatch = data.match(MODEL_REGEX);
+    // Strip ANSI codes for pattern matching
+    const plain = data.replace(ANSI_RE, '');
+
+    const modelMatch = plain.match(MODEL_REGEX);
     if (modelMatch) lastModel = modelMatch[1];
 
-    const costMatch = data.match(COST_REGEX);
+    const costMatch = plain.match(COST_REGEX);
     if (costMatch) {
       const delta = parseFloat(costMatch[1]) - lastCost;
       if (delta > 0) {
@@ -91,12 +97,18 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
       }
     }
 
-    const suggMatch = data.match(SUGGESTION_REGEX);
+    // Accumulate stripped text across chunks for multi-chunk suggestion detection
+    suggBuffer += plain;
+    if (suggBuffer.length > MAX_SUGG_BUFFER) suggBuffer = suggBuffer.slice(-MAX_SUGG_BUFFER);
+
+    const suggMatch = suggBuffer.match(SUGGESTION_REGEX);
     if (suggMatch) {
       const suggestion = createSuggestion(name, suggMatch[1].trim());
       if (suggestion) {
         broadcastGlobal({ type: 'suggestion', suggestion });
       }
+      // Remove matched text so the same suggestion doesn't fire again
+      suggBuffer = suggBuffer.slice(suggBuffer.indexOf(suggMatch[0]) + suggMatch[0].length);
     }
   });
 

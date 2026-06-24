@@ -56,6 +56,12 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   font-size: 11px; cursor: pointer;
 }
 .btn-remove:hover { background: #8b949e22; }
+.btn-diff {
+  background: transparent; border: 1px solid #388bfd66;
+  color: #388bfd; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; cursor: pointer;
+}
+.btn-diff:hover { background: #388bfd22; }
 
 /* Panel body */
 .panel-body { display: flex; flex: 1; min-height: 0; }

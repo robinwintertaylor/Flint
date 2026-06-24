@@ -25,9 +25,9 @@
     <button id="btn-refresh">↻ Refresh</button>
   </div>
 
+  <div id="suggestions-strip" class="hidden"></div>
   <div id="panels"></div>
   <div id="project-view" class="hidden"></div>
-  <div id="suggestions-strip" class="hidden"></div>
   <div id="proj-toolbar" style="display:none"></div>
 
   <div id="modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -102,6 +102,18 @@
         <button id="edit-proj-cancel">Cancel</button>
         <button id="edit-proj-save">Save</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Diff viewer modal -->
+  <div id="diff-modal" class="hidden" role="dialog" aria-modal="true">
+    <div class="modal-box" style="max-width:900px;width:95vw">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2 style="margin:0" id="diff-modal-title">Branch diff</h2>
+        <button id="diff-modal-close" style="background:none;border:none;color:#8b949e;font-size:18px;cursor:pointer">✕</button>
+      </div>
+      <pre id="diff-stat" style="background:#161b22;padding:8px;border-radius:4px;font-size:11px;color:#8b949e;margin-bottom:8px;white-space:pre-wrap"></pre>
+      <pre id="diff-content" style="background:#0d1117;padding:12px;border-radius:4px;font-size:11px;max-height:60vh;overflow-y:auto;white-space:pre;overflow-x:auto;border:1px solid #30363d"></pre>
     </div>
   </div>
 

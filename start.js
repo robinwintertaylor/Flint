@@ -1,9 +1,14 @@
 import { spawn } from 'node:child_process';
-import { createWriteStream, mkdirSync } from 'node:fs';
+import { createWriteStream, mkdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Load .env into process.env so all child services inherit it
+const envPath = join(__dirname, '.env');
+if (existsSync(envPath)) process.loadEnvFile(envPath);
+
 const LOGS_DIR = join(__dirname, 'logs');
 mkdirSync(LOGS_DIR, { recursive: true });
 
