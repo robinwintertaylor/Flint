@@ -224,7 +224,7 @@ async function cmdMcp(args) {
     const list = await dashGet('/mcp/servers');
     if (!list.length) { console.log('No MCP servers configured.'); return; }
     for (const s of list) {
-      const argsParsed = JSON.parse(s.args || '[]').join(' ');
+      const argsParsed = (s.args || []).join(' ');
       const state = s.enabled ? 'enabled' : 'disabled';
       console.log(`[${s.id}] ${s.name} | ${s.command} ${argsParsed} | ${s.scope} | ${state}`);
     }
