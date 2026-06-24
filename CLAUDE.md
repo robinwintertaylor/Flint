@@ -26,4 +26,4 @@ Read these files at the start of every session, in this order:
 <!-- Heartbeat detects and registers these automatically -->
 
 ## Last Heartbeat
-<!-- Updated automatically -->
+<!-- 2026-06-24 -->

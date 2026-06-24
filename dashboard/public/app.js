@@ -562,7 +562,13 @@ function showPRLink(agentName, prUrl, prNumber) {
     <span class="panel-cost" id="cost-${escHtml(agentName)}">$0.00 today</span>
     <a class="btn-view-pr" href="${escHtml(prUrl)}" target="_blank" rel="noopener">View PR #${escHtml(String(prNumber))}</a>
     <span class="badge badge-pr-open" id="pr-badge-${escHtml(agentName)}">open</span>
+    <button class="btn-discard" id="discard-pr-${escHtml(agentName)}">Discard</button>
   `;
+  document.getElementById(`discard-pr-${escHtml(agentName)}`)?.addEventListener('click', () => {
+    fetch(`/worktrees/${encodeURIComponent(agentName)}`, { method: 'DELETE' })
+      .then(() => restoreKillButton(agentName))
+      .catch(err => console.error('Discard failed:', err));
+  });
 }
 
 function updatePRBadge(agentName, status) {

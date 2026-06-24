@@ -25,6 +25,8 @@ export function createApp() {
   const app = express();
   app.use(express.json());
 
+  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
   app.post('/llm/complete', async (req, res) => {
     const { taskType, prompt, systemPrompt, model, provider } = req.body ?? {};
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });

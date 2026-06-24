@@ -14,8 +14,10 @@ function timestamp() {
 
 export function createWorktree(agentName) {
   const ts = timestamp();
-  const branch = `improve/${agentName}-${ts}`;
-  const worktreePath = join(FLINT_ROOT, '.worktrees', `${agentName}-${ts}`);
+  // Sanitize: replace spaces and git-invalid chars with hyphens, collapse multiples
+  const safe = agentName.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  const branch = `improve/${safe}-${ts}`;
+  const worktreePath = join(FLINT_ROOT, '.worktrees', `${safe}-${ts}`);
   execSync(`git worktree add -b "${branch}" "${worktreePath}"`, { cwd: FLINT_ROOT });
   return { worktreePath, branch };
 }

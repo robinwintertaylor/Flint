@@ -300,9 +300,15 @@ export function createApp() {
           if (!TEST_MODE) {
             let spawnDir = workdir;
             if (isolate) {
-              const { worktreePath, branch } = createWorktree(name);
-              setAgentWorktree(name, worktreePath, branch);
-              spawnDir = worktreePath;
+              try {
+                const { worktreePath, branch } = createWorktree(name);
+                setAgentWorktree(name, worktreePath, branch);
+                spawnDir = worktreePath;
+              } catch (err) {
+                logError('worktree creation failed', { agent: name, err: err.message });
+                broadcastToAgent(name, { type: 'worktree_pr_failed', agent: name });
+                break;
+              }
             }
             spawnAgent(name, spawnDir, model, { onWorktreePending: createPRForAgent });
           }
