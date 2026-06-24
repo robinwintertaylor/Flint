@@ -501,7 +501,7 @@ function showPRLink(agentName, prUrl, prNumber) {
   if (!headerRight) return;
   headerRight.innerHTML = `
     <span class="panel-cost" id="cost-${escHtml(agentName)}">$0.00 today</span>
-    <a class="btn-view-pr" href="${escHtml(prUrl)}" target="_blank" rel="noopener">View PR #${prNumber}</a>
+    <a class="btn-view-pr" href="${escHtml(prUrl)}" target="_blank" rel="noopener">View PR #${escHtml(String(prNumber))}</a>
     <span class="badge badge-pr-open" id="pr-badge-${escHtml(agentName)}">open</span>
   `;
 }
@@ -510,7 +510,7 @@ function updatePRBadge(agentName, status) {
   const badge = document.getElementById(`pr-badge-${escHtml(agentName)}`);
   if (!badge) return;
   badge.textContent = status;
-  badge.className = `badge badge-pr-${status}`;
+  badge.className = `badge badge-pr-${escHtml(status)}`;
 }
 
 function restoreKillButton(agentName) {
