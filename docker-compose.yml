@@ -1,0 +1,15 @@
+services:
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:7
+    container_name: flint-forgejo
+    ports:
+      - "3030:3000"
+    volumes:
+      - forgejo-data:/data
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+    restart: unless-stopped
+
+volumes:
+  forgejo-data:
