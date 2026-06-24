@@ -217,6 +217,67 @@ async function cmdWorkspace(args) {
   }
 }
 
+async function cmdMcp(args) {
+  const [sub, name, ...rest] = args;
+
+  if (sub === 'list') {
+    const list = await dashGet('/mcp/servers');
+    if (!list.length) { console.log('No MCP servers configured.'); return; }
+    for (const s of list) {
+      const argsParsed = JSON.parse(s.args || '[]').join(' ');
+      const state = s.enabled ? 'enabled' : 'disabled';
+      console.log(`[${s.id}] ${s.name} | ${s.command} ${argsParsed} | ${s.scope} | ${state}`);
+    }
+
+  } else if (sub === 'add') {
+    const { values, positionals } = parseArgs({
+      args: name ? [name, ...rest] : rest,
+      options: {
+        env:      { type: 'string', multiple: true },
+        scope:    { type: 'string' },
+        disabled: { type: 'boolean' },
+      },
+      allowPositionals: true,
+    });
+    const [serverName, command, ...argParts] = positionals;
+    if (!serverName || !command) {
+      console.error('Usage: flint mcp add <name> <command> [args...] [--env KEY=VAL] [--scope global|<agent>] [--disabled]');
+      process.exit(1);
+    }
+    const env = {};
+    (values.env ?? []).forEach(kv => {
+      const eq = kv.indexOf('=');
+      if (eq > 0) env[kv.slice(0, eq)] = kv.slice(eq + 1);
+    });
+    const r = await dashPost('/mcp/servers', {
+      name: serverName, command, args: argParts, env,
+      scope: values.scope ?? 'global',
+      enabled: values.disabled ? 0 : 1,
+    });
+    console.log(`MCP server "${r.name}" added (id ${r.id}).`);
+
+  } else if (sub === 'remove') {
+    if (!name) { console.error('Usage: flint mcp remove <name>'); process.exit(1); }
+    const list = await dashGet('/mcp/servers');
+    const server = list.find(s => s.name === name);
+    if (!server) { console.error(`No MCP server named "${name}".`); process.exit(1); }
+    await dashDelete(`/mcp/servers/${server.id}`);
+    console.log(`MCP server "${name}" removed.`);
+
+  } else if (sub === 'enable' || sub === 'disable') {
+    if (!name) { console.error(`Usage: flint mcp ${sub} <name>`); process.exit(1); }
+    const list = await dashGet('/mcp/servers');
+    const server = list.find(s => s.name === name);
+    if (!server) { console.error(`No MCP server named "${name}".`); process.exit(1); }
+    await dashPatch(`/mcp/servers/${server.id}`, { enabled: sub === 'enable' ? 1 : 0 });
+    console.log(`MCP server "${name}" ${sub}d.`);
+
+  } else {
+    console.error('Usage: flint mcp <list|add|remove|enable|disable>');
+    process.exit(1);
+  }
+}
+
 async function cmdWorktree(args) {
   const [sub, ...rest] = args;
   if (sub === 'list') {
@@ -239,10 +300,10 @@ async function cmdWorktree(args) {
 
 const [,, subcommand, ...rest] = process.argv;
 
-const COMMANDS = { ask: cmdAsk, models: cmdModels, config: cmdConfig, costs: cmdCosts, project: cmdProject, suggestions: cmdSuggestions, worktree: cmdWorktree, workspace: cmdWorkspace };
+const COMMANDS = { ask: cmdAsk, models: cmdModels, config: cmdConfig, costs: cmdCosts, project: cmdProject, suggestions: cmdSuggestions, worktree: cmdWorktree, workspace: cmdWorkspace, mcp: cmdMcp };
 const cmd = COMMANDS[subcommand];
 if (!cmd) {
-  console.error(`Usage: flint <ask|models|config|costs|project|suggestions|worktree|workspace>`);
+  console.error(`Usage: flint <ask|models|config|costs|project|suggestions|worktree|workspace|mcp>`);
   process.exit(1);
 }
 
