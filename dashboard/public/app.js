@@ -63,8 +63,16 @@ function connect() {
         headerRight.innerHTML = `
           <span class="panel-cost" id="cost-${escHtml(msg.agent)}">$0.00 today</span>
           <span class="badge badge-pr-closed" id="pr-badge-${escHtml(msg.agent)}">PR failed</span>
-          <button class="btn-discard" onclick="discardWorktree('${escHtml(msg.agent)}')">Discard</button>
+          <button class="btn-discard" id="discard-failed-${escHtml(msg.agent)}">Discard</button>
         `;
+        const discardBtn = document.getElementById(`discard-failed-${escHtml(msg.agent)}`);
+        if (discardBtn) {
+          discardBtn.addEventListener('click', () => {
+            fetch(`/worktrees/${encodeURIComponent(msg.agent)}`, { method: 'DELETE' })
+              .then(() => restoreKillButton(msg.agent))
+              .catch(err => console.error('Discard failed:', err));
+          });
+        }
         break;
       }
 
