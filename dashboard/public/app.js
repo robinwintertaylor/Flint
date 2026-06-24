@@ -1000,8 +1000,20 @@ function openAddTaskModal(agents, preAssignTaskId = null) {
     opt.value = a.name; opt.textContent = a.name;
     agentSel.appendChild(opt);
   });
-  modal.classList.remove('hidden');
   modal.dataset.preAssignId = preAssignTaskId ?? '';
+  // When assigning, clear stale form fields and update heading
+  if (preAssignTaskId) {
+    document.getElementById('add-task-title').value = '';
+    document.getElementById('add-task-desc').value = '';
+    document.getElementById('add-task-priority').value = '0';
+    // Update heading to indicate assign mode
+    const heading = modal.querySelector('h2');
+    if (heading) heading.textContent = 'Assign Task to Agent';
+  } else {
+    const heading = modal.querySelector('h2');
+    if (heading) heading.textContent = 'Add Task to Queue';
+  }
+  modal.classList.remove('hidden');
   document.getElementById('add-task-title').focus();
 }
 
@@ -1014,7 +1026,6 @@ document.getElementById('add-task-modal').addEventListener('click', e => {
 
 document.getElementById('add-task-submit').addEventListener('click', async () => {
   const title = document.getElementById('add-task-title').value.trim();
-  if (!title) return;
   const description = document.getElementById('add-task-desc').value.trim();
   const assigned_to = document.getElementById('add-task-agent').value || undefined;
   const role        = document.getElementById('add-task-role').value || undefined;
@@ -1022,13 +1033,15 @@ document.getElementById('add-task-submit').addEventListener('click', async () =>
   const modal       = document.getElementById('add-task-modal');
   const preId       = modal.dataset.preAssignId;
 
-  if (preId && assigned_to) {
-    // Assign existing task to agent
+  if (preId) {
+    // Assign-mode: must select an agent
+    if (!assigned_to) { alert('Please select an agent to assign this task to.'); return; }
     await fetch(`/queue/tasks/${preId}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assigned_to }),
     });
   } else {
+    if (!title) return;
     await fetch('/queue/tasks', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, description, assigned_to, role, priority, created_by: 'human' }),
