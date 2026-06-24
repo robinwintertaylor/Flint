@@ -25,6 +25,12 @@ export { closeDb } from './db.js';
 async function createPRForAgent(name, branch) {
   try {
     info('creating PR', { agent: name, branch });
+    const reachable = await isForgejoReachable();
+    if (!reachable) {
+      logError('PR creation skipped — Forgejo unreachable', { agent: name });
+      broadcastToAgent(name, { type: 'worktree_pr_failed', agent: name });
+      return;
+    }
     pushBranch(branch);
     const { prNumber, prUrl } = await createPR(branch, name);
     setAgentPR(name, prNumber, prUrl, 'open');
@@ -32,6 +38,7 @@ async function createPRForAgent(name, branch) {
     info('PR created', { agent: name, prNumber, prUrl });
   } catch (err) {
     logError('PR creation failed', { agent: name, err: err.message });
+    broadcastToAgent(name, { type: 'worktree_pr_failed', agent: name });
   }
 }
 
@@ -43,7 +50,6 @@ async function handlePRMerged(name) {
     }
     if (worktree?.worktree_branch) {
       try { execSync(`git branch -D "${worktree.worktree_branch}"`, { cwd: FLINT_ROOT }); } catch {}
-      try { execSync(`git pull forgejo master`, { cwd: FLINT_ROOT }); } catch {}
     }
   } catch (err) {
     logError('cleanup after PR merge failed', { agent: name, err: err.message });

@@ -57,6 +57,17 @@ function connect() {
         showPRLink(msg.agent, msg.prUrl, msg.prNumber);
         break;
 
+      case 'worktree_pr_failed': {
+        const headerRight = document.getElementById(`header-right-${escHtml(msg.agent)}`);
+        if (!headerRight) break;
+        headerRight.innerHTML = `
+          <span class="panel-cost" id="cost-${escHtml(msg.agent)}">$0.00 today</span>
+          <span class="badge badge-pr-closed" id="pr-badge-${escHtml(msg.agent)}">PR failed</span>
+          <button class="btn-discard" onclick="discardWorktree('${escHtml(msg.agent)}')">Discard</button>
+        `;
+        break;
+      }
+
       case 'pr_status':
         updatePRBadge(msg.agent, msg.status);
         if (msg.status === 'merged' || msg.status === 'closed') {
@@ -514,6 +525,8 @@ function updatePRBadge(agentName, status) {
 }
 
 function restoreKillButton(agentName) {
+  const isolatedBadge = document.getElementById(`isolated-badge-${escHtml(agentName)}`);
+  if (isolatedBadge) isolatedBadge.remove();
   const headerRight = document.getElementById(`header-right-${escHtml(agentName)}`);
   if (!headerRight) return;
   headerRight.innerHTML = `
