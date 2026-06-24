@@ -200,20 +200,16 @@ async function cmdWorktree(args) {
     const list = await dashGet('/worktrees');
     if (!list.length) { console.log('No active worktrees.'); return; }
     for (const w of list) {
-      console.log(`${w.name} | ${w.worktree_branch} | ${w.worktree_path} | ${w.status}`);
+      const pr = w.pr_status ? ` | PR #${w.pr_number} [${w.pr_status}] ${w.pr_url}` : '';
+      console.log(`${w.name} | ${w.worktree_branch} | ${w.status}${pr}`);
     }
-  } else if (sub === 'merge') {
-    const [agent] = rest;
-    if (!agent) { console.error('Usage: flint worktree merge <agent>'); process.exit(1); }
-    await dashPost(`/worktrees/${encodeURIComponent(agent)}/merge`, {});
-    console.log(`Merged worktree for agent "${agent}".`);
   } else if (sub === 'discard') {
     const [agent] = rest;
     if (!agent) { console.error('Usage: flint worktree discard <agent>'); process.exit(1); }
     await dashDelete(`/worktrees/${encodeURIComponent(agent)}`);
     console.log(`Discarded worktree for agent "${agent}".`);
   } else {
-    console.error('Usage: flint worktree <list|merge|discard>');
+    console.error('Usage: flint worktree <list|discard>');
     process.exit(1);
   }
 }
