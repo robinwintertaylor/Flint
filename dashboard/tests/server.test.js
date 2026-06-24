@@ -124,3 +124,71 @@ test('DELETE /mcp/servers/:id removes the server', async () => {
   const list = await req('GET', '/mcp/servers').then(r => r.json());
   assert.ok(!list.find(s => s.id === id), 'server should be gone');
 });
+
+test('GET /queue/tasks returns empty array initially', async () => {
+  const r = await req('GET', '/queue/tasks');
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), []);
+});
+
+test('POST /queue/tasks creates unassigned task', async () => {
+  const r = await req('POST', '/queue/tasks', { title: 'Do the thing', description: 'Details here', created_by: 'human' });
+  assert.equal(r.status, 201);
+  const body = await r.json();
+  assert.equal(body.title, 'Do the thing');
+  assert.equal(body.status, 'pending');
+  assert.equal(body.assigned_to, null);
+});
+
+test('POST /queue/tasks with assigned_to sets in_progress', async () => {
+  await req('POST', '/agents/spawn', { name: 'worker-q', workdir: process.cwd() });
+  const r = await req('POST', '/queue/tasks', { title: 'Assigned task', assigned_to: 'worker-q', created_by: 'human' });
+  const body = await r.json();
+  assert.equal(body.status, 'in_progress');
+  assert.equal(body.assigned_to, 'worker-q');
+});
+
+test('POST /queue/tasks with missing title returns 400', async () => {
+  const r = await req('POST', '/queue/tasks', { description: 'no title' });
+  assert.equal(r.status, 400);
+});
+
+test('GET /queue/tasks/:id returns the task', async () => {
+  const created = await req('POST', '/queue/tasks', { title: 'Fetchable', created_by: 'human' }).then(r => r.json());
+  const r = await req('GET', `/queue/tasks/${created.id}`);
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.id, created.id);
+});
+
+test('PATCH /queue/tasks/:id with assigned_to assigns the task', async () => {
+  await req('POST', '/agents/spawn', { name: 'worker-assign', workdir: process.cwd() });
+  const created = await req('POST', '/queue/tasks', { title: 'To assign', created_by: 'human' }).then(r => r.json());
+  const r = await req('PATCH', `/queue/tasks/${created.id}`, { assigned_to: 'worker-assign' });
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.status, 'in_progress');
+});
+
+test('PATCH /queue/tasks/:id with status=done completes task', async () => {
+  const created = await req('POST', '/queue/tasks', { title: 'To complete', created_by: 'human' }).then(r => r.json());
+  await req('PATCH', `/queue/tasks/${created.id}`, { status: 'done', result: 'Finished' });
+  const r = await req('GET', `/queue/tasks/${created.id}`);
+  assert.equal((await r.json()).status, 'done');
+});
+
+test('DELETE /queue/tasks/:id cancels the task', async () => {
+  const created = await req('POST', '/queue/tasks', { title: 'To cancel', created_by: 'human' }).then(r => r.json());
+  await req('DELETE', `/queue/tasks/${created.id}`);
+  const r = await req('GET', `/queue/tasks/${created.id}`);
+  assert.equal((await r.json()).status, 'cancelled');
+});
+
+test('GET /queue/tasks?status=pending filters correctly', async () => {
+  const t = await req('POST', '/queue/tasks', { title: 'Filter test pending', created_by: 'human' }).then(r => r.json());
+  await req('POST', '/queue/tasks', { title: 'Filter test other', created_by: 'human' });
+  await req('DELETE', `/queue/tasks/${t.id}`); // cancel first one
+  const r = await req('GET', '/queue/tasks?status=pending');
+  const list = await r.json();
+  assert.ok(list.every(task => task.status === 'pending'), 'all returned tasks should be pending');
+});
