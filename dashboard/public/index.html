@@ -48,7 +48,14 @@
         Working Directory
         <input id="modal-workdir" type="text" placeholder="C:\Users\Robin\Applications Dev\Flint" autocomplete="off">
       </label>
-      <div class="form-group">
+      <label>
+        Runtime
+        <select id="modal-runtime">
+          <option value="claude">Claude Code (claude)</option>
+          <option value="vibe">Mistral Vibe (vibe)</option>
+        </select>
+      </label>
+      <div class="form-group" id="modal-model-group">
         <label for="modal-model">Model (optional)</label>
         <select id="modal-model">
           <option value="">Default (agent config)</option>

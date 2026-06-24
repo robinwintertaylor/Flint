@@ -102,8 +102,12 @@ function connect() {
   ws.addEventListener('close', () => setTimeout(connect, 2000));
 }
 
-function ensurePanel({ name, mode, status, isolate }) {
+function ensurePanel({ name, mode, status, isolate, runtime }) {
   if (document.getElementById(`panel-${name}`)) return;
+
+  const runtimeBadge = (runtime && runtime !== 'claude')
+    ? `<span class="badge badge-vibe" id="runtime-badge-${escHtml(name)}">vibe</span>`
+    : '';
 
   const panel = document.createElement('div');
   panel.className = 'panel';
@@ -112,9 +116,10 @@ function ensurePanel({ name, mode, status, isolate }) {
     <div class="panel-header">
       <div style="display:flex;align-items:center;gap:0">
         <span class="panel-name">${escHtml(name)}</span>
-        <span class="badge badge-${status}" id="badge-${name}">${status}</span>
+        <span class="badge badge-${status}" id="badge-${escHtml(name)}">${status}</span>
         ${mode === 'observe' ? '<span class="badge badge-observe">observe</span>' : ''}
-        ${isolate ? `<span class="badge badge-isolated" id="isolated-badge-${name}">isolated</span>` : ''}
+        ${runtimeBadge}
+        ${isolate ? `<span class="badge badge-isolated" id="isolated-badge-${escHtml(name)}">isolated</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:6px" id="header-right-${name}">
         <span class="panel-cost" id="cost-${name}">$0.00 today</span>
@@ -205,7 +210,10 @@ function updateStatus(name, status) {
       fetch(`/agents/${encodeURIComponent(name)}`)
         .then(r => r.json())
         .then(agent => {
-          ws.send(JSON.stringify({ type: 'spawn', agent: agent.name, workdir: agent.workdir, model: agent.model || undefined }));
+          ws.send(JSON.stringify({
+            type: 'spawn', agent: agent.name, workdir: agent.workdir, runtime: agent.runtime ?? 'claude',
+            ...(agent.model && agent.runtime !== 'vibe' ? { model: agent.model } : {}),
+          }));
         })
         .catch(err => console.error('Restart failed:', err));
     });
@@ -330,22 +338,30 @@ document.getElementById('modal').addEventListener('click', (e) => {
     document.getElementById('modal').classList.add('hidden');
   }
 });
+document.getElementById('modal-runtime').addEventListener('change', e => {
+  const modelGroup = document.getElementById('modal-model-group');
+  modelGroup.style.display = e.target.value === 'vibe' ? 'none' : '';
+});
+
 document.getElementById('modal-spawn').addEventListener('click', () => {
   const name = document.getElementById('modal-name').value.trim();
   const workdir = document.getElementById('modal-workdir').value.trim();
   if (!name || !workdir) return;
   const model = document.getElementById('modal-model').value;
   const isolate = document.getElementById('modal-isolate').checked;
+  const runtime = document.getElementById('modal-runtime').value || 'claude';
   ws.send(JSON.stringify({
-    type: 'spawn', agent: name, workdir,
-    ...(model ? { model } : {}),
+    type: 'spawn', agent: name, workdir, runtime,
+    ...(model && runtime !== 'vibe' ? { model } : {}),
     ...(isolate ? { isolate: true } : {}),
   }));
-  ensurePanel({ name, mode: 'spawn', status: 'running', isolate });
+  ensurePanel({ name, mode: 'spawn', status: 'running', isolate, runtime });
   document.getElementById('modal').classList.add('hidden');
   document.getElementById('modal-name').value = '';
   document.getElementById('modal-workdir').value = '';
   document.getElementById('modal-isolate').checked = false;
+  document.getElementById('modal-runtime').value = 'claude';
+  document.getElementById('modal-model-group').style.display = '';
 });
 
 // Refresh button

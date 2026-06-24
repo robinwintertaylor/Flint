@@ -18,6 +18,7 @@ function resolveBin(name) {
 }
 
 const CLAUDE_BIN = resolveBin('claude');
+const VIBE_BIN   = resolveBin('vibe');
 
 const COST_REGEX = /Total cost:\s+\$?([\d.]+)/i;
 const MODEL_REGEX = /Model:\s+(\S+)/i;
@@ -53,10 +54,12 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
   // Inject project context into task file before spawning
   injectProjectContext(name);
 
-  const args = ['--dangerously-skip-permissions'];
-  if (model) args.push('--model', model);
+  const isVibe = agent.runtime === 'vibe';
+  const bin = isVibe ? VIBE_BIN : CLAUDE_BIN;
+  const args = isVibe ? [] : ['--dangerously-skip-permissions'];
+  if (!isVibe && model) args.push('--model', model);
 
-  const ptyProcess = pty.spawn(CLAUDE_BIN, args, {
+  const ptyProcess = pty.spawn(bin, args, {
     name: 'xterm-256color',
     cols: 220,
     rows: 50,
@@ -67,7 +70,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
   agent.ptyProcess = ptyProcess;
   setAgentStatus(name, 'running');
 
-  let lastModel = 'claude';
+  let lastModel = isVibe ? 'mistral' : 'claude';
   let lastCost = 0;
   const outputBuffer = [];
   let suggBuffer = '';

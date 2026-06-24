@@ -8,7 +8,7 @@ const DEFAULT_AGENTS_FILE = join(FLINT_ROOT, 'agents.json');
 
 let AGENTS_FILE = process.env.FLINT_AGENTS_FILE ?? DEFAULT_AGENTS_FILE;
 
-// name → { name, mode, status, workdir, logPath, ptyProcess, watcher, wsClients }
+// name → { name, mode, status, workdir, logPath, runtime, ptyProcess, watcher, wsClients }
 const registry = new Map();
 
 const globalWsClients = new Set();
@@ -33,6 +33,7 @@ export function initAgents(agentsFile) {
       registry.set(a.name, {
         ...a,
         model: a.model ?? '',
+        runtime: a.runtime ?? 'claude',
         status: 'stopped',
         ptyProcess: null,
         watcher: null,
@@ -45,16 +46,17 @@ export function initAgents(agentsFile) {
 }
 
 function save() {
-  const data = [...registry.values()].map(({ name, mode, workdir, logPath, model, status }) => ({
+  const data = [...registry.values()].map(({ name, mode, workdir, logPath, model, runtime, status }) => ({
     name, mode, workdir, logPath: logPath ?? null, model: model ?? '',
+    runtime: runtime ?? 'claude',
     status: status === 'running' ? 'stopped' : status,
   }));
   writeFileSync(AGENTS_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
-export function registerAgent(name, mode, workdir, logPath = null, model = '') {
+export function registerAgent(name, mode, workdir, logPath = null, model = '', runtime = 'claude') {
   const agent = {
-    name, mode, workdir, logPath, model: model ?? '',
+    name, mode, workdir, logPath, model: model ?? '', runtime: runtime ?? 'claude',
     status: 'stopped', ptyProcess: null, watcher: null, wsClients: new Set(),
   };
   registry.set(name, agent);
@@ -63,7 +65,7 @@ export function registerAgent(name, mode, workdir, logPath = null, model = '') {
 }
 
 export function listAgents() {
-  return [...registry.values()].map(({ name, mode, status, workdir, model }) => ({ name, mode, status, workdir, model: model ?? '' }));
+  return [...registry.values()].map(({ name, mode, status, workdir, model, runtime }) => ({ name, mode, status, workdir, model: model ?? '', runtime: runtime ?? 'claude' }));
 }
 
 export function getAgent(name) {

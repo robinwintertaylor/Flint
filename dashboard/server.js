@@ -98,8 +98,8 @@ export function createApp() {
   app.get('/agents/:name', (req, res) => {
     const agent = getAgent(req.params.name);
     if (!agent) return res.status(404).json({ error: 'not found' });
-    const { name, mode, status, workdir, model } = agent;
-    res.json({ name, mode, status, workdir, model: model ?? '' });
+    const { name, mode, status, workdir, model, runtime } = agent;
+    res.json({ name, mode, status, workdir, model: model ?? '', runtime: runtime ?? 'claude' });
   });
 
   app.get('/workspaces', (_req, res) => res.json(listWorkspaces()));
@@ -119,10 +119,10 @@ export function createApp() {
   });
 
   app.post('/agents/spawn', (req, res) => {
-    const { name, workdir } = req.body ?? {};
+    const { name, workdir, model, runtime } = req.body ?? {};
     if (!name || !workdir) return res.status(400).json({ error: 'name and workdir required' });
-    registerAgent(name, 'spawn', workdir);
-    if (!TEST_MODE) spawnAgent(name, workdir, null, { onWorktreePending: createPRForAgent });
+    registerAgent(name, 'spawn', workdir, null, model ?? '', runtime ?? 'claude');
+    if (!TEST_MODE) spawnAgent(name, workdir, model ?? null, { onWorktreePending: createPRForAgent });
     res.json({ ok: true, name });
   });
 
@@ -334,9 +334,9 @@ export function createApp() {
           break;
 
         case 'spawn': {
-          const { agent: name, workdir, model, isolate } = msg;
+          const { agent: name, workdir, model, isolate, runtime } = msg;
           if (!name || !workdir) break;
-          registerAgent(name, 'spawn', workdir, null, model);
+          registerAgent(name, 'spawn', workdir, null, model, runtime ?? 'claude');
           upsertAgentLog(name, { mode: 'spawn', workdir, status: 'running' });
           if (!TEST_MODE) {
             let spawnDir = workdir;
