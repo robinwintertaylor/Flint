@@ -42,45 +42,26 @@ function connect() {
       case 'worktree_pending': {
         const headerRight = document.getElementById(`header-right-${escHtml(msg.agent)}`);
         if (!headerRight) break;
-        // Hide kill button, show merge/discard
         headerRight.innerHTML = `
           <span class="panel-cost" id="cost-${escHtml(msg.agent)}">$0.00 today</span>
-          <button class="btn-merge" data-agent="${escHtml(msg.agent)}">Merge</button>
-          <button class="btn-discard" data-agent="${escHtml(msg.agent)}">Discard</button>
-          <span id="worktree-error-${escHtml(msg.agent)}" style="color:#f85149;font-size:11px"></span>
+          <span class="badge badge-pr-open" id="pr-badge-${escHtml(msg.agent)}">creating PR…</span>
         `;
-        headerRight.querySelector('.btn-merge').addEventListener('click', () => {
-          fetch(`/worktrees/${msg.agent}/merge`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-            .then(r => r.json())
-            .then(data => {
-              if (data.ok) {
-                restoreKillButton(msg.agent);
-                const badge = document.getElementById(`isolated-badge-${msg.agent}`);
-                if (badge) badge.remove();
-              } else {
-                const errEl = document.getElementById(`worktree-error-${msg.agent}`);
-                if (errEl) errEl.textContent = data.error ?? 'merge failed';
-              }
-            });
-        });
-        headerRight.querySelector('.btn-discard').addEventListener('click', () => {
-          if (!confirm(`Discard worktree for "${msg.agent}"? This cannot be undone.`)) return;
-          fetch(`/worktrees/${msg.agent}`, { method: 'DELETE' })
-            .then(r => r.json())
-            .then(data => {
-              if (data.ok) {
-                restoreKillButton(msg.agent);
-                const badge = document.getElementById(`isolated-badge-${msg.agent}`);
-                if (badge) badge.remove();
-              }
-            });
-        });
         break;
       }
 
-      case 'worktree_merged':
       case 'worktree_discarded':
         restoreKillButton(msg.agent);
+        break;
+
+      case 'worktree_pr':
+        showPRLink(msg.agent, msg.prUrl, msg.prNumber);
+        break;
+
+      case 'pr_status':
+        updatePRBadge(msg.agent, msg.status);
+        if (msg.status === 'merged' || msg.status === 'closed') {
+          restoreKillButton(msg.agent);
+        }
         break;
 
       case 'suggestion':
@@ -514,6 +495,23 @@ document.getElementById('btn-projects').addEventListener('click', () => {
     document.getElementById('btn-projects').textContent = '← Agents';
   }
 });
+
+function showPRLink(agentName, prUrl, prNumber) {
+  const headerRight = document.getElementById(`header-right-${escHtml(agentName)}`);
+  if (!headerRight) return;
+  headerRight.innerHTML = `
+    <span class="panel-cost" id="cost-${escHtml(agentName)}">$0.00 today</span>
+    <a class="btn-view-pr" href="${escHtml(prUrl)}" target="_blank" rel="noopener">View PR #${prNumber}</a>
+    <span class="badge badge-pr-open" id="pr-badge-${escHtml(agentName)}">open</span>
+  `;
+}
+
+function updatePRBadge(agentName, status) {
+  const badge = document.getElementById(`pr-badge-${escHtml(agentName)}`);
+  if (!badge) return;
+  badge.textContent = status;
+  badge.className = `badge badge-pr-${status}`;
+}
 
 function restoreKillButton(agentName) {
   const headerRight = document.getElementById(`header-right-${escHtml(agentName)}`);
