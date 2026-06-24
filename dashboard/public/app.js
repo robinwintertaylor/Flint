@@ -39,6 +39,15 @@ function connect() {
         updateAgentCost(msg.agent, msg.today);
         break;
 
+      case 'agent_removed': {
+        const panel = document.getElementById(`panel-${escHtml(msg.agent)}`);
+        if (panel) panel.remove();
+        delete terminals[msg.agent];
+        delete taskContent[msg.agent];
+        updateAgentCount();
+        break;
+      }
+
       case 'worktree_pending': {
         const headerRight = document.getElementById(`header-right-${escHtml(msg.agent)}`);
         if (!headerRight) break;
@@ -137,7 +146,11 @@ function ensurePanel({ name, mode, status, isolate }) {
   term.loadAddon(fitAddon);
   term.open(document.getElementById(`term-${name}`));
   fitAddon.fit();
+  term.focus();
   terminals[name] = { term, fitAddon };
+
+  // Re-focus terminal on click
+  document.getElementById(`term-${name}`)?.addEventListener('click', () => term.focus());
 
   // Keyboard input → server
   term.onData(data => {
@@ -174,6 +187,29 @@ function updateStatus(name, status) {
   if (!badge) return;
   badge.textContent = status;
   badge.className = `badge badge-${status}`;
+
+  const headerRight = document.getElementById(`header-right-${name}`);
+  if (!headerRight) return;
+  const existingKill = headerRight.querySelector('.btn-kill');
+  const existingRemove = headerRight.querySelector('.btn-remove');
+
+  if (status === 'stopped' && existingKill && !existingRemove) {
+    existingKill.textContent = 'Remove';
+    existingKill.className = 'btn-remove';
+    existingKill.replaceWith(existingKill.cloneNode(true)); // detach old listener
+    const removeBtn = headerRight.querySelector('.btn-remove');
+    removeBtn.addEventListener('click', () => {
+      fetch(`/agents/${encodeURIComponent(name)}`, { method: 'DELETE' }).catch(() => {});
+    });
+  } else if (status === 'running' && existingRemove) {
+    existingRemove.textContent = 'Kill';
+    existingRemove.className = 'btn-kill';
+    existingRemove.replaceWith(existingRemove.cloneNode(true));
+    const killBtn = headerRight.querySelector('.btn-kill');
+    killBtn.addEventListener('click', () => {
+      ws.send(JSON.stringify({ type: 'kill', agent: name }));
+    });
+  }
 }
 
 function updateAgentCost(name, today) {
@@ -251,6 +287,10 @@ function fetchCosts() {
 document.getElementById('btn-new-agent').addEventListener('click', () => {
   document.getElementById('modal').classList.remove('hidden');
   document.getElementById('modal-name').focus();
+  const wdInput = document.getElementById('modal-workdir');
+  if (!wdInput.value) {
+    fetch('/config').then(r => r.json()).then(cfg => { wdInput.value = cfg.defaultWorkdir; }).catch(() => {});
+  }
 });
 document.getElementById('modal-cancel').addEventListener('click', () => {
   document.getElementById('modal').classList.add('hidden');

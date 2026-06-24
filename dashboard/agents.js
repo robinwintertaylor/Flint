@@ -109,3 +109,13 @@ export function killAgent(name) {
   setAgentStatus(name, 'stopped');
   return true;
 }
+
+export function removeAgent(name) {
+  const agent = registry.get(name);
+  if (!agent) return false;
+  killAgent(name);
+  registry.delete(name);
+  save();
+  broadcastGlobal({ type: 'agent_removed', agent: name });
+  return true;
+}

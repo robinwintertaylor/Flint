@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 import { initDb, getTodayCost, getMonthCost, closeDb, upsertAgentLog, setAgentWorktree, getAgentWorktree, setAgentPR, clearAgentPR, getAgentPR, listOpenPRAgents, clearAgentWorktree } from './db.js';
-import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, broadcastToAgent, addGlobalWsClient, removeGlobalWsClient } from './agents.js';
+import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, removeAgent, broadcastToAgent, addGlobalWsClient, removeGlobalWsClient } from './agents.js';
 import { listSuggestions, updateSuggestion } from './suggestions.js';
 import { listWorktrees, createWorktree, discardWorktree } from './worktrees.js';
 import { spawnAgent, writeToAgent, observeLogFile } from './terminal.js';
@@ -69,6 +69,10 @@ export function createApp() {
 
   // --- REST routes ---
 
+  app.get('/config', (_req, res) => {
+    res.json({ defaultWorkdir: process.cwd() });
+  });
+
   app.get('/agents', (_req, res) => {
     res.json(listAgents());
   });
@@ -94,7 +98,7 @@ export function createApp() {
   });
 
   app.delete('/agents/:name', (req, res) => {
-    res.json({ ok: killAgent(req.params.name) });
+    res.json({ ok: removeAgent(req.params.name) });
   });
 
   app.get('/tasks/:agent', (req, res) => {

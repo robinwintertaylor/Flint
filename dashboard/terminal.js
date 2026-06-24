@@ -1,10 +1,23 @@
 import pty from 'node-pty';
 import { watch, existsSync, writeFileSync, statSync, openSync, readSync, closeSync } from 'fs';
+import { execSync } from 'child_process';
+import { platform } from 'os';
 import { getAgent, setAgentStatus, broadcastToAgent, broadcastGlobal } from './agents.js';
 import { writeUsage, getAgentWorktree } from './db.js';
 import { createSuggestion } from './suggestions.js';
 import { readTasks, writeTasks } from './tasks.js';
 import { getProjectForAgent, updateProject } from './projects.js';
+
+function resolveBin(name) {
+  try {
+    const cmd = platform() === 'win32' ? `where ${name}` : `which ${name}`;
+    return execSync(cmd, { encoding: 'utf8' }).trim().split('\n')[0].trim();
+  } catch {
+    return name;
+  }
+}
+
+const CLAUDE_BIN = resolveBin('claude');
 
 const COST_REGEX = /Total cost:\s+\$?([\d.]+)/i;
 const MODEL_REGEX = /Model:\s+(\S+)/i;
@@ -41,7 +54,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
   const args = ['--dangerously-skip-permissions'];
   if (model) args.push('--model', model);
 
-  const ptyProcess = pty.spawn('claude', args, {
+  const ptyProcess = pty.spawn(CLAUDE_BIN, args, {
     name: 'xterm-256color',
     cols: 220,
     rows: 50,
