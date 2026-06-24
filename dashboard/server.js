@@ -7,7 +7,7 @@ import { dirname, join } from 'path';
 import { initDb, getTodayCost, getMonthCost, closeDb, upsertAgentLog, setAgentWorktree, getAgentWorktree } from './db.js';
 import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, broadcastToAgent, addGlobalWsClient, removeGlobalWsClient } from './agents.js';
 import { listSuggestions, updateSuggestion } from './suggestions.js';
-import { listWorktrees, createWorktree, mergeWorktree, discardWorktree } from './worktrees.js';
+import { listWorktrees, createWorktree, discardWorktree } from './worktrees.js';
 import { spawnAgent, writeToAgent, observeLogFile } from './terminal.js';
 import { readTasks, writeTasks, appendTask } from './tasks.js';
 import {
@@ -191,15 +191,8 @@ export function createApp() {
     res.json(listWorktrees());
   });
 
-  app.post('/worktrees/:agent/merge', (req, res) => {
-    try {
-      mergeWorktree(req.params.agent);
-      broadcastToAgent(req.params.agent, { type: 'worktree_merged', agent: req.params.agent });
-      res.json({ ok: true });
-    } catch (err) {
-      if (err.message.includes('No worktree')) return res.status(404).json({ error: err.message });
-      res.status(400).json({ error: `merge conflict: ${err.message}` });
-    }
+  app.post('/worktrees/:agent/merge', (_req, res) => {
+    res.status(404).json({ error: 'Direct merge removed — use PR workflow' });
   });
 
   app.delete('/worktrees/:agent', (req, res) => {

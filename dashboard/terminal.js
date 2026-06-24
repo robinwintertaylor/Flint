@@ -30,7 +30,7 @@ export function injectProjectContext(agentName) {
   writeTasks(agentName, block + '\n' + cleaned);
 }
 
-export function spawnAgent(name, workdir, model) {
+export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
   const agent = getAgent(name);
   if (!agent) throw new Error(`Agent "${name}" not registered`);
   if (agent.ptyProcess) throw new Error(`Agent "${name}" already has a running process`);
@@ -94,10 +94,11 @@ export function spawnAgent(name, workdir, model) {
       updateProject(project.id, { last_summary: outputBuffer.join('\n') });
     }
 
-    // Notify UI if agent had an isolated worktree
+    // Notify UI and trigger PR creation if agent had an isolated worktree
     const worktree = getAgentWorktree(name);
     if (worktree?.worktree_branch) {
       broadcastToAgent(name, { type: 'worktree_pending', agent: name, branch: worktree.worktree_branch });
+      onWorktreePending?.(name, worktree.worktree_branch);
     }
 
     agent.ptyProcess = null;

@@ -1,7 +1,7 @@
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { getDb, clearAgentWorktree } from './db.js';
+import { getDb, clearAgentWorktree, clearAgentPR } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -22,20 +22,9 @@ export function createWorktree(agentName) {
 
 export function listWorktrees() {
   return getDb().prepare(
-    `SELECT name, worktree_path, worktree_branch, status
+    `SELECT name, worktree_path, worktree_branch, status, pr_number, pr_url, pr_status
      FROM agents_log WHERE worktree_path IS NOT NULL`
   ).all();
-}
-
-export function mergeWorktree(agentName) {
-  const row = getDb().prepare(
-    `SELECT worktree_path, worktree_branch FROM agents_log WHERE name = ?`
-  ).get(agentName);
-  if (!row?.worktree_branch) throw new Error(`No worktree for agent: ${agentName}`);
-  execSync(`git merge "${row.worktree_branch}"`, { cwd: FLINT_ROOT });
-  execSync(`git worktree remove --force "${row.worktree_path}"`, { cwd: FLINT_ROOT });
-  execSync(`git branch -d "${row.worktree_branch}"`, { cwd: FLINT_ROOT });
-  clearAgentWorktree(agentName);
 }
 
 export function discardWorktree(agentName) {
@@ -46,4 +35,5 @@ export function discardWorktree(agentName) {
   execSync(`git worktree remove --force "${row.worktree_path}"`, { cwd: FLINT_ROOT });
   execSync(`git branch -D "${row.worktree_branch}"`, { cwd: FLINT_ROOT });
   clearAgentWorktree(agentName);
+  clearAgentPR(agentName);
 }
