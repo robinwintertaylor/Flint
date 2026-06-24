@@ -89,3 +89,29 @@ test('cleanup DB', () => {
   delete process.env.FLINT_DB_PATH;
   assert.ok(true);
 });
+
+// ─── forgejo.js stub tests (TEST_MODE) ───────────────────────────────────────
+
+process.env.FLINT_TEST_MODE = '1';
+
+const { isForgejoReachable, pushBranch, createPR, getPRStatus } = await import('../forgejo.js');
+
+test('isForgejoReachable returns true in TEST_MODE', async () => {
+  const result = await isForgejoReachable();
+  assert.equal(result, true);
+});
+
+test('pushBranch is a no-op in TEST_MODE', () => {
+  assert.doesNotThrow(() => pushBranch('improve/test-agent-20260624-120000'));
+});
+
+test('createPR returns stub in TEST_MODE', async () => {
+  const result = await createPR('improve/test-20260624', 'test-agent');
+  assert.equal(typeof result.prNumber, 'number');
+  assert.ok(result.prUrl.includes('pulls'));
+});
+
+test('getPRStatus returns open in TEST_MODE', async () => {
+  const status = await getPRStatus(1);
+  assert.equal(status, 'open');
+});
