@@ -2,7 +2,7 @@ import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { mkdirSync, writeFileSync } from 'fs';
+import { mkdirSync } from 'fs';
 
 // Set tasks dir before importing modules that read it at startup
 const TEMP_TASKS = join(tmpdir(), `flint-queue-test-${Date.now()}`);

@@ -4,14 +4,17 @@ import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
-const TASKS_DIR = process.env.FLINT_TASKS_DIR ?? join(FLINT_ROOT, 'tasks');
+
+function getTasksDir() {
+  return process.env.FLINT_TASKS_DIR ?? join(FLINT_ROOT, 'tasks');
+}
 
 function ensureDir() {
-  if (!existsSync(TASKS_DIR)) mkdirSync(TASKS_DIR, { recursive: true });
+  if (!existsSync(getTasksDir())) mkdirSync(getTasksDir(), { recursive: true });
 }
 
 export function taskPath(agentName) {
-  return join(TASKS_DIR, `${agentName}.md`);
+  return join(getTasksDir(), `${agentName}.md`);
 }
 
 export function readTasks(agentName) {
