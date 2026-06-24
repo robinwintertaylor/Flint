@@ -78,6 +78,14 @@ export function initDb(dbPath = DEFAULT_DB) {
       created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS orchestrations (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      goal       TEXT NOT NULL,
+      agent_name TEXT NOT NULL,
+      project_id INTEGER REFERENCES projects(id),
+      status     TEXT NOT NULL DEFAULT 'running',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
