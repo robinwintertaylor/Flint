@@ -64,6 +64,20 @@ export function initDb(dbPath = DEFAULT_DB) {
       enabled    INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS task_queue (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      title       TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      project_id  INTEGER REFERENCES projects(id),
+      assigned_to TEXT,
+      role        TEXT,
+      priority    INTEGER NOT NULL DEFAULT 0,
+      status      TEXT NOT NULL DEFAULT 'pending',
+      result      TEXT NOT NULL DEFAULT '',
+      created_by  TEXT NOT NULL DEFAULT 'human',
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
