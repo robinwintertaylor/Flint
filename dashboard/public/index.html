@@ -25,11 +25,13 @@
     <button id="btn-refresh">↻ Refresh</button>
     <button id="btn-workspaces">⚙ Workspaces</button>
     <button id="btn-mcp">⚡ MCP</button>
+    <button id="btn-queue">⬡ Queue</button>
   </div>
 
   <div id="suggestions-strip" class="hidden"></div>
   <div id="panels"></div>
   <div id="project-view" class="hidden"></div>
+  <div id="queue-view" class="hidden"></div>
   <div id="proj-toolbar" style="display:none"></div>
 
   <div id="modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -156,6 +158,34 @@
           <option value="global">Global (all agents)</option>
         </select>
         <button id="mcp-add-btn" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:13px">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Task modal -->
+  <div id="add-task-modal" class="hidden" role="dialog" aria-modal="true">
+    <div class="modal-box" style="max-width:480px">
+      <h2>Add Task to Queue</h2>
+      <label>Title (required)<input id="add-task-title" type="text" placeholder="Research OAuth2 patterns" autocomplete="off"></label>
+      <label>Description<textarea id="add-task-desc" rows="3" placeholder="Optional detail…" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:8px;font-family:inherit;resize:vertical"></textarea></label>
+      <label>Assign to agent
+        <select id="add-task-agent">
+          <option value="">Leave unassigned</option>
+        </select>
+      </label>
+      <label>Role
+        <select id="add-task-role">
+          <option value="">None</option>
+          <option value="researcher">Researcher</option>
+          <option value="planner">Planner</option>
+          <option value="builder">Builder</option>
+          <option value="tester">Tester</option>
+        </select>
+      </label>
+      <label>Priority <input id="add-task-priority" type="number" value="0" min="0" style="width:80px"></label>
+      <div class="modal-actions">
+        <button id="add-task-cancel">Cancel</button>
+        <button id="add-task-submit" style="background:#1f6feb;color:#fff;border:none">Add Task</button>
       </div>
     </div>
   </div>

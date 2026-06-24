@@ -96,6 +96,12 @@ function connect() {
         renderSuggestionCard(msg.suggestion);
         showSuggestionsStrip();
         break;
+
+      case 'queue_task_added':
+      case 'queue_task_assigned':
+      case 'queue_task_done':
+        if (currentView === 'queue') fetchAndRenderQueue(queueFilter);
+        break;
     }
   });
 
@@ -412,16 +418,23 @@ function showView(view) {
   const toolbar   = document.getElementById('toolbar');
   const projView  = document.getElementById('project-view');
   const projBar   = document.getElementById('proj-toolbar');
+  const queueView = document.getElementById('queue-view');
   if (view === 'projects') {
     panels.style.display   = 'none';
     toolbar.style.display  = 'none';
-    projView.classList.remove('hidden');
+    projView.classList.remove('hidden'); queueView.classList.add('hidden');
     if (projBar) projBar.style.display = 'flex';
     fetchProjects();
+  } else if (view === 'queue') {
+    panels.style.display   = 'none';
+    toolbar.style.display  = 'none';
+    projView.classList.add('hidden'); queueView.classList.remove('hidden');
+    if (projBar) projBar.style.display = 'none';
+    fetchAndRenderQueue();
   } else {
     panels.style.display   = '';
     toolbar.style.display  = '';
-    projView.classList.add('hidden');
+    projView.classList.add('hidden'); queueView.classList.add('hidden');
     if (projBar) projBar.style.display = 'none';
   }
 }
@@ -870,6 +883,161 @@ document.getElementById('mcp-add-btn').addEventListener('click', async () => {
   document.getElementById('mcp-add-args').value = '';
   document.getElementById('mcp-add-env').value = '';
   renderMcpList();
+});
+
+// ============================================================
+// Task Queue tab
+// ============================================================
+
+let queueFilter = 'all';
+
+document.getElementById('btn-queue').addEventListener('click', () => showView('queue'));
+
+async function fetchAndRenderQueue(statusFilter = queueFilter) {
+  const url = statusFilter === 'all' ? '/queue/tasks' : `/queue/tasks?status=${statusFilter}`;
+  const tasks = await fetch(url).then(r => r.json()).catch(() => []);
+  const agents = await fetch('/agents').then(r => r.json()).catch(() => []);
+  renderQueueView(tasks, agents, statusFilter);
+}
+
+function relativeTime(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function renderQueueView(tasks, agents, activeFilter) {
+  const view = document.getElementById('queue-view');
+  const roleChip = r => r ? `<span class="role-chip role-${escHtml(r)}">${escHtml(r)}</span>` : '';
+  const statusBadge = s => `<span class="badge badge-queue-${escHtml(s)}">${escHtml(s.replace('_', ' '))}</span>`;
+  const agentCell = t => t.assigned_to
+    ? escHtml(t.assigned_to)
+    : `<span style="color:#d29922">unassigned</span>`;
+
+  view.innerHTML = `
+    <div class="queue-header">
+      <h3 style="margin:0;font-size:15px">Task Queue</h3>
+      <button id="btn-add-task" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px">+ Add Task</button>
+    </div>
+    <div class="queue-filters">
+      ${['all','pending','in_progress','done','cancelled'].map(f =>
+        `<button class="filter-pill${activeFilter === f ? ' active' : ''}" data-filter="${escHtml(f)}">${escHtml(f === 'in_progress' ? 'in progress' : f)}</button>`
+      ).join('')}
+    </div>
+    ${tasks.length === 0
+      ? `<p style="color:#8b949e;text-align:center;padding:40px">No tasks${activeFilter !== 'all' ? ` with status "${escHtml(activeFilter)}"` : ''}.</p>`
+      : `<table class="queue-table">
+          <thead><tr>
+            <th>Status</th><th>Title</th><th>Role</th><th>Agent</th><th>Pri</th><th>Created</th><th></th>
+          </tr></thead>
+          <tbody>${tasks.map(t => `
+            <tr class="queue-row${!t.assigned_to ? ' queue-row-unassigned' : ''}" data-task-id="${escHtml(String(t.id))}">
+              <td>${statusBadge(t.status)}</td>
+              <td style="cursor:pointer" class="queue-title-cell" data-expand="${escHtml(String(t.id))}">${escHtml(t.title)}</td>
+              <td>${roleChip(t.role)}</td>
+              <td>${agentCell(t)}</td>
+              <td style="color:#8b949e">${escHtml(String(t.priority))}</td>
+              <td style="color:#8b949e;white-space:nowrap">${escHtml(relativeTime(t.created_at))}</td>
+              <td style="white-space:nowrap">
+                ${!t.assigned_to && t.status === 'pending' ? `<button class="btn-assign-task" data-id="${escHtml(String(t.id))}" style="font-size:11px;padding:2px 7px;border-radius:4px;border:1px solid #388bfd;background:none;color:#388bfd;cursor:pointer">Assign</button>` : ''}
+                ${['pending','in_progress'].includes(t.status) ? `<button class="btn-cancel-task" data-id="${escHtml(String(t.id))}" style="font-size:11px;padding:2px 7px;border-radius:4px;border:1px solid #f8514966;background:none;color:#f85149;cursor:pointer;margin-left:4px">Cancel</button>` : ''}
+              </td>
+            </tr>
+            <tr class="queue-expand" id="expand-${escHtml(String(t.id))}"><td colspan="7">
+              ${t.description ? `<strong>Description:</strong> ${escHtml(t.description)}\n` : ''}
+              ${t.result ? `<strong>Result:</strong> ${escHtml(t.result)}` : '(no result yet)'}
+            </td></tr>
+          `).join('')}</tbody>
+        </table>`
+    }
+  `;
+
+  // Filter pills
+  view.querySelectorAll('.filter-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      queueFilter = btn.dataset.filter;
+      fetchAndRenderQueue(queueFilter);
+    });
+  });
+
+  // Expand rows
+  view.querySelectorAll('.queue-title-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const row = document.getElementById(`expand-${cell.dataset.expand}`);
+      row?.classList.toggle('open');
+    });
+  });
+
+  // Cancel buttons
+  view.querySelectorAll('.btn-cancel-task').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`/queue/tasks/${btn.dataset.id}`, { method: 'DELETE' });
+      fetchAndRenderQueue(queueFilter);
+    });
+  });
+
+  // Assign buttons — open add-task modal pre-filled
+  view.querySelectorAll('.btn-assign-task').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openAddTaskModal(agents, Number(btn.dataset.id));
+    });
+  });
+
+  // Add Task button
+  document.getElementById('btn-add-task').addEventListener('click', () => openAddTaskModal(agents));
+}
+
+function openAddTaskModal(agents, preAssignTaskId = null) {
+  const modal = document.getElementById('add-task-modal');
+  const agentSel = document.getElementById('add-task-agent');
+  agentSel.innerHTML = '<option value="">Leave unassigned</option>';
+  agents.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.name; opt.textContent = a.name;
+    agentSel.appendChild(opt);
+  });
+  modal.classList.remove('hidden');
+  modal.dataset.preAssignId = preAssignTaskId ?? '';
+  document.getElementById('add-task-title').focus();
+}
+
+document.getElementById('add-task-cancel').addEventListener('click', () =>
+  document.getElementById('add-task-modal').classList.add('hidden'));
+document.getElementById('add-task-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('add-task-modal'))
+    document.getElementById('add-task-modal').classList.add('hidden');
+});
+
+document.getElementById('add-task-submit').addEventListener('click', async () => {
+  const title = document.getElementById('add-task-title').value.trim();
+  if (!title) return;
+  const description = document.getElementById('add-task-desc').value.trim();
+  const assigned_to = document.getElementById('add-task-agent').value || undefined;
+  const role        = document.getElementById('add-task-role').value || undefined;
+  const priority    = Number(document.getElementById('add-task-priority').value) || 0;
+  const modal       = document.getElementById('add-task-modal');
+  const preId       = modal.dataset.preAssignId;
+
+  if (preId && assigned_to) {
+    // Assign existing task to agent
+    await fetch(`/queue/tasks/${preId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assigned_to }),
+    });
+  } else {
+    await fetch('/queue/tasks', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, description, assigned_to, role, priority, created_by: 'human' }),
+    });
+  }
+  modal.classList.add('hidden');
+  document.getElementById('add-task-title').value = '';
+  document.getElementById('add-task-desc').value = '';
+  fetchAndRenderQueue(queueFilter);
 });
 
 connect();
