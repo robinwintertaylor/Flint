@@ -51,6 +51,9 @@ export function initDb(dbPath = DEFAULT_DB) {
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
+  try { _db.exec('ALTER TABLE agents_log ADD COLUMN pr_number INTEGER'); } catch {}
+  try { _db.exec('ALTER TABLE agents_log ADD COLUMN pr_url TEXT'); } catch {}
+  try { _db.exec('ALTER TABLE agents_log ADD COLUMN pr_status TEXT'); } catch {}
   return _db;
 }
 
@@ -118,6 +121,30 @@ export function getAgentWorktree(name) {
   return getDb().prepare(
     `SELECT worktree_path, worktree_branch FROM agents_log WHERE name = ?`
   ).get(name);
+}
+
+export function setAgentPR(name, prNumber, prUrl, status) {
+  getDb().prepare(
+    `UPDATE agents_log SET pr_number = ?, pr_url = ?, pr_status = ? WHERE name = ?`
+  ).run(prNumber, prUrl, status, name);
+}
+
+export function clearAgentPR(name) {
+  getDb().prepare(
+    `UPDATE agents_log SET pr_number = NULL, pr_url = NULL, pr_status = NULL WHERE name = ?`
+  ).run(name);
+}
+
+export function getAgentPR(name) {
+  return getDb().prepare(
+    `SELECT pr_number, pr_url, pr_status FROM agents_log WHERE name = ?`
+  ).get(name);
+}
+
+export function listOpenPRAgents() {
+  return getDb().prepare(
+    `SELECT name, pr_number FROM agents_log WHERE pr_status = 'open'`
+  ).all();
 }
 
 export function getDb() {

@@ -40,3 +40,52 @@ test('logger.error writes JSON line with level error', () => {
   assert.equal(parsed.level, 'error');
   assert.equal(parsed.err, 'details');
 });
+
+// ─── DB PR column tests ───────────────────────────────────────────────────────
+
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { rmSync } from 'node:fs';
+
+const TMP_DB = join(tmpdir(), `flint-sp6-db-${Date.now()}.sqlite`);
+process.env.FLINT_DB_PATH = TMP_DB;
+
+const { initDb, closeDb, upsertAgentLog, setAgentPR, clearAgentPR, getAgentPR, listOpenPRAgents } = await import('../db.js');
+
+initDb(TMP_DB);
+
+test('setAgentPR stores PR data on agents_log', () => {
+  upsertAgentLog('pr-agent', { mode: 'spawn', workdir: '/tmp', status: 'stopped' });
+  setAgentPR('pr-agent', 42, 'http://localhost:3030/robin/flint/pulls/42', 'open');
+  const row = getAgentPR('pr-agent');
+  assert.equal(row.pr_number, 42);
+  assert.equal(row.pr_url, 'http://localhost:3030/robin/flint/pulls/42');
+  assert.equal(row.pr_status, 'open');
+});
+
+test('clearAgentPR sets PR columns to NULL', () => {
+  upsertAgentLog('clear-pr-agent', { mode: 'spawn', workdir: '/tmp', status: 'stopped' });
+  setAgentPR('clear-pr-agent', 7, 'http://localhost:3030/robin/flint/pulls/7', 'open');
+  clearAgentPR('clear-pr-agent');
+  const row = getAgentPR('clear-pr-agent');
+  assert.ok(!row?.pr_number, 'pr_number should be null');
+});
+
+test('listOpenPRAgents returns only rows with pr_status open', () => {
+  upsertAgentLog('open-pr', { mode: 'spawn', workdir: '/tmp', status: 'stopped' });
+  upsertAgentLog('merged-pr', { mode: 'spawn', workdir: '/tmp', status: 'stopped' });
+  upsertAgentLog('no-pr', { mode: 'spawn', workdir: '/tmp', status: 'stopped' });
+  setAgentPR('open-pr', 1, 'http://localhost:3030/robin/flint/pulls/1', 'open');
+  setAgentPR('merged-pr', 2, 'http://localhost:3030/robin/flint/pulls/2', 'merged');
+  const list = listOpenPRAgents();
+  assert.ok(list.some(r => r.name === 'open-pr'), 'open-pr should appear');
+  assert.ok(!list.some(r => r.name === 'merged-pr'), 'merged-pr should not appear');
+  assert.ok(!list.some(r => r.name === 'no-pr'), 'no-pr should not appear');
+});
+
+test('cleanup DB', () => {
+  closeDb();
+  rmSync(TMP_DB, { force: true });
+  delete process.env.FLINT_DB_PATH;
+  assert.ok(true);
+});
