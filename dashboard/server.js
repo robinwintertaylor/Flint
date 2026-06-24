@@ -16,6 +16,7 @@ import { isForgejoReachable, pushBranch, createPR, getPRStatus } from './forgejo
 import { info, error as logError } from './logger.js';
 import { listMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from './mcp.js';
 import { listQueueTasks, getQueueTask, createQueueTask, assignQueueTask, updateQueueTask, completeQueueTask, cancelQueueTask, startQueuePoller } from './queue.js';
+import { createOrchestration, getOrchestration, listOrchestrations, appendScratchpad, readScratchpad } from './orchestrator.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -368,6 +369,42 @@ export function createApp() {
       if (err.message.includes('No worktree')) return res.status(404).json({ error: err.message });
       res.status(500).json({ error: err.message });
     }
+  });
+
+  // --- Orchestration routes ---
+
+  app.get('/orchestrations', (_req, res) => res.json(listOrchestrations()));
+
+  app.get('/orchestrations/:id', (req, res) => {
+    const orch = getOrchestration(Number(req.params.id));
+    if (!orch) return res.status(404).json({ error: 'orchestration not found' });
+    res.json(orch);
+  });
+
+  app.post('/orchestrations', (req, res) => {
+    const { goal, workdir, model, project_id } = req.body ?? {};
+    if (!goal || !workdir) return res.status(400).json({ error: 'goal and workdir required' });
+    try {
+      const result = createOrchestration({ goal, workdir, model, projectId: project_id });
+      res.status(201).json({ ...result, goal, status: 'running' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/orchestrations/:id/scratchpad', (req, res) => {
+    const orch = getOrchestration(Number(req.params.id));
+    if (!orch) return res.status(404).json({ error: 'orchestration not found' });
+    res.json({ content: readScratchpad(Number(req.params.id)) });
+  });
+
+  app.post('/orchestrations/:id/scratchpad', (req, res) => {
+    const orch = getOrchestration(Number(req.params.id));
+    if (!orch) return res.status(404).json({ error: 'orchestration not found' });
+    const { content } = req.body ?? {};
+    if (typeof content !== 'string') return res.status(400).json({ error: 'content required' });
+    appendScratchpad(Number(req.params.id), content);
+    res.json({ ok: true });
   });
 
   // --- WebSocket ---

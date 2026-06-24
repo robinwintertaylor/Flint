@@ -192,3 +192,57 @@ test('GET /queue/tasks?status=pending filters correctly', async () => {
   const list = await r.json();
   assert.ok(list.every(task => task.status === 'pending'), 'all returned tasks should be pending');
 });
+
+test('GET /orchestrations returns empty array initially', async () => {
+  const r = await req('GET', '/orchestrations');
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), []);
+});
+
+test('POST /orchestrations creates orchestration and spawns agent (test mode skips spawn)', async () => {
+  const r = await req('POST', '/orchestrations', {
+    goal: 'Build a simple CLI tool',
+    workdir: process.cwd(),
+  });
+  assert.equal(r.status, 201);
+  const body = await r.json();
+  assert.ok(body.id, 'id missing');
+  assert.ok(body.agentName.startsWith('orch-'), 'agentName should start with orch-');
+  assert.equal(body.goal, 'Build a simple CLI tool');
+});
+
+test('POST /orchestrations with missing goal returns 400', async () => {
+  const r = await req('POST', '/orchestrations', { workdir: process.cwd() });
+  assert.equal(r.status, 400);
+});
+
+test('GET /orchestrations/:id returns the orchestration', async () => {
+  const created = await req('POST', '/orchestrations', {
+    goal: 'Fetch test goal', workdir: process.cwd(),
+  }).then(r => r.json());
+  const r = await req('GET', `/orchestrations/${created.id}`);
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.goal, 'Fetch test goal');
+});
+
+test('GET /orchestrations/:id/scratchpad returns scratchpad content', async () => {
+  const created = await req('POST', '/orchestrations', {
+    goal: 'Scratchpad test', workdir: process.cwd(),
+  }).then(r => r.json());
+  const r = await req('GET', `/orchestrations/${created.id}/scratchpad`);
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.ok(typeof body.content === 'string', 'content should be a string');
+  assert.ok(body.content.includes('Scratchpad test'), 'scratchpad should contain goal');
+});
+
+test('POST /orchestrations/:id/scratchpad appends content', async () => {
+  const created = await req('POST', '/orchestrations', {
+    goal: 'Append test', workdir: process.cwd(),
+  }).then(r => r.json());
+  await req('POST', `/orchestrations/${created.id}/scratchpad`, { content: '\nAppended line.\n' });
+  const r = await req('GET', `/orchestrations/${created.id}/scratchpad`);
+  const body = await r.json();
+  assert.ok(body.content.includes('Appended line.'));
+});
