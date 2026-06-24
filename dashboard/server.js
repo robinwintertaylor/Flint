@@ -395,15 +395,15 @@ export function createApp() {
   app.get('/orchestrations/:id/scratchpad', (req, res) => {
     const orch = getOrchestration(Number(req.params.id));
     if (!orch) return res.status(404).json({ error: 'orchestration not found' });
-    res.json({ content: readScratchpad(Number(req.params.id)) });
+    res.type('text/plain').send(readScratchpad(Number(req.params.id)));
   });
 
   app.post('/orchestrations/:id/scratchpad', (req, res) => {
     const orch = getOrchestration(Number(req.params.id));
     if (!orch) return res.status(404).json({ error: 'orchestration not found' });
-    const { content } = req.body ?? {};
-    if (typeof content !== 'string') return res.status(400).json({ error: 'content required' });
-    appendScratchpad(Number(req.params.id), content);
+    const { text } = req.body ?? {};
+    if (typeof text !== 'string') return res.status(400).json({ error: 'text required' });
+    appendScratchpad(Number(req.params.id), text);
     res.json({ ok: true });
   });
 

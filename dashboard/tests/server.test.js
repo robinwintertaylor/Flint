@@ -232,17 +232,18 @@ test('GET /orchestrations/:id/scratchpad returns scratchpad content', async () =
   }).then(r => r.json());
   const r = await req('GET', `/orchestrations/${created.id}/scratchpad`);
   assert.equal(r.status, 200);
-  const body = await r.json();
-  assert.ok(typeof body.content === 'string', 'content should be a string');
-  assert.ok(body.content.includes('Scratchpad test'), 'scratchpad should contain goal');
+  assert.ok(r.headers.get('content-type').includes('text/plain'), 'content-type should be text/plain');
+  const text = await r.text();
+  assert.ok(typeof text === 'string', 'response should be a string');
+  assert.ok(text.includes('Scratchpad test'), 'scratchpad should contain goal');
 });
 
 test('POST /orchestrations/:id/scratchpad appends content', async () => {
   const created = await req('POST', '/orchestrations', {
     goal: 'Append test', workdir: process.cwd(),
   }).then(r => r.json());
-  await req('POST', `/orchestrations/${created.id}/scratchpad`, { content: '\nAppended line.\n' });
+  await req('POST', `/orchestrations/${created.id}/scratchpad`, { text: '\nAppended line.\n' });
   const r = await req('GET', `/orchestrations/${created.id}/scratchpad`);
-  const body = await r.json();
-  assert.ok(body.content.includes('Appended line.'));
+  const text = await r.text();
+  assert.ok(text.includes('Appended line.'));
 });
