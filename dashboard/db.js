@@ -48,6 +48,12 @@ export function initDb(dbPath = DEFAULT_DB) {
       status      TEXT NOT NULL DEFAULT 'new',
       created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS workspaces (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT NOT NULL,
+      path       TEXT NOT NULL UNIQUE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
@@ -145,6 +151,18 @@ export function listOpenPRAgents() {
   return getDb().prepare(
     `SELECT name, pr_number FROM agents_log WHERE pr_status = 'open'`
   ).all();
+}
+
+export function listWorkspaces() {
+  return getDb().prepare('SELECT id, name, path, created_at FROM workspaces ORDER BY name').all();
+}
+
+export function addWorkspace(name, path) {
+  return getDb().prepare('INSERT INTO workspaces (name, path) VALUES (?, ?)').run(name, path);
+}
+
+export function removeWorkspace(id) {
+  return getDb().prepare('DELETE FROM workspaces WHERE id = ?').run(id);
 }
 
 export function getDb() {

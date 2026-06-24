@@ -62,6 +62,12 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   font-size: 11px; cursor: pointer;
 }
 .btn-diff:hover { background: #388bfd22; }
+.btn-restart {
+  background: transparent; border: 1px solid #3fb95066;
+  color: #3fb950; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; cursor: pointer;
+}
+.btn-restart:hover { background: #3fb95022; }
 
 /* Panel body */
 .panel-body { display: flex; flex: 1; min-height: 0; }

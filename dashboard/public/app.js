@@ -194,11 +194,22 @@ function updateStatus(name, status) {
   const existingRemove = headerRight.querySelector('.btn-remove');
 
   if (status === 'stopped' && existingKill && !existingRemove) {
-    existingKill.textContent = 'Remove';
-    existingKill.className = 'btn-remove';
-    existingKill.replaceWith(existingKill.cloneNode(true)); // detach old listener
-    const removeBtn = headerRight.querySelector('.btn-remove');
-    removeBtn.addEventListener('click', () => {
+    // Replace Kill with Restart + Remove
+    const cost = headerRight.querySelector('.panel-cost')?.outerHTML ?? `<span class="panel-cost" id="cost-${name}">$0.00 today</span>`;
+    headerRight.innerHTML = `
+      ${cost}
+      <button class="btn-restart" id="restart-${name}">Restart</button>
+      <button class="btn-remove" id="remove-${name}">Remove</button>
+    `;
+    document.getElementById(`restart-${name}`)?.addEventListener('click', () => {
+      fetch(`/agents/${encodeURIComponent(name)}`)
+        .then(r => r.json())
+        .then(agent => {
+          ws.send(JSON.stringify({ type: 'spawn', agent: agent.name, workdir: agent.workdir, model: agent.model || undefined }));
+        })
+        .catch(err => console.error('Restart failed:', err));
+    });
+    document.getElementById(`remove-${name}`)?.addEventListener('click', () => {
       fetch(`/agents/${encodeURIComponent(name)}`, { method: 'DELETE' }).catch(() => {});
     });
   } else if (status === 'running' && existingRemove) {
@@ -283,10 +294,29 @@ function fetchCosts() {
   setTimeout(fetchCosts, 30_000);
 }
 
+// Workspace helpers
+function loadWorkspaceDropdown() {
+  return fetch('/workspaces').then(r => r.json()).then(list => {
+    const sel = document.getElementById('modal-workspace');
+    sel.innerHTML = '<option value="">— manual entry —</option>';
+    list.forEach(ws => {
+      const opt = document.createElement('option');
+      opt.value = ws.path;
+      opt.textContent = `${ws.name}  (${ws.path})`;
+      sel.appendChild(opt);
+    });
+  }).catch(() => {});
+}
+
+document.getElementById('modal-workspace').addEventListener('change', e => {
+  if (e.target.value) document.getElementById('modal-workdir').value = e.target.value;
+});
+
 // New Agent modal
 document.getElementById('btn-new-agent').addEventListener('click', () => {
   document.getElementById('modal').classList.remove('hidden');
   document.getElementById('modal-name').focus();
+  loadWorkspaceDropdown();
   const wdInput = document.getElementById('modal-workdir');
   if (!wdInput.value) {
     fetch('/config').then(r => r.json()).then(cfg => { wdInput.value = cfg.defaultWorkdir; }).catch(() => {});
@@ -607,6 +637,57 @@ document.getElementById('diff-modal-close').addEventListener('click', () => {
 });
 document.getElementById('diff-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('diff-modal')) document.getElementById('diff-modal').classList.add('hidden');
+});
+
+// --- Workspace manager ---
+function renderWorkspaceList(list) {
+  const container = document.getElementById('ws-list');
+  if (!list.length) { container.innerHTML = '<span style="color:#8b949e;font-size:12px">No workspaces registered yet.</span>'; return; }
+  container.innerHTML = list.map(ws => `
+    <div style="display:flex;align-items:center;gap:8px;background:#161b22;padding:8px 10px;border-radius:6px;border:1px solid #30363d">
+      <span style="font-weight:600;font-size:13px;color:#e6edf3;min-width:120px">${escHtml(ws.name)}</span>
+      <span style="color:#8b949e;font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ws.path)}</span>
+      <button class="btn-remove ws-del-btn" data-id="${ws.id}" style="flex-shrink:0">Remove</button>
+    </div>
+  `).join('');
+  container.querySelectorAll('.ws-del-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      fetch(`/workspaces/${btn.dataset.id}`, { method: 'DELETE' })
+        .then(() => fetch('/workspaces').then(r => r.json()).then(renderWorkspaceList))
+        .catch(err => console.error('Remove workspace failed:', err));
+    });
+  });
+}
+
+document.getElementById('btn-workspaces').addEventListener('click', () => {
+  document.getElementById('ws-modal').classList.remove('hidden');
+  fetch('/workspaces').then(r => r.json()).then(renderWorkspaceList).catch(() => {});
+});
+
+document.getElementById('ws-modal-close').addEventListener('click', () => {
+  document.getElementById('ws-modal').classList.add('hidden');
+});
+
+document.getElementById('ws-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('ws-modal')) document.getElementById('ws-modal').classList.add('hidden');
+});
+
+document.getElementById('ws-add-btn').addEventListener('click', () => {
+  const name = document.getElementById('ws-add-name').value.trim();
+  const path = document.getElementById('ws-add-path').value.trim();
+  if (!name || !path) return;
+  fetch('/workspaces', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, path }),
+  })
+    .then(r => r.json())
+    .then(() => {
+      document.getElementById('ws-add-name').value = '';
+      document.getElementById('ws-add-path').value = '';
+      return fetch('/workspaces').then(r => r.json()).then(renderWorkspaceList);
+    })
+    .catch(err => console.error('Add workspace failed:', err));
 });
 
 function updatePRBadge(agentName, status) {

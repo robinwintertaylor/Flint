@@ -194,6 +194,29 @@ async function cmdSuggestions(args) {
   }
 }
 
+async function cmdWorkspace(args) {
+  const [sub, ...rest] = args;
+  if (sub === 'list') {
+    const list = await dashGet('/workspaces');
+    if (!list.length) { console.log('No workspaces registered.'); return; }
+    for (const w of list) console.log(`[${w.id}] ${w.name}  →  ${w.path}`);
+  } else if (sub === 'add') {
+    const [name, ...pathParts] = rest;
+    const path = pathParts.join(' ');
+    if (!name || !path) { console.error('Usage: flint workspace add <name> <path>'); process.exit(1); }
+    const r = await dashPost('/workspaces', { name, path });
+    console.log(`Workspace "${r.name}" added (id ${r.id}).`);
+  } else if (sub === 'remove') {
+    const [id] = rest;
+    if (!id) { console.error('Usage: flint workspace remove <id>'); process.exit(1); }
+    await dashDelete(`/workspaces/${id}`);
+    console.log(`Workspace ${id} removed.`);
+  } else {
+    console.error('Usage: flint workspace <list|add|remove>');
+    process.exit(1);
+  }
+}
+
 async function cmdWorktree(args) {
   const [sub, ...rest] = args;
   if (sub === 'list') {
@@ -216,10 +239,10 @@ async function cmdWorktree(args) {
 
 const [,, subcommand, ...rest] = process.argv;
 
-const COMMANDS = { ask: cmdAsk, models: cmdModels, config: cmdConfig, costs: cmdCosts, project: cmdProject, suggestions: cmdSuggestions, worktree: cmdWorktree };
+const COMMANDS = { ask: cmdAsk, models: cmdModels, config: cmdConfig, costs: cmdCosts, project: cmdProject, suggestions: cmdSuggestions, worktree: cmdWorktree, workspace: cmdWorkspace };
 const cmd = COMMANDS[subcommand];
 if (!cmd) {
-  console.error(`Usage: flint <ask|models|config|costs|project|suggestions|worktree>`);
+  console.error(`Usage: flint <ask|models|config|costs|project|suggestions|worktree|workspace>`);
   process.exit(1);
 }
 

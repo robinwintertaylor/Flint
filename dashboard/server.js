@@ -5,7 +5,7 @@ import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-import { initDb, getTodayCost, getMonthCost, closeDb, upsertAgentLog, setAgentWorktree, getAgentWorktree, setAgentPR, clearAgentPR, getAgentPR, listOpenPRAgents, clearAgentWorktree } from './db.js';
+import { initDb, getTodayCost, getMonthCost, closeDb, upsertAgentLog, setAgentWorktree, getAgentWorktree, setAgentPR, clearAgentPR, getAgentPR, listOpenPRAgents, clearAgentWorktree, listWorkspaces, addWorkspace, removeWorkspace } from './db.js';
 import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, removeAgent, broadcastToAgent, addGlobalWsClient, removeGlobalWsClient } from './agents.js';
 import { listSuggestions, updateSuggestion } from './suggestions.js';
 import { listWorktrees, createWorktree, discardWorktree } from './worktrees.js';
@@ -93,6 +93,29 @@ export function createApp() {
 
   app.get('/agents', (_req, res) => {
     res.json(listAgents());
+  });
+
+  app.get('/agents/:name', (req, res) => {
+    const agent = getAgent(req.params.name);
+    if (!agent) return res.status(404).json({ error: 'not found' });
+    const { name, mode, status, workdir, model } = agent;
+    res.json({ name, mode, status, workdir, model: model ?? '' });
+  });
+
+  app.get('/workspaces', (_req, res) => res.json(listWorkspaces()));
+  app.post('/workspaces', (req, res) => {
+    const { name, path } = req.body ?? {};
+    if (!name || !path) return res.status(400).json({ error: 'name and path required' });
+    try {
+      const r = addWorkspace(name, path);
+      res.json({ id: r.lastInsertRowid, name, path });
+    } catch {
+      res.status(409).json({ error: 'workspace path already registered' });
+    }
+  });
+  app.delete('/workspaces/:id', (req, res) => {
+    removeWorkspace(Number(req.params.id));
+    res.json({ ok: true });
   });
 
   app.post('/agents/spawn', (req, res) => {
