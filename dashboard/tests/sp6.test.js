@@ -45,7 +45,7 @@ test('logger.error writes JSON line with level error', () => {
 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { rmSync } from 'node:fs';
+import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
 
 const TMP_DB = join(tmpdir(), `flint-sp6-db-${Date.now()}.sqlite`);
 process.env.FLINT_DB_PATH = TMP_DB;
@@ -83,9 +83,10 @@ test('listOpenPRAgents returns only rows with pr_status open', () => {
   assert.ok(!list.some(r => r.name === 'no-pr'), 'no-pr should not appear');
 });
 
-test('cleanup DB', () => {
+test('cleanup DB', async () => {
   closeDb();
-  rmSync(TMP_DB, { force: true });
+  await new Promise(r => setTimeout(r, 100));
+  try { rmSync(TMP_DB, { force: true }); } catch {}
   delete process.env.FLINT_DB_PATH;
   assert.ok(true);
 });
@@ -114,4 +115,48 @@ test('createPR returns stub in TEST_MODE', async () => {
 test('getPRStatus returns open in TEST_MODE', async () => {
   const status = await getPRStatus(1);
   assert.equal(status, 'open');
+});
+
+// ─── Server HTTP tests ────────────────────────────────────────────────────────
+
+const TMP_SRV = join(tmpdir(), `flint-sp6-srv-${Date.now()}`);
+mkdirSync(TMP_SRV, { recursive: true });
+process.env.FLINT_DB_PATH    = join(TMP_SRV, 'usage.sqlite');
+process.env.FLINT_AGENTS_FILE = join(TMP_SRV, 'agents.json');
+process.env.FLINT_TASKS_DIR   = join(TMP_SRV, 'tasks');
+process.env.FLINT_TEST_MODE   = '1';
+writeFileSync(process.env.FLINT_AGENTS_FILE, '[]');
+
+const { createApp } = await import('../server.js');
+
+let srv6, port6;
+
+await new Promise(resolve => {
+  srv6 = createApp();
+  srv6.listen(0, () => { port6 = srv6.address().port; resolve(); });
+});
+
+test('GET /health returns ok status in TEST_MODE', async () => {
+  const res = await fetch(`http://localhost:${port6}/health`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.status, 'ok');
+  assert.equal(body.forgejo, 'reachable');
+  assert.equal(body.db, 'connected');
+  assert.ok(typeof body.uptime === 'number');
+});
+
+test('POST /worktrees/:agent/merge route no longer exists (404)', async () => {
+  const res = await fetch(`http://localhost:${port6}/worktrees/any-agent/merge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  });
+  assert.equal(res.status, 404);
+});
+
+test('cleanup server', async () => {
+  await new Promise(resolve => srv6.close(resolve));
+  rmSync(TMP_SRV, { recursive: true, force: true });
+  assert.ok(true);
 });

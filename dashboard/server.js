@@ -1,25 +1,56 @@
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
+import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-import { initDb, getTodayCost, getMonthCost, closeDb, upsertAgentLog, setAgentWorktree, getAgentWorktree } from './db.js';
+import { initDb, getTodayCost, getMonthCost, closeDb, upsertAgentLog, setAgentWorktree, getAgentWorktree, setAgentPR, clearAgentPR, getAgentPR, listOpenPRAgents, clearAgentWorktree } from './db.js';
 import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, broadcastToAgent, addGlobalWsClient, removeGlobalWsClient } from './agents.js';
 import { listSuggestions, updateSuggestion } from './suggestions.js';
 import { listWorktrees, createWorktree, discardWorktree } from './worktrees.js';
 import { spawnAgent, writeToAgent, observeLogFile } from './terminal.js';
 import { readTasks, writeTasks, appendTask } from './tasks.js';
-import {
-  listProjects, getProject, createProject, updateProject,
-  linkAgent, unlinkAgent,
-} from './projects.js';
+import { listProjects, getProject, createProject, updateProject, linkAgent, unlinkAgent } from './projects.js';
+import { isForgejoReachable, pushBranch, createPR, getPRStatus } from './forgejo.js';
+import { info, error as logError } from './logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const FLINT_ROOT = join(__dirname, '..');
 const PORT = process.env.PORT ?? 3000;
 const TEST_MODE = process.env.FLINT_TEST_MODE === '1';
 
 export { closeDb } from './db.js';
+
+async function createPRForAgent(name, branch) {
+  try {
+    info('creating PR', { agent: name, branch });
+    pushBranch(branch);
+    const { prNumber, prUrl } = await createPR(branch, name);
+    setAgentPR(name, prNumber, prUrl, 'open');
+    broadcastToAgent(name, { type: 'worktree_pr', agent: name, prUrl, prNumber });
+    info('PR created', { agent: name, prNumber, prUrl });
+  } catch (err) {
+    logError('PR creation failed', { agent: name, err: err.message });
+  }
+}
+
+async function handlePRMerged(name) {
+  try {
+    const worktree = getAgentWorktree(name);
+    if (worktree?.worktree_path) {
+      execSync(`git worktree remove --force "${worktree.worktree_path}"`, { cwd: FLINT_ROOT });
+    }
+    if (worktree?.worktree_branch) {
+      try { execSync(`git branch -D "${worktree.worktree_branch}"`, { cwd: FLINT_ROOT }); } catch {}
+      try { execSync(`git pull forgejo master`, { cwd: FLINT_ROOT }); } catch {}
+    }
+  } catch (err) {
+    logError('cleanup after PR merge failed', { agent: name, err: err.message });
+  }
+  clearAgentWorktree(name);
+  clearAgentPR(name);
+}
 
 export function createApp() {
   // Init subsystems
@@ -40,7 +71,7 @@ export function createApp() {
     const { name, workdir } = req.body ?? {};
     if (!name || !workdir) return res.status(400).json({ error: 'name and workdir required' });
     registerAgent(name, 'spawn', workdir);
-    if (!TEST_MODE) spawnAgent(name, workdir);
+    if (!TEST_MODE) spawnAgent(name, workdir, null, { onWorktreePending: createPRForAgent });
     res.json({ ok: true, name });
   });
 
@@ -105,6 +136,18 @@ export function createApp() {
     } catch {
       res.json({ error: 'router not running' });
     }
+  });
+
+  // --- Health ---
+
+  app.get('/health', async (_req, res) => {
+    const reachable = await isForgejoReachable();
+    res.json({
+      status: reachable ? 'ok' : 'degraded',
+      uptime: Math.floor(process.uptime()),
+      db: 'connected',
+      forgejo: reachable ? 'reachable' : 'unreachable',
+    });
   });
 
   // --- Project routes ---
@@ -191,10 +234,6 @@ export function createApp() {
     res.json(listWorktrees());
   });
 
-  app.post('/worktrees/:agent/merge', (_req, res) => {
-    res.status(404).json({ error: 'Direct merge removed — use PR workflow' });
-  });
-
   app.delete('/worktrees/:agent', (req, res) => {
     try {
       discardWorktree(req.params.agent);
@@ -255,7 +294,7 @@ export function createApp() {
               setAgentWorktree(name, worktreePath, branch);
               spawnDir = worktreePath;
             }
-            spawnAgent(name, spawnDir, model);
+            spawnAgent(name, spawnDir, model, { onWorktreePending: createPRForAgent });
           }
           broadcastToAgent(name, { type: 'status', agent: name, status: 'running' });
           break;
@@ -284,6 +323,27 @@ export function createApp() {
       for (const name of subscriptions) removeWsClient(name, ws);
     });
   });
+
+  if (!TEST_MODE) {
+    const prPollInterval = setInterval(async () => {
+      const agents = listOpenPRAgents();
+      for (const { name, pr_number } of agents) {
+        try {
+          const status = await getPRStatus(pr_number);
+          const current = getAgentPR(name);
+          if (current && current.pr_status !== status) {
+            setAgentPR(name, pr_number, current.pr_url, status);
+            broadcastToAgent(name, { type: 'pr_status', agent: name, status });
+            if (status === 'merged') await handlePRMerged(name);
+            else if (status === 'closed') clearAgentPR(name);
+          }
+        } catch (err) {
+          logError('PR poll failed', { agent: name, err: err.message });
+        }
+      }
+    }, 30_000);
+    httpServer.on('close', () => clearInterval(prPollInterval));
+  }
 
   return httpServer;
 }

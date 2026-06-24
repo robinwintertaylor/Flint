@@ -142,15 +142,6 @@ describe('Worktree HTTP routes', () => {
     assert.ok(Array.isArray(list));
   });
 
-  test('POST /worktrees/:agent/merge returns 404 for unknown agent', async () => {
-    const res = await fetch(`http://localhost:${port}/worktrees/nonexistent-agent/merge`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{}',
-    });
-    assert.equal(res.status, 404);
-  });
-
   test('DELETE /worktrees/:agent returns 404 for unknown agent', async () => {
     const res = await fetch(`http://localhost:${port}/worktrees/nonexistent-agent`, {
       method: 'DELETE',
