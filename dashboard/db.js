@@ -86,12 +86,29 @@ export function initDb(dbPath = DEFAULT_DB) {
       status     TEXT NOT NULL DEFAULT 'running',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS api_keys (
+      name       TEXT PRIMARY KEY,
+      label      TEXT NOT NULL,
+      key_value  TEXT,
+      env_var    TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN pr_number INTEGER'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN pr_url TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN pr_status TEXT'); } catch {}
+  const _seedKey = _db.prepare(
+    `INSERT OR IGNORE INTO api_keys (name, label, env_var) VALUES (?, ?, ?)`
+  );
+  [
+    ['anthropic', 'Anthropic',     'ANTHROPIC_API_KEY'],
+    ['openai',    'OpenAI',        'OPENAI_API_KEY'],
+    ['github',    'GitHub',        'GITHUB_TOKEN'],
+    ['telegram',  'Telegram',      'TELEGRAM_BOT_TOKEN'],
+    ['moonshot',  'Moonshot Kimi', 'MOONSHOT_API_KEY'],
+  ].forEach(([n, l, e]) => _seedKey.run(n, l, e));
   return _db;
 }
 
