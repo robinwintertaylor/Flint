@@ -464,8 +464,8 @@ function renderProjects(projects) {
   // Clear existing cards but keep the "New Project" button if injected
   view.innerHTML = `
     <div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center">
-      <h3 style="margin:0;font-size:15px">Projects</h3>
-      <button id="btn-new-project" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px">+ New Project</button>
+      <h3 style="margin:0;font-size:18px">Projects</h3>
+      <button id="btn-new-project" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:16px">+ New Project</button>
     </div>
   `;
   document.getElementById('btn-new-project').addEventListener('click', openNewProjectModal);
@@ -554,8 +554,8 @@ async function openEditProjectModal(projectId) {
   for (const agentName of p.agents) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:2px 0';
-    row.innerHTML = `<span style="font-size:13px">${escHtml(agentName)}</span>
-      <button style="background:none;border:none;color:#f85149;cursor:pointer;font-size:12px" data-unlink="${escHtml(agentName)}">×</button>`;
+    row.innerHTML = `<span style="font-size:16px">${escHtml(agentName)}</span>
+      <button style="background:none;border:none;color:#f85149;cursor:pointer;font-size:14px" data-unlink="${escHtml(agentName)}">×</button>`;
     row.querySelector('[data-unlink]').addEventListener('click', async () => {
       await fetch(`/projects/${p.id}/agents/${encodeURIComponent(agentName)}`, { method: 'DELETE' });
       openEditProjectModal(p.id);
@@ -683,11 +683,11 @@ document.getElementById('diff-modal').addEventListener('click', e => {
 // --- Workspace manager ---
 function renderWorkspaceList(list) {
   const container = document.getElementById('ws-list');
-  if (!list.length) { container.innerHTML = '<span style="color:#8b949e;font-size:12px">No workspaces registered yet.</span>'; return; }
+  if (!list.length) { container.innerHTML = '<span style="color:#8b949e;font-size:14px">No workspaces registered yet.</span>'; return; }
   container.innerHTML = list.map(ws => `
     <div style="display:flex;align-items:center;gap:8px;background:#161b22;padding:8px 10px;border-radius:6px;border:1px solid #30363d">
-      <span style="font-weight:600;font-size:13px;color:#e6edf3;min-width:120px">${escHtml(ws.name)}</span>
-      <span style="color:#8b949e;font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ws.path)}</span>
+      <span style="font-weight:600;font-size:16px;color:#e6edf3;min-width:120px">${escHtml(ws.name)}</span>
+      <span style="color:#8b949e;font-size:14px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ws.path)}</span>
       <button class="btn-remove ws-del-btn" data-id="${ws.id}" style="flex-shrink:0">Remove</button>
     </div>
   `).join('');
@@ -815,11 +815,11 @@ async function renderMcpList() {
   const list = await fetch('/mcp/servers').then(r => r.json()).catch(() => []);
   const container = document.getElementById('mcp-list');
   if (!list.length) {
-    container.innerHTML = '<p style="color:#8b949e;font-size:12px;margin:0">No MCP servers configured yet.</p>';
+    container.innerHTML = '<p style="color:#8b949e;font-size:14px;margin:0">No MCP servers configured yet.</p>';
     return;
   }
   container.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
       <thead><tr style="color:#8b949e;text-align:left">
         <th style="padding:4px 8px">Name</th><th style="padding:4px 8px">Command + Args</th>
         <th style="padding:4px 8px">Scope</th><th style="padding:4px 8px">On</th><th></th>
@@ -828,7 +828,7 @@ async function renderMcpList() {
         const argsStr = s.args.join(' ');
         return `<tr style="border-top:1px solid #21262d">
           <td style="padding:4px 8px">${escHtml(s.name)}</td>
-          <td style="padding:4px 8px;color:#8b949e;font-size:11px">${escHtml(s.command)} ${escHtml(argsStr)}</td>
+          <td style="padding:4px 8px;color:#8b949e;font-size:13px">${escHtml(s.command)} ${escHtml(argsStr)}</td>
           <td style="padding:4px 8px">${escHtml(s.scope)}</td>
           <td style="padding:4px 8px"><input type="checkbox" data-mcp-toggle="${s.id}" ${s.enabled ? 'checked' : ''}></td>
           <td style="padding:4px 8px"><button class="btn-remove" data-mcp-delete="${s.id}">Remove</button></td>
@@ -932,8 +932,8 @@ function renderQueueView(tasks, agents, activeFilter) {
 
   view.innerHTML = `
     <div class="queue-header">
-      <h3 style="margin:0;font-size:15px">Task Queue</h3>
-      <button id="btn-add-task" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px">+ Add Task</button>
+      <h3 style="margin:0;font-size:18px">Task Queue</h3>
+      <button id="btn-add-task" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:16px">+ Add Task</button>
     </div>
     <div class="queue-filters">
       ${['all','pending','in_progress','done','cancelled'].map(f =>
@@ -955,8 +955,8 @@ function renderQueueView(tasks, agents, activeFilter) {
               <td style="color:#8b949e">${escHtml(String(t.priority))}</td>
               <td style="color:#8b949e;white-space:nowrap">${escHtml(relativeTime(t.created_at))}</td>
               <td style="white-space:nowrap">
-                ${!t.assigned_to && t.status === 'pending' ? `<button class="btn-assign-task" data-id="${escHtml(String(t.id))}" style="font-size:11px;padding:2px 7px;border-radius:4px;border:1px solid #388bfd;background:none;color:#388bfd;cursor:pointer">Assign</button>` : ''}
-                ${['pending','in_progress'].includes(t.status) ? `<button class="btn-cancel-task" data-id="${escHtml(String(t.id))}" style="font-size:11px;padding:2px 7px;border-radius:4px;border:1px solid #f8514966;background:none;color:#f85149;cursor:pointer;margin-left:4px">Cancel</button>` : ''}
+                ${!t.assigned_to && t.status === 'pending' ? `<button class="btn-assign-task" data-id="${escHtml(String(t.id))}" style="font-size:13px;padding:2px 7px;border-radius:4px;border:1px solid #388bfd;background:none;color:#388bfd;cursor:pointer">Assign</button>` : ''}
+                ${['pending','in_progress'].includes(t.status) ? `<button class="btn-cancel-task" data-id="${escHtml(String(t.id))}" style="font-size:13px;padding:2px 7px;border-radius:4px;border:1px solid #f8514966;background:none;color:#f85149;cursor:pointer;margin-left:4px">Cancel</button>` : ''}
               </td>
             </tr>
             <tr class="queue-expand" id="expand-${escHtml(String(t.id))}"><td colspan="7">

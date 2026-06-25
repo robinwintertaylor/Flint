@@ -12,7 +12,7 @@
     <div class="header-left">
       <span class="logo">⚡ Flint</span>
       <span id="agent-count">0 agents</span>
-      <button id="btn-projects" style="margin-left:12px;background:none;border:1px solid #30363d;color:#e6edf3;padding:2px 10px;border-radius:4px;cursor:pointer;font-size:12px;">Projects</button>
+      <button id="btn-projects" style="margin-left:12px;background:none;border:1px solid #30363d;color:#e6edf3;padding:2px 10px;border-radius:4px;cursor:pointer;font-size:14px;">Projects</button>
     </div>
     <div class="header-right">
       <span id="today-cost">Today: $0.00</span>
@@ -66,7 +66,7 @@
         </select>
       </div>
       <div class="form-group" style="margin-top:8px">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:16px">
           <input type="checkbox" id="modal-isolate">
           Isolated branch (safe self-modification)
         </label>
@@ -106,7 +106,7 @@
       <label>Notes<textarea id="edit-proj-notes" rows="5" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:8px;font-family:inherit;resize:vertical"></textarea></label>
       <div>
         <h4 style="margin:12px 0 6px">Last Session Summary</h4>
-        <pre id="edit-proj-summary" style="background:#161b22;padding:8px;border-radius:4px;font-size:11px;max-height:120px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:#8b949e">(none)</pre>
+        <pre id="edit-proj-summary" style="background:#161b22;padding:8px;border-radius:4px;font-size:13px;max-height:120px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:#8b949e">(none)</pre>
       </div>
       <div>
         <h4 style="margin:12px 0 6px">Linked Agents</h4>
@@ -132,9 +132,9 @@
       </div>
       <div id="ws-list" style="margin-bottom:16px;display:flex;flex-direction:column;gap:6px"></div>
       <div style="display:flex;gap:6px">
-        <input id="ws-add-name" type="text" placeholder="Name (e.g. My App)" style="flex:1;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px">
-        <input id="ws-add-path" type="text" placeholder="Path (e.g. C:\Projects\my-app)" style="flex:2;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px">
-        <button id="ws-add-btn" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:13px">Add</button>
+        <input id="ws-add-name" type="text" placeholder="Name (e.g. My App)" style="flex:1;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:16px">
+        <input id="ws-add-path" type="text" placeholder="Path (e.g. C:\Projects\my-app)" style="flex:2;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:16px">
+        <button id="ws-add-btn" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:16px">Add</button>
       </div>
     </div>
   </div>
@@ -147,18 +147,18 @@
         <button id="mcp-modal-close" style="background:none;border:none;color:#8b949e;font-size:18px;cursor:pointer">✕</button>
       </div>
       <div id="mcp-list" style="margin-bottom:16px;min-height:32px"></div>
-      <h4 style="color:#58a6ff;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Add Server</h4>
+      <h4 style="color:#58a6ff;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Add Server</h4>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-        <input id="mcp-add-name" type="text" placeholder="Name (e.g. filesystem)" style="background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px">
-        <input id="mcp-add-command" type="text" placeholder="Command (e.g. npx)" style="background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px">
+        <input id="mcp-add-name" type="text" placeholder="Name (e.g. filesystem)" style="background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:16px">
+        <input id="mcp-add-command" type="text" placeholder="Command (e.g. npx)" style="background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:16px">
       </div>
-      <input id="mcp-add-args" type="text" placeholder="Args space-separated (e.g. -y @modelcontextprotocol/server-filesystem /projects)" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px;margin-bottom:6px">
-      <textarea id="mcp-add-env" rows="2" placeholder="Env vars — KEY=VALUE one per line (optional)" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px;margin-bottom:6px;resize:vertical;font-family:inherit"></textarea>
+      <input id="mcp-add-args" type="text" placeholder="Args space-separated (e.g. -y @modelcontextprotocol/server-filesystem /projects)" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:16px;margin-bottom:6px">
+      <textarea id="mcp-add-env" rows="2" placeholder="Env vars — KEY=VALUE one per line (optional)" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:16px;margin-bottom:6px;resize:vertical;font-family:inherit"></textarea>
       <div style="display:flex;gap:6px;align-items:center">
-        <select id="mcp-add-scope" style="flex:1;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:13px">
+        <select id="mcp-add-scope" style="flex:1;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:16px">
           <option value="global">Global (all agents)</option>
         </select>
-        <button id="mcp-add-btn" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:13px">Add</button>
+        <button id="mcp-add-btn" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:16px">Add</button>
       </div>
     </div>
   </div>
@@ -231,8 +231,8 @@
         <h2 style="margin:0" id="diff-modal-title">Branch diff</h2>
         <button id="diff-modal-close" style="background:none;border:none;color:#8b949e;font-size:18px;cursor:pointer">✕</button>
       </div>
-      <pre id="diff-stat" style="background:#161b22;padding:8px;border-radius:4px;font-size:11px;color:#8b949e;margin-bottom:8px;white-space:pre-wrap"></pre>
-      <pre id="diff-content" style="background:#0d1117;padding:12px;border-radius:4px;font-size:11px;max-height:60vh;overflow-y:auto;white-space:pre;overflow-x:auto;border:1px solid #30363d"></pre>
+      <pre id="diff-stat" style="background:#161b22;padding:8px;border-radius:4px;font-size:13px;color:#8b949e;margin-bottom:8px;white-space:pre-wrap"></pre>
+      <pre id="diff-content" style="background:#0d1117;padding:12px;border-radius:4px;font-size:13px;max-height:60vh;overflow-y:auto;white-space:pre;overflow-x:auto;border:1px solid #30363d"></pre>
     </div>
   </div>
 

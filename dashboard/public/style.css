@@ -1,6 +1,6 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; }
+body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier New', monospace; font-size: 16px; }
 
 /* Header */
 #header {
@@ -9,15 +9,15 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   padding: 8px 16px; background: #161b22;
   border-bottom: 1px solid #30363d; height: 44px;
 }
-.logo { font-weight: bold; color: #58a6ff; margin-right: 12px; font-size: 15px; }
-#agent-count { color: #8b949e; font-size: 12px; }
-.header-right { display: flex; gap: 20px; font-size: 12px; color: #3fb950; }
+.logo { font-weight: bold; color: #58a6ff; margin-right: 12px; font-size: 18px; }
+#agent-count { color: #8b949e; font-size: 14px; }
+.header-right { display: flex; gap: 20px; font-size: 14px; color: #3fb950; }
 
 /* Toolbar */
 #toolbar { padding: 8px 12px; display: flex; gap: 8px; border-bottom: 1px solid #21262d; }
 #toolbar button {
   background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
-  padding: 4px 12px; cursor: pointer; border-radius: 6px; font-size: 12px;
+  padding: 4px 12px; cursor: pointer; border-radius: 6px; font-size: 14px;
 }
 #toolbar button:hover { background: #388bfd22; border-color: #58a6ff; color: #58a6ff; }
 
@@ -35,7 +35,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 }
 .panel-name { font-weight: bold; color: #58a6ff; }
 .badge {
-  padding: 1px 7px; border-radius: 10px; font-size: 10px;
+  padding: 1px 7px; border-radius: 10px; font-size: 12px;
   margin-left: 6px; font-weight: bold;
 }
 .badge-running { background: #1a7f37; color: #3fb950; }
@@ -43,29 +43,29 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 .badge-idle    { background: #783900; color: #d29922; }
 .badge-observe { background: #1c3f5e; color: #58a6ff; }
 .badge-error   { background: #5a1d1d; color: #f85149; }
-.panel-cost { color: #8b949e; font-size: 11px; margin-left: auto; margin-right: 8px; }
+.panel-cost { color: #8b949e; font-size: 13px; margin-left: auto; margin-right: 8px; }
 .btn-kill {
   background: transparent; border: 1px solid #f8514966;
   color: #f85149; padding: 2px 8px; cursor: pointer;
-  border-radius: 4px; font-size: 11px;
+  border-radius: 4px; font-size: 13px;
 }
 .btn-kill:hover { background: #f8514922; }
 .btn-remove {
   background: transparent; border: 1px solid #8b949e66;
   color: #8b949e; padding: 2px 8px; border-radius: 4px;
-  font-size: 11px; cursor: pointer;
+  font-size: 13px; cursor: pointer;
 }
 .btn-remove:hover { background: #8b949e22; }
 .btn-diff {
   background: transparent; border: 1px solid #388bfd66;
   color: #388bfd; padding: 2px 8px; border-radius: 4px;
-  font-size: 11px; cursor: pointer;
+  font-size: 13px; cursor: pointer;
 }
 .btn-diff:hover { background: #388bfd22; }
 .btn-restart {
   background: transparent; border: 1px solid #3fb95066;
   color: #3fb950; padding: 2px 8px; border-radius: 4px;
-  font-size: 11px; cursor: pointer;
+  font-size: 13px; cursor: pointer;
 }
 .btn-restart:hover { background: #3fb95022; }
 
@@ -79,21 +79,21 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   width: 220px; border-left: 1px solid #30363d;
   display: flex; flex-direction: column; padding: 8px; gap: 4px;
 }
-.task-sidebar h4 { color: #58a6ff; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+.task-sidebar h4 { color: #58a6ff; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
 .task-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
 .task-item { display: flex; align-items: flex-start; gap: 5px; cursor: pointer; }
 .task-item input[type=checkbox] { margin-top: 2px; cursor: pointer; flex-shrink: 0; }
-.task-item span { word-break: break-word; color: #c9d1d9; font-size: 11px; line-height: 1.4; }
+.task-item span { word-break: break-word; color: #c9d1d9; font-size: 13px; line-height: 1.4; }
 .task-item.done span { text-decoration: line-through; color: #484f58; }
 .task-add { display: flex; gap: 4px; margin-top: 4px; }
 .task-add input {
   flex: 1; background: #0d1117; border: 1px solid #30363d;
-  color: #e6edf3; padding: 3px 6px; font-size: 11px; border-radius: 4px;
+  color: #e6edf3; padding: 3px 6px; font-size: 13px; border-radius: 4px;
 }
 .task-add input:focus { outline: none; border-color: #58a6ff; }
 .task-add button {
   background: #21262d; border: 1px solid #30363d; color: #58a6ff;
-  padding: 3px 8px; cursor: pointer; border-radius: 4px; font-size: 13px;
+  padding: 3px 8px; cursor: pointer; border-radius: 4px; font-size: 16px;
 }
 .task-add button:hover { background: #388bfd22; }
 
@@ -109,19 +109,19 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   display: flex; flex-direction: column; gap: 14px;
 }
 .modal-box h2 { color: #58a6ff; }
-.modal-box label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #8b949e; }
+.modal-box label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: #8b949e; }
 .modal-box input {
   background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
-  padding: 7px 10px; font-size: 13px; border-radius: 4px; font-family: inherit;
+  padding: 7px 10px; font-size: 16px; border-radius: 4px; font-family: inherit;
 }
 .modal-box input:focus { outline: none; border-color: #58a6ff; }
 .modal-box select {
   background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
-  padding: 7px 10px; font-size: 13px; border-radius: 4px; font-family: inherit;
+  padding: 7px 10px; font-size: 16px; border-radius: 4px; font-family: inherit;
 }
 .modal-box select:focus { outline: none; border-color: #58a6ff; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.modal-actions button { padding: 6px 16px; cursor: pointer; border-radius: 6px; border: none; font-size: 13px; }
+.modal-actions button { padding: 6px 16px; cursor: pointer; border-radius: 6px; border: none; font-size: 16px; }
 #modal-cancel { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
 #modal-spawn  { background: #1f6feb; color: #fff; }
 #modal-spawn:hover { background: #388bfd; }
@@ -148,14 +148,14 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   align-items: center;
   margin-bottom: 8px;
 }
-.project-card-name { font-weight: 600; font-size: 14px; }
+.project-card-name { font-weight: 600; font-size: 17px; }
 .badge-active    { background: #1a4731; color: #3fb950; }
 .badge-paused    { background: #3d2b00; color: #d29922; }
 .badge-done      { background: #0c2d6b; color: #58a6ff; }
 .badge-archived  { background: #21262d; color: #8b949e; }
-.project-card-meta { font-size: 12px; color: #8b949e; margin: 4px 0; }
+.project-card-meta { font-size: 14px; color: #8b949e; margin: 4px 0; }
 .project-card-notes {
-  font-size: 12px;
+  font-size: 14px;
   color: #c9d1d9;
   margin-top: 8px;
   white-space: pre-wrap;
@@ -175,7 +175,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   padding: 2px 10px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
 }
 #proj-toolbar {
   display: none;
@@ -216,11 +216,11 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   align-items: center;
   justify-content: space-between;
   margin-bottom: 6px;
-  font-size: 11px;
+  font-size: 13px;
   color: #8b949e;
 }
 .suggestion-content {
-  font-size: 12px;
+  font-size: 14px;
   color: #c9d1d9;
   white-space: pre-wrap;
   word-break: break-word;
@@ -231,7 +231,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   margin-top: 8px;
 }
 .suggestion-actions button {
-  font-size: 11px;
+  font-size: 13px;
   padding: 2px 8px;
   border-radius: 4px;
   border: 1px solid #30363d;
@@ -245,7 +245,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 .badge-vibe {
   background: #2d1f5e;
   color: #bf91f3;
-  font-size: 10px;
+  font-size: 12px;
   padding: 1px 6px;
   border-radius: 10px;
   margin-left: 4px;
@@ -254,7 +254,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 .badge-isolated {
   background: #6e7681;
   color: #e6edf3;
-  font-size: 10px;
+  font-size: 12px;
   padding: 1px 6px;
   border-radius: 10px;
   margin-left: 4px;
@@ -262,7 +262,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 
 /* Merge/Discard worktree buttons */
 .btn-merge {
-  font-size: 12px;
+  font-size: 14px;
   padding: 2px 10px;
   border-radius: 4px;
   border: 1px solid #388bfd;
@@ -272,7 +272,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 }
 .btn-merge:hover { background: #1c2d3f; }
 .btn-discard {
-  font-size: 12px;
+  font-size: 14px;
   padding: 2px 10px;
   border-radius: 4px;
   border: 1px solid #f85149;
@@ -283,13 +283,13 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 .btn-discard:hover { background: #2d1a1a; }
 
 /* PR badges */
-.badge-pr-open   { background: #1a7f37; color: #3fb950; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: bold; }
-.badge-pr-merged { background: #6e40c9; color: #d2a8ff; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: bold; }
-.badge-pr-closed { background: #5a1d1d; color: #f85149; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: bold; }
+.badge-pr-open   { background: #1a7f37; color: #3fb950; padding: 1px 7px; border-radius: 10px; font-size: 12px; font-weight: bold; }
+.badge-pr-merged { background: #6e40c9; color: #d2a8ff; padding: 1px 7px; border-radius: 10px; font-size: 12px; font-weight: bold; }
+.badge-pr-closed { background: #5a1d1d; color: #f85149; padding: 1px 7px; border-radius: 10px; font-size: 12px; font-weight: bold; }
 
 /* View PR link button */
 .btn-view-pr {
-  font-size: 12px;
+  font-size: 14px;
   padding: 2px 10px;
   border-radius: 4px;
   border: 1px solid #388bfd;
@@ -307,19 +307,19 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 .queue-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .queue-filters { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
 .filter-pill {
-  padding: 3px 10px; border-radius: 12px; font-size: 11px; cursor: pointer;
+  padding: 3px 10px; border-radius: 12px; font-size: 13px; cursor: pointer;
   background: #21262d; border: 1px solid #30363d; color: #8b949e;
 }
 .filter-pill.active { background: #388bfd22; border-color: #58a6ff; color: #58a6ff; }
 
-.queue-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.queue-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .queue-table th { color: #8b949e; text-align: left; padding: 6px 10px; border-bottom: 1px solid #21262d; font-weight: normal; }
 .queue-table td { padding: 7px 10px; border-bottom: 1px solid #161b22; vertical-align: middle; }
 .queue-table tr:hover td { background: #1c2128; }
 .queue-row-unassigned td:first-child { box-shadow: inset 3px 0 0 #d29922; }
 
 .role-chip {
-  display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: bold;
+  display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px; font-weight: bold;
 }
 .role-researcher { background: #1a3f6e; color: #58a6ff; }
 .role-planner    { background: #2d1f5e; color: #bf91f3; }
@@ -333,7 +333,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 
 .queue-expand { display: none; background: #161b22; }
 .queue-expand.open { display: table-row; }
-.queue-expand td { padding: 8px 18px 12px; color: #8b949e; font-size: 12px; white-space: pre-wrap; }
+.queue-expand td { padding: 8px 18px 12px; color: #8b949e; font-size: 14px; white-space: pre-wrap; }
 
 /* Add Task modal */
 #add-task-modal,
@@ -345,18 +345,18 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 /* Orchestrator badges */
 .badge-orch {
   background: #2d1f5e; color: #bf91f3;
-  font-size: 10px; padding: 1px 6px; border-radius: 10px; margin-left: 4px;
+  font-size: 12px; padding: 1px 6px; border-radius: 10px; margin-left: 4px;
 }
 .badge-worker {
   background: #1a3f6e; color: #58a6ff;
-  font-size: 10px; padding: 1px 6px; border-radius: 10px; margin-left: 4px;
+  font-size: 12px; padding: 1px 6px; border-radius: 10px; margin-left: 4px;
 }
 
 /* Scratchpad section in task sidebar */
 .scratchpad-section { margin-top: 10px; border-top: 1px solid #30363d; padding-top: 8px; }
-.scratchpad-section h4 { color: #58a6ff; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; cursor: pointer; }
+.scratchpad-section h4 { color: #58a6ff; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; cursor: pointer; }
 .scratchpad-content {
-  font-size: 10px; color: #8b949e; white-space: pre-wrap; word-break: break-word;
+  font-size: 12px; color: #8b949e; white-space: pre-wrap; word-break: break-word;
   max-height: 180px; overflow-y: auto; background: #0d1117;
   padding: 6px 8px; border-radius: 4px; border: 1px solid #21262d;
   display: none;
