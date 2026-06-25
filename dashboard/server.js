@@ -20,6 +20,7 @@ import { listQueueTasks, getQueueTask, createQueueTask, assignQueueTask, updateQ
 import { createOrchestration, getOrchestration, listOrchestrations, appendScratchpad, readScratchpad } from './orchestrator.js';
 import { listApiKeys, getApiKeyValue, createApiKey, updateApiKey, deleteApiKey } from './apikeys.js';
 import { initTelegram } from './telegram.js';
+import { isOllamaReachable, listModels, generate } from './ollama.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -299,13 +300,33 @@ export function createApp() {
   // --- Health ---
 
   app.get('/health', async (_req, res) => {
-    const reachable = await isForgejoReachable();
+    const [forgejoOk, ollamaOk] = await Promise.all([isForgejoReachable(), isOllamaReachable()]);
     res.json({
-      status: reachable ? 'ok' : 'degraded',
+      status: forgejoOk ? 'ok' : 'degraded',
       uptime: Math.floor(process.uptime()),
       db: 'connected',
-      forgejo: reachable ? 'reachable' : 'unreachable',
+      forgejo: forgejoOk ? 'reachable' : 'unreachable',
+      ollama:  ollamaOk  ? 'reachable' : 'unreachable',
     });
+  });
+
+  // --- Ollama routes ---
+
+  app.get('/api/ollama/status', async (_req, res) => {
+    const reachable = await isOllamaReachable();
+    const models = reachable ? await listModels() : [];
+    res.json({ reachable, models });
+  });
+
+  app.post('/api/ollama/generate', async (req, res) => {
+    const { model, prompt } = req.body ?? {};
+    if (!model || !prompt) return res.status(400).json({ error: 'model and prompt required' });
+    try {
+      const response = await generate(model, prompt);
+      res.json({ response });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // --- Project routes ---

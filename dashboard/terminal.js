@@ -19,8 +19,9 @@ function resolveBin(name) {
   }
 }
 
-const CLAUDE_BIN = resolveBin('claude');
-const VIBE_BIN   = resolveBin('vibe');
+const CLAUDE_BIN  = resolveBin('claude');
+const VIBE_BIN    = resolveBin('vibe');
+const OLLAMA_BIN  = resolveBin('ollama');
 
 const COST_REGEX = /Total cost:\s+\$?([\d.]+)/i;
 const MODEL_REGEX = /Model:\s+(\S+)/i;
@@ -57,26 +58,38 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
   // Inject project context into task file before spawning
   injectProjectContext(name);
 
-  // Prepend autonomous operating directive so the agent never pauses for human input
-  const AUTONOMOUS_BLOCK =
-    '## Operating Mode: Autonomous\n' +
-    'You are running as an autonomous agent orchestrated by Flint. No human is monitoring this session.\n' +
-    '- Never pause to ask for confirmation or approval\n' +
-    '- Make your best judgement on all decisions and proceed\n' +
-    '- If you encounter ambiguity, choose the most reasonable interpretation and continue\n' +
-    '- Complete all tasks fully without checking in\n' +
-    '---\n\n';
-  const _currentTasks = readTasks(name);
-  if (!_currentTasks.startsWith('## Operating Mode:')) {
-    writeTasks(name, AUTONOMOUS_BLOCK + _currentTasks);
+  const isVibe   = agent.runtime === 'vibe';
+  const isOllama = agent.runtime === 'ollama';
+
+  if (!isOllama) {
+    const AUTONOMOUS_BLOCK =
+      '## Operating Mode: Autonomous\n' +
+      'You are running as an autonomous agent orchestrated by Flint. No human is monitoring this session.\n' +
+      '- Never pause to ask for confirmation or approval\n' +
+      '- Make your best judgement on all decisions and proceed\n' +
+      '- If you encounter ambiguity, choose the most reasonable interpretation and continue\n' +
+      '- Complete all tasks fully without checking in\n' +
+      '---\n\n';
+    const _currentTasks = readTasks(name);
+    if (!_currentTasks.startsWith('## Operating Mode:')) {
+      writeTasks(name, AUTONOMOUS_BLOCK + _currentTasks);
+    }
   }
 
-  const isVibe = agent.runtime === 'vibe';
-  const bin = isVibe ? VIBE_BIN : CLAUDE_BIN;
-  const args = isVibe ? [] : ['--dangerously-skip-permissions'];
-  if (!isVibe && model) args.push('--model', model);
+  let bin, args;
+  if (isOllama) {
+    bin  = OLLAMA_BIN;
+    args = ['run', agent.model || 'llama3'];
+  } else if (isVibe) {
+    bin  = VIBE_BIN;
+    args = [];
+  } else {
+    bin  = CLAUDE_BIN;
+    args = ['--dangerously-skip-permissions'];
+    if (model) args.push('--model', model);
+  }
 
-  if (!isVibe) {
+  if (!isVibe && !isOllama) {
     try { injectMcpConfig(name, workdir); } catch {}
   }
 
@@ -92,7 +105,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
   setAgentStatus(name, 'running');
   notify(`🟢 Agent \`${name}\` started`);
 
-  let lastModel = isVibe ? 'mistral' : 'claude';
+  let lastModel = isOllama ? (agent.model || 'llama3') : isVibe ? 'mistral' : 'claude';
   let lastCost = 0;
   const outputBuffer = [];
   let suggBuffer = '';
@@ -115,12 +128,14 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
     const modelMatch = plain.match(MODEL_REGEX);
     if (modelMatch) lastModel = modelMatch[1];
 
-    const costMatch = plain.match(COST_REGEX);
-    if (costMatch) {
-      const delta = parseFloat(costMatch[1]) - lastCost;
-      if (delta > 0) {
-        writeUsage({ agentName: name, model: lastModel, costUsd: delta });
-        lastCost = parseFloat(costMatch[1]);
+    if (!isOllama) {
+      const costMatch = plain.match(COST_REGEX);
+      if (costMatch) {
+        const delta = parseFloat(costMatch[1]) - lastCost;
+        if (delta > 0) {
+          writeUsage({ agentName: name, model: lastModel, costUsd: delta });
+          lastCost = parseFloat(costMatch[1]);
+        }
       }
     }
 
