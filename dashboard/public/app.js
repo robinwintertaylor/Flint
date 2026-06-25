@@ -1203,4 +1203,127 @@ document.getElementById('orch-spawn').addEventListener('click', async () => {
   document.getElementById('orch-workdir').value = '';
 });
 
+// ============================================================
+// API Keys modal
+// ============================================================
+
+async function renderKeysList() {
+  const list = await fetch('/api-keys').then(r => r.json()).catch(() => []);
+  const container = document.getElementById('keys-list');
+  if (!list.length) {
+    container.innerHTML = '<p style="color:#8b949e;font-size:16px;margin:0">No providers configured.</p>';
+    return;
+  }
+  container.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:16px">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 8px;color:#8b949e;font-weight:normal;border-bottom:1px solid #21262d">Provider</th>
+        <th style="text-align:left;padding:6px 8px;color:#8b949e;font-weight:normal;border-bottom:1px solid #21262d">Env Var</th>
+        <th style="text-align:left;padding:6px 8px;color:#8b949e;font-weight:normal;border-bottom:1px solid #21262d">Key</th>
+        <th style="padding:6px 8px;border-bottom:1px solid #21262d"></th>
+      </tr></thead>
+      <tbody>
+        ${list.map(k => `
+          <tr>
+            <td style="padding:6px 8px">
+              <span style="font-weight:600;color:#e6edf3">${escHtml(k.label)}</span>
+              ${!k.seeded ? '<span style="font-size:13px;color:#8b949e;margin-left:6px">(custom)</span>' : ''}
+            </td>
+            <td style="padding:6px 8px">
+              <span style="color:#8b949e;font-size:14px">${escHtml(k.env_var || '—')}</span>
+              ${k.env_set
+                ? '<span class="badge-env-set">✓ set</span>'
+                : '<span class="badge-env-not">not set</span>'}
+            </td>
+            <td style="padding:6px 8px;font-family:monospace" id="key-cell-${escHtml(k.name)}">
+              <span style="color:#8b949e">${escHtml(k.masked)}</span>
+            </td>
+            <td style="padding:6px 8px;white-space:nowrap;text-align:right">
+              <button class="btn-key-edit" data-name="${escHtml(k.name)}"
+                style="font-size:13px;padding:2px 8px;border-radius:4px;border:1px solid #30363d;background:none;color:#e6edf3;cursor:pointer;margin-right:4px">Edit</button>
+              ${k.has_db_key ? `<button class="btn-key-clear" data-name="${escHtml(k.name)}"
+                style="font-size:13px;padding:2px 8px;border-radius:4px;border:1px solid #f8514966;background:none;color:#f85149;cursor:pointer;margin-right:4px">Clear</button>` : ''}
+              ${!k.seeded ? `<button class="btn-key-delete" data-name="${escHtml(k.name)}"
+                style="font-size:13px;padding:2px 8px;border-radius:4px;border:1px solid #f8514966;background:none;color:#f85149;cursor:pointer">Delete</button>` : ''}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  container.querySelectorAll('.btn-key-edit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.name;
+      const cell = document.getElementById(`key-cell-${name}`);
+      cell.innerHTML = `
+        <input type="password" id="key-edit-${escHtml(name)}" placeholder="New key value"
+          style="background:#0d1117;border:1px solid #30363d;color:#e6edf3;padding:3px 6px;border-radius:4px;font-size:14px;width:180px;font-family:inherit">
+        <button class="btn-key-save" data-name="${escHtml(name)}"
+          style="font-size:13px;padding:2px 8px;border-radius:4px;border:none;background:#1f6feb;color:#fff;cursor:pointer;margin-left:4px">Save</button>
+        <button class="btn-key-cancel"
+          style="font-size:13px;padding:2px 8px;border-radius:4px;border:1px solid #30363d;background:none;color:#c9d1d9;cursor:pointer;margin-left:4px">✕</button>
+      `;
+      cell.querySelector('.btn-key-save').addEventListener('click', async () => {
+        const val = document.getElementById(`key-edit-${name}`).value.trim();
+        await fetch(`/api-keys/${encodeURIComponent(name)}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key_value: val }),
+        });
+        renderKeysList();
+      });
+      cell.querySelector('.btn-key-cancel').addEventListener('click', () => renderKeysList());
+    });
+  });
+
+  container.querySelectorAll('.btn-key-clear').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`/api-keys/${encodeURIComponent(btn.dataset.name)}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key_value: '' }),
+      });
+      renderKeysList();
+    });
+  });
+
+  container.querySelectorAll('.btn-key-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(`Delete provider "${btn.dataset.name}"?`)) return;
+      await fetch(`/api-keys/${encodeURIComponent(btn.dataset.name)}`, { method: 'DELETE' });
+      renderKeysList();
+    });
+  });
+}
+
+document.getElementById('btn-keys').addEventListener('click', () => {
+  document.getElementById('keys-modal').classList.remove('hidden');
+  renderKeysList();
+});
+document.getElementById('keys-modal-close').addEventListener('click', () =>
+  document.getElementById('keys-modal').classList.add('hidden'));
+document.getElementById('keys-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('keys-modal'))
+    document.getElementById('keys-modal').classList.add('hidden');
+});
+
+document.getElementById('keys-add-btn').addEventListener('click', async () => {
+  const name      = document.getElementById('keys-add-name').value.trim();
+  const label     = document.getElementById('keys-add-label').value.trim();
+  const env_var   = document.getElementById('keys-add-env').value.trim();
+  const key_value = document.getElementById('keys-add-value').value.trim();
+  if (!name || !label) return;
+  const r = await fetch('/api-keys', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, label, env_var: env_var || null, key_value: key_value || null }),
+  });
+  if (r.ok) {
+    ['keys-add-name','keys-add-label','keys-add-env','keys-add-value']
+      .forEach(id => { document.getElementById(id).value = ''; });
+    renderKeysList();
+  } else {
+    const err = await r.json().catch(() => ({}));
+    alert(err.error || 'Failed to add provider');
+  }
+});
+
 connect();

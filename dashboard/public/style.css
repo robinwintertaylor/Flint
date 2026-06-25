@@ -342,7 +342,8 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 
 /* Add Task modal */
 #add-task-modal,
-#orch-modal {
+#orch-modal,
+#keys-modal {
   position: fixed; inset: 0; background: rgba(0,0,0,0.7);
   display: flex; align-items: center; justify-content: center; z-index: 200;
 }
@@ -367,3 +368,13 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   display: none;
 }
 .scratchpad-content.open { display: block; }
+
+/* API Keys modal badges */
+.badge-env-set {
+  background: #1a4731; color: #3fb950;
+  font-size: 12px; padding: 1px 6px; border-radius: 10px; margin-left: 6px;
+}
+.badge-env-not {
+  background: #21262d; color: #8b949e;
+  font-size: 12px; padding: 1px 6px; border-radius: 10px; margin-left: 6px;
+}
