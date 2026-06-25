@@ -2,6 +2,7 @@ import { join } from 'path';
 import { getDb } from './db.js';
 import { appendTask, getTasksDir, readTasks, writeTasks } from './tasks.js';
 import { broadcastGlobal } from './agents.js';
+import { notify } from './telegram.js';
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -88,16 +89,20 @@ export function updateQueueTask(id, fields) {
 }
 
 export function completeQueueTask(id, result = '') {
+  const task = getQueueTask(id);
   getDb().prepare(
     `UPDATE task_queue SET status = 'done', result = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
   ).run(result, id);
   broadcastGlobal({ type: 'queue_task_done', taskId: id });
+  if (task) notify(`✅ Queue task #${id} done: "${task.title}"`);
 }
 
 export function cancelQueueTask(id) {
+  const task = getQueueTask(id);
   getDb().prepare(
     `UPDATE task_queue SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
   ).run(id);
+  if (task) notify(`❌ Queue task #${id} cancelled: "${task.title}"`);
 }
 
 export async function checkQueueTasks() {

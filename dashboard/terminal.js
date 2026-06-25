@@ -8,6 +8,7 @@ import { createSuggestion } from './suggestions.js';
 import { readTasks, writeTasks } from './tasks.js';
 import { getProjectForAgent, updateProject } from './projects.js';
 import { injectMcpConfig } from './mcp.js';
+import { notify } from './telegram.js';
 
 function resolveBin(name) {
   try {
@@ -89,6 +90,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
 
   agent.ptyProcess = ptyProcess;
   setAgentStatus(name, 'running');
+  notify(`🟢 Agent \`${name}\` started`);
 
   let lastModel = isVibe ? 'mistral' : 'claude';
   let lastCost = 0;
@@ -131,6 +133,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
       const suggestion = createSuggestion(name, suggMatch[1].trim());
       if (suggestion) {
         broadcastGlobal({ type: 'suggestion', suggestion });
+        notify(`💡 Suggestion from \`${name}\`: ${suggestion.content.slice(0, 200)}`);
       }
       // Remove matched text so the same suggestion doesn't fire again
       suggBuffer = suggBuffer.slice(suggBuffer.indexOf(suggMatch[0]) + suggMatch[0].length);
@@ -150,8 +153,11 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
     }
   }, 10_000);
 
-  ptyProcess.onExit(() => {
+  ptyProcess.onExit(({ exitCode }) => {
     clearInterval(idleChecker);
+    notify(exitCode === 0
+      ? `✅ Agent \`${name}\` finished`
+      : `🔴 Agent \`${name}\` crashed (exit ${exitCode})`);
     // Save last session output as summary on linked project
     const project = getProjectForAgent(name);
     if (project && outputBuffer.length > 0) {

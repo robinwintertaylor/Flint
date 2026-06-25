@@ -18,6 +18,7 @@ import { listMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '
 import { listQueueTasks, getQueueTask, createQueueTask, assignQueueTask, updateQueueTask, completeQueueTask, cancelQueueTask, startQueuePoller } from './queue.js';
 import { createOrchestration, getOrchestration, listOrchestrations, appendScratchpad, readScratchpad } from './orchestrator.js';
 import { listApiKeys, getApiKeyValue, createApiKey, updateApiKey, deleteApiKey } from './apikeys.js';
+import { initTelegram } from './telegram.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -67,6 +68,7 @@ export function createApp() {
   initDb(process.env.FLINT_DB_PATH);
   initAgents(process.env.FLINT_AGENTS_FILE);
   if (!TEST_MODE) startQueuePoller();
+  if (!TEST_MODE) initTelegram({ writeToAgent, createQueueTask });
 
   const app = express();
   app.use(express.json());
