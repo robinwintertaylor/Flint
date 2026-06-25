@@ -1326,4 +1326,39 @@ document.getElementById('keys-add-btn').addEventListener('click', async () => {
   }
 });
 
-connect();
+async function startup() {
+  try {
+    const h = await fetch('/health').then(r => r.json());
+    if (h.forgejo === 'reachable') {
+      document.getElementById('splash').classList.add('hidden');
+      connect();
+      return;
+    }
+  } catch {}
+
+  document.getElementById('splash-message').textContent = 'Starting Forgejo…';
+  try { await fetch('/api/docker/start', { method: 'POST' }); } catch {}
+
+  let elapsed = 0;
+  const poll = setInterval(async () => {
+    elapsed += 3;
+    try {
+      const h = await fetch('/health').then(r => r.json());
+      if (h.forgejo === 'reachable') {
+        clearInterval(poll);
+        document.getElementById('splash').classList.add('hidden');
+        connect();
+        return;
+      }
+    } catch {}
+    if (elapsed >= 60) {
+      clearInterval(poll);
+      document.getElementById('splash-message').textContent = '';
+      const err = document.getElementById('splash-error');
+      err.textContent = 'Could not reach Forgejo. Run `docker compose up -d` in a terminal, then refresh.';
+      err.classList.remove('hidden');
+    }
+  }, 3000);
+}
+
+startup();
