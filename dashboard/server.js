@@ -70,6 +70,7 @@ export function createApp() {
   const app = express();
   app.use(express.json());
   app.use(express.static(join(__dirname, 'public')));
+  app.use('/images', express.static(join(FLINT_ROOT, 'images')));
 
   // --- REST routes ---
 

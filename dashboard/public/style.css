@@ -7,9 +7,13 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   position: sticky; top: 0; z-index: 100;
   display: flex; justify-content: space-between; align-items: center;
   padding: 8px 16px; background: #161b22;
-  border-bottom: 1px solid #30363d; height: 44px;
+  border-bottom: 1px solid #30363d; height: 72px;
 }
-.logo { font-weight: bold; color: #58a6ff; margin-right: 12px; font-size: 18px; }
+.header-brand { display: flex; align-items: center; gap: 10px; margin-right: 16px; }
+.header-logo { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; background: #fff; padding: 2px; }
+.header-brand-text { display: flex; flex-direction: column; }
+.logo { font-weight: bold; color: #58a6ff; font-size: 20px; line-height: 1.2; }
+.header-subtitle { color: #8b949e; font-size: 11px; }
 #agent-count { color: #8b949e; font-size: 14px; }
 .header-right { display: flex; gap: 20px; font-size: 14px; color: #3fb950; }
 
