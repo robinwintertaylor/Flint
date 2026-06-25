@@ -247,3 +247,13 @@ test('POST /orchestrations/:id/scratchpad appends content', async () => {
   const text = await r.text();
   assert.ok(text.includes('Appended line.'));
 });
+
+test('GET /orchestrations/:id returns 404 for unknown id', async () => {
+  const r = await req('GET', '/orchestrations/99999');
+  assert.equal(r.status, 404);
+});
+
+test('POST /orchestrations with missing workdir returns 400', async () => {
+  const r = await req('POST', '/orchestrations', { goal: 'x' });
+  assert.equal(r.status, 400);
+});
