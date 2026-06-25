@@ -932,6 +932,7 @@ function renderQueueView(tasks, agents, activeFilter) {
 
   view.innerHTML = `
     <div class="queue-header">
+      <button id="btn-queue-back" style="background:none;border:1px solid #30363d;color:#c9d1d9;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:14px">← Dashboard</button>
       <h3 style="margin:0;font-size:18px">Task Queue</h3>
       <button id="btn-add-task" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:16px">+ Add Task</button>
     </div>
@@ -967,6 +968,9 @@ function renderQueueView(tasks, agents, activeFilter) {
         </table>`
     }
   `;
+
+  // Back button
+  document.getElementById('btn-queue-back').addEventListener('click', () => showView('agents'));
 
   // Filter pills
   view.querySelectorAll('.filter-pill').forEach(btn => {

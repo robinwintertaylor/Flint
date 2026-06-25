@@ -305,6 +305,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 /* Queue view */
 #queue-view { padding: 16px; display: flex; flex-direction: column; gap: 0; }
 .queue-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+#btn-queue-back:hover { background: #21262d; border-color: #58a6ff; color: #58a6ff; }
 .queue-filters { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
 .filter-pill {
   padding: 3px 10px; border-radius: 12px; font-size: 13px; cursor: pointer;
