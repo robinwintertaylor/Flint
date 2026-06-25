@@ -21,6 +21,7 @@ import { createOrchestration, getOrchestration, listOrchestrations, appendScratc
 import { listApiKeys, getApiKeyValue, createApiKey, updateApiKey, deleteApiKey } from './apikeys.js';
 import { initTelegram } from './telegram.js';
 import { isOllamaReachable, listModels, generate } from './ollama.js';
+import { isLmStudioReachable, listModels as listLmStudioModels, generate as lmStudioGenerate } from './lmstudio.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -300,13 +301,16 @@ export function createApp() {
   // --- Health ---
 
   app.get('/health', async (_req, res) => {
-    const [forgejoOk, ollamaOk] = await Promise.all([isForgejoReachable(), isOllamaReachable()]);
+    const [forgejoOk, ollamaOk, lmstudioOk] = await Promise.all([
+      isForgejoReachable(), isOllamaReachable(), isLmStudioReachable(),
+    ]);
     res.json({
       status: forgejoOk ? 'ok' : 'degraded',
       uptime: Math.floor(process.uptime()),
       db: 'connected',
-      forgejo: forgejoOk ? 'reachable' : 'unreachable',
-      ollama:  ollamaOk  ? 'reachable' : 'unreachable',
+      forgejo:  forgejoOk  ? 'reachable' : 'unreachable',
+      ollama:   ollamaOk   ? 'reachable' : 'unreachable',
+      lmstudio: lmstudioOk ? 'reachable' : 'unreachable',
     });
   });
 
@@ -323,6 +327,25 @@ export function createApp() {
     if (!model || !prompt) return res.status(400).json({ error: 'model and prompt required' });
     try {
       const response = await generate(model, prompt);
+      res.json({ response });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- LM Studio routes ---
+
+  app.get('/api/lmstudio/status', async (_req, res) => {
+    const reachable = await isLmStudioReachable();
+    const models = reachable ? await listLmStudioModels() : [];
+    res.json({ reachable, models });
+  });
+
+  app.post('/api/lmstudio/generate', async (req, res) => {
+    const { model, prompt } = req.body ?? {};
+    if (!model || !prompt) return res.status(400).json({ error: 'model and prompt required' });
+    try {
+      const response = await lmStudioGenerate(model, prompt);
       res.json({ response });
     } catch (err) {
       res.status(500).json({ error: err.message });
