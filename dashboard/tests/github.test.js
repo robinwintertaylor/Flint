@@ -2,6 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
+import { mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
 
 process.env.FLINT_TEST_MODE = '1';
 
@@ -52,4 +55,15 @@ test('parseOwnerRepo parses SSH URL', () => {
 test('detectProvider returns "forgejo" when git fails or no github remote', () => {
   // The Flint repo has a forgejo remote, not a github remote
   assert.equal(detectProvider(FLINT_ROOT), 'forgejo');
+});
+
+test('detectProvider returns "github" when remote contains github.com', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'flint-github-test-'));
+  try {
+    execSync('git init', { cwd: dir, stdio: 'pipe' });
+    execSync('git remote add origin https://github.com/test/repo.git', { cwd: dir, stdio: 'pipe' });
+    assert.equal(detectProvider(dir), 'github');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
