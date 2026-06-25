@@ -279,3 +279,77 @@ test('POST /orchestrations with missing workdir returns 400', async () => {
   const r = await req('POST', '/orchestrations', { goal: 'x' });
   assert.equal(r.status, 400);
 });
+
+// --- API Key routes ---
+
+test('GET /api-keys returns 5 seeded rows with no key_value field', async () => {
+  const r = await req('GET', '/api-keys');
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.length, 5);
+  assert.ok(body.some(k => k.name === 'anthropic'));
+  assert.ok(body.every(k => !('key_value' in k)), 'raw key must never be exposed');
+  assert.ok(body.every(k => 'masked' in k), 'every row must have masked field');
+});
+
+test('GET /api-keys/:name/value returns 404 when no key configured', async () => {
+  const r = await req('GET', '/api-keys/anthropic/value');
+  assert.equal(r.status, 404);
+});
+
+test('PATCH /api-keys/:name sets key then GET /value returns it', async () => {
+  await req('PATCH', '/api-keys/openai', { key_value: 'sk-test-openai-1234567890ab' });
+  const r = await req('GET', '/api-keys/openai/value');
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).value, 'sk-test-openai-1234567890ab');
+});
+
+test('PATCH /api-keys/:name returns 404 for unknown provider', async () => {
+  const r = await req('PATCH', '/api-keys/does-not-exist', { key_value: 'x' });
+  assert.equal(r.status, 404);
+});
+
+test('POST /api-keys creates custom provider and returns 201 with masked row', async () => {
+  const r = await req('POST', '/api-keys', {
+    name: 'custom-llm', label: 'Custom LLM', env_var: 'CUSTOM_KEY',
+    key_value: 'ck-test-1234567890abcd',
+  });
+  assert.equal(r.status, 201);
+  const body = await r.json();
+  assert.equal(body.name, 'custom-llm');
+  assert.equal(body.has_db_key, true);
+  assert.ok(!('key_value' in body), 'key_value must not be in 201 response');
+});
+
+test('POST /api-keys returns 409 on duplicate name', async () => {
+  const r = await req('POST', '/api-keys', { name: 'anthropic', label: 'Dup' });
+  assert.equal(r.status, 409);
+});
+
+test('POST /api-keys returns 400 on missing label', async () => {
+  const r = await req('POST', '/api-keys', { name: 'no-label' });
+  assert.equal(r.status, 400);
+});
+
+test('POST /api-keys returns 400 on invalid name slug', async () => {
+  const r = await req('POST', '/api-keys', { name: 'Bad Name!', label: 'Bad' });
+  assert.equal(r.status, 400);
+});
+
+test('DELETE /api-keys/:name returns 403 for seeded provider', async () => {
+  const r = await req('DELETE', '/api-keys/anthropic');
+  assert.equal(r.status, 403);
+});
+
+test('DELETE /api-keys/:name removes custom provider and returns 204', async () => {
+  await req('POST', '/api-keys', { name: 'to-delete', label: 'Delete Me' });
+  const r = await req('DELETE', '/api-keys/to-delete');
+  assert.equal(r.status, 204);
+  const list = await req('GET', '/api-keys').then(r => r.json());
+  assert.ok(!list.some(k => k.name === 'to-delete'));
+});
+
+test('DELETE /api-keys/:name returns 404 for unknown provider', async () => {
+  const r = await req('DELETE', '/api-keys/unknown-xyz-999');
+  assert.equal(r.status, 404);
+});

@@ -17,6 +17,7 @@ import { info, error as logError } from './logger.js';
 import { listMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from './mcp.js';
 import { listQueueTasks, getQueueTask, createQueueTask, assignQueueTask, updateQueueTask, completeQueueTask, cancelQueueTask, startQueuePoller } from './queue.js';
 import { createOrchestration, getOrchestration, listOrchestrations, appendScratchpad, readScratchpad } from './orchestrator.js';
+import { listApiKeys, getApiKeyValue, createApiKey, updateApiKey, deleteApiKey } from './apikeys.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -415,6 +416,48 @@ export function createApp() {
     if (typeof text !== 'string') return res.status(400).json({ error: 'text required' });
     appendScratchpad(Number(req.params.id), text);
     res.json({ ok: true });
+  });
+
+  // --- API Key routes ---
+
+  app.get('/api-keys', (_req, res) => res.json(listApiKeys()));
+
+  app.get('/api-keys/:name/value', (req, res) => {
+    const value = getApiKeyValue(req.params.name);
+    if (value === null) return res.status(404).json({ error: `No key configured for ${req.params.name}` });
+    res.json({ value });
+  });
+
+  app.post('/api-keys', (req, res) => {
+    const { name, label, key_value, env_var } = req.body ?? {};
+    if (!name || !label) return res.status(400).json({ error: 'name and label required' });
+    try {
+      createApiKey({ name, label, key_value, env_var });
+      const created = listApiKeys().find(r => r.name === name);
+      res.status(201).json(created);
+    } catch (err) {
+      if (err.message === 'name already exists') return res.status(409).json({ error: err.message });
+      if (err.message.includes('alphanumeric')) return res.status(400).json({ error: err.message });
+      throw err;
+    }
+  });
+
+  app.patch('/api-keys/:name', (req, res) => {
+    const changes = updateApiKey(req.params.name, req.body ?? {});
+    if (!changes) return res.status(404).json({ error: 'provider not found' });
+    const updated = listApiKeys().find(r => r.name === req.params.name);
+    res.json(updated);
+  });
+
+  app.delete('/api-keys/:name', (req, res) => {
+    try {
+      const changes = deleteApiKey(req.params.name);
+      if (!changes) return res.status(404).json({ error: 'provider not found' });
+      res.status(204).send();
+    } catch (err) {
+      if (err.message.includes('seeded')) return res.status(403).json({ error: err.message });
+      throw err;
+    }
   });
 
   // --- WebSocket ---
