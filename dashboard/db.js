@@ -93,6 +93,10 @@ export function initDb(dbPath = DEFAULT_DB) {
       env_var    TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS telegram_chat_ids (
+      chat_id  TEXT PRIMARY KEY,
+      added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
