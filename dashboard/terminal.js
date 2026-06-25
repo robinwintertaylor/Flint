@@ -27,6 +27,7 @@ const SUGGESTION_REGEX = /## SUGGESTION:\s*(.+?)(?=\n\n|\n##|$)/ms;
 const ANSI_RE = /\x1b\[[0-9;?]*[a-zA-Z]|\x1b[()][A-Z0-9]|\r/g;
 const MAX_SUMMARY_LINES = 50;
 const MAX_SUGG_BUFFER = 4000;
+const IDLE_THRESHOLD_MS = parseInt(process.env.FLINT_IDLE_TIMEOUT ?? '60') * 1000;
 
 export function injectProjectContext(agentName) {
   const project = getProjectForAgent(agentName);
@@ -93,8 +94,10 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
   let lastCost = 0;
   const outputBuffer = [];
   let suggBuffer = '';
+  let lastOutput = Date.now();
 
   ptyProcess.onData((data) => {
+    lastOutput = Date.now();
     broadcastToAgent(name, { type: 'output', agent: name, data });
 
     // Rolling output buffer for session summary
@@ -134,7 +137,21 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
     }
   });
 
+  const idleChecker = setInterval(() => {
+    if (!agent.ptyProcess) { clearInterval(idleChecker); return; }
+    if (Date.now() - lastOutput > IDLE_THRESHOLD_MS) {
+      lastOutput = Date.now();
+      agent.ptyProcess.write('please continue\n');
+      broadcastToAgent(name, {
+        type: 'output',
+        agent: name,
+        data: '\r\n\x1b[33m[Flint: agent idle — sent continue]\x1b[0m\r\n',
+      });
+    }
+  }, 10_000);
+
   ptyProcess.onExit(() => {
+    clearInterval(idleChecker);
     // Save last session output as summary on linked project
     const project = getProjectForAgent(name);
     if (project && outputBuffer.length > 0) {
