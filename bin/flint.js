@@ -264,6 +264,70 @@ async function cmdQueue(args) {
   }
 }
 
+async function cmdOrchestrate(args) {
+  const [sub, ...rest] = args;
+
+  // `flint orchestrate "goal"` — no sub means the first arg IS the goal
+  if (!sub || (!['list', 'status', 'scratchpad'].includes(sub) && !sub.startsWith('-'))) {
+    const { values, positionals } = parseArgs({
+      args: sub ? [sub, ...rest] : [],
+      options: {
+        workdir: { type: 'string' },
+        project: { type: 'string' },
+        model:   { type: 'string' },
+      },
+      allowPositionals: true,
+    });
+    const goal = positionals.join(' ');
+    if (!goal) {
+      console.error('Usage: flint orchestrate "goal" [--workdir <path>] [--project <name>] [--model <model>]');
+      process.exit(1);
+    }
+    const workdir = values.workdir ?? process.cwd();
+    const body = { goal, workdir };
+    if (values.model)   body.model = values.model;
+    // Resolve project name to id if provided
+    if (values.project) {
+      const projects = await dashGet('/projects');
+      const proj = projects.find(p => p.name === values.project);
+      if (!proj) { console.error(`Project "${values.project}" not found.`); process.exit(1); }
+      body.project_id = proj.id;
+    }
+    const orch = await dashPost('/orchestrations', body);
+    console.log(`Orchestration started — id: ${orch.id}, agent: ${orch.agentName}`);
+    console.log(`Goal: ${goal}`);
+    console.log(`Monitor at: http://localhost:3000`);
+
+  } else if (sub === 'list') {
+    const list = await dashGet('/orchestrations');
+    if (!list.length) { console.log('No orchestrations.'); return; }
+    for (const o of list) {
+      console.log(`[${o.id}] ${o.agent_name} [${o.status}] — ${o.goal.slice(0, 60)}`);
+    }
+
+  } else if (sub === 'status') {
+    const [id] = rest;
+    if (!id) { console.error('Usage: flint orchestrate status <id>'); process.exit(1); }
+    const o = await dashGet(`/orchestrations/${id}`);
+    console.log(`[${o.id}] ${o.agent_name} [${o.status}]`);
+    console.log(`Goal: ${o.goal}`);
+    console.log(`Started: ${o.created_at}`);
+
+  } else if (sub === 'scratchpad') {
+    const [id] = rest;
+    if (!id) { console.error('Usage: flint orchestrate scratchpad <id>'); process.exit(1); }
+    // Scratchpad route returns text/plain, so use raw fetch instead of dashGet
+    const res = await fetch(`${DASHBOARD_URL}/orchestrations/${id}/scratchpad`);
+    if (!res.ok) throw new Error(`GET /orchestrations/${id}/scratchpad failed: ${res.status}`);
+    const text = await res.text();
+    process.stdout.write(text + '\n');
+
+  } else {
+    console.error('Usage: flint orchestrate "goal" | list | status <id> | scratchpad <id>');
+    process.exit(1);
+  }
+}
+
 async function cmdWorkspace(args) {
   const [sub, ...rest] = args;
   if (sub === 'list') {
@@ -370,10 +434,10 @@ async function cmdWorktree(args) {
 
 const [,, subcommand, ...rest] = process.argv;
 
-const COMMANDS = { ask: cmdAsk, models: cmdModels, config: cmdConfig, costs: cmdCosts, project: cmdProject, suggestions: cmdSuggestions, worktree: cmdWorktree, workspace: cmdWorkspace, mcp: cmdMcp, queue: cmdQueue };
+const COMMANDS = { ask: cmdAsk, models: cmdModels, config: cmdConfig, costs: cmdCosts, project: cmdProject, suggestions: cmdSuggestions, worktree: cmdWorktree, workspace: cmdWorkspace, mcp: cmdMcp, queue: cmdQueue, orchestrate: cmdOrchestrate };
 const cmd = COMMANDS[subcommand];
 if (!cmd) {
-  console.error(`Usage: flint <ask|models|config|costs|project|suggestions|worktree|workspace|mcp|queue>`);
+  console.error(`Usage: flint <ask|models|config|costs|project|suggestions|worktree|workspace|mcp|queue|orchestrate>`);
   process.exit(1);
 }
 
