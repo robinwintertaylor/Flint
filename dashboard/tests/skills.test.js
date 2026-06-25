@@ -12,7 +12,7 @@ process.env.FLINT_AGENTS_FILE = TEMP_AGENTS;
 process.env.FLINT_TASKS_DIR   = TEMP_TASKS;
 process.env.FLINT_TEST_MODE   = '1';
 
-import { createSkill, listSkills, getSkill, updateSkill, upsertSkill } from '../skills.js';
+import { createSkill, listSkills, getSkill, updateSkill, upsertSkill, deleteSkill } from '../skills.js';
 const { createApp, closeDb } = await import('../server.js');
 
 let server, baseUrl;
@@ -83,4 +83,10 @@ test('upsertSkill on existing name returns { created: false } and updates conten
   assert.equal(result.created, false);
   const skill = getSkill(result.id);
   assert.equal(skill.content, 'second content');
+});
+
+test('deleteSkill removes the skill — getSkill returns null afterwards', () => {
+  const id = createSkill({ name: 'skill-delete-test', description: 'Delete test', content: 'content' });
+  deleteSkill(id);
+  assert.equal(getSkill(id), null);
 });
