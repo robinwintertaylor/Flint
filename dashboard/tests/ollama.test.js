@@ -78,3 +78,8 @@ test('POST /api/ollama/generate missing prompt returns 400', async () => {
   const r = await req('POST', '/api/ollama/generate', { model: 'llama3' });
   assert.equal(r.status, 400);
 });
+
+test('POST /api/ollama/generate missing model returns 400', async () => {
+  const r = await req('POST', '/api/ollama/generate', { prompt: 'hello' });
+  assert.equal(r.status, 400);
+});
