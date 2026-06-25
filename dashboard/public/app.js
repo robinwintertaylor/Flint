@@ -1353,6 +1353,7 @@ async function startup() {
     } catch {}
     if (elapsed >= 60) {
       clearInterval(poll);
+      document.querySelector('.splash-spinner').classList.add('hidden');
       document.getElementById('splash-message').textContent = '';
       const err = document.getElementById('splash-error');
       err.textContent = 'Could not reach Forgejo. Run `docker compose up -d` in a terminal, then refresh.';
