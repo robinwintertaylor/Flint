@@ -26,6 +26,7 @@
     <button id="btn-workspaces">⚙ Workspaces</button>
     <button id="btn-mcp">⚡ MCP</button>
     <button id="btn-queue">⬡ Queue</button>
+    <button id="btn-orchestrate">⬡ Orchestrate</button>
   </div>
 
   <div id="suggestions-strip" class="hidden"></div>
@@ -186,6 +187,39 @@
       <div class="modal-actions">
         <button id="add-task-cancel">Cancel</button>
         <button id="add-task-submit" style="background:#1f6feb;color:#fff;border:none">Add Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Orchestrate modal -->
+  <div id="orch-modal" class="hidden" role="dialog" aria-modal="true">
+    <div class="modal-box" style="max-width:480px">
+      <h2>Orchestrate a Goal</h2>
+      <label>Goal (required)
+        <textarea id="orch-goal" rows="3" placeholder="Build a REST API with JWT auth and a React frontend…" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:8px;font-family:inherit;resize:vertical"></textarea>
+      </label>
+      <label>
+        Workspace
+        <select id="orch-workspace">
+          <option value="">— manual entry —</option>
+        </select>
+      </label>
+      <label>Working Directory
+        <input id="orch-workdir" type="text" placeholder="C:\Users\Robin\Applications Dev\Flint" autocomplete="off">
+      </label>
+      <label>Project (optional)
+        <select id="orch-project">
+          <option value="">None</option>
+        </select>
+      </label>
+      <label>Model (optional)
+        <select id="orch-model">
+          <option value="">Default</option>
+        </select>
+      </label>
+      <div class="modal-actions">
+        <button id="orch-cancel">Cancel</button>
+        <button id="orch-spawn" style="background:#6e40c9;color:#fff;border:none">Spawn Orchestrator</button>
       </div>
     </div>
   </div>

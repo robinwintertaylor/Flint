@@ -5,6 +5,7 @@ const WS_URL = `ws://${location.host}/ws`;
 let ws;
 const terminals = {};   // agentName → { term, fitAddon }
 const taskContent = {}; // agentName → latest raw markdown content
+const orchAgents = {}; // agentName → orchId
 
 function connect() {
   ws = new WebSocket(WS_URL);
@@ -102,17 +103,28 @@ function connect() {
       case 'queue_task_done':
         if (currentView === 'queue') fetchAndRenderQueue(queueFilter);
         break;
+
+      case 'orchestration_started':
+        orchAgents[msg.agentName] = msg.id;
+        // Panel may already exist (ensurePanel from agents list); add orch badge if so
+        addOrchBadge(msg.agentName);
+        break;
     }
   });
 
   ws.addEventListener('close', () => setTimeout(connect, 2000));
 }
 
-function ensurePanel({ name, mode, status, isolate, runtime }) {
+function ensurePanel({ name, mode, status, isolate, runtime, role }) {
   if (document.getElementById(`panel-${name}`)) return;
 
   const runtimeBadge = (runtime && runtime !== 'claude')
     ? `<span class="badge badge-vibe" id="runtime-badge-${escHtml(name)}">vibe</span>`
+    : '';
+  const roleBadge = role === 'orchestrator'
+    ? `<span class="badge badge-orch" id="role-badge-${escHtml(name)}">orch</span>`
+    : role === 'worker'
+    ? `<span class="badge badge-worker" id="role-badge-${escHtml(name)}">worker</span>`
     : '';
 
   const panel = document.createElement('div');
@@ -124,7 +136,7 @@ function ensurePanel({ name, mode, status, isolate, runtime }) {
         <span class="panel-name">${escHtml(name)}</span>
         <span class="badge badge-${status}" id="badge-${escHtml(name)}">${status}</span>
         ${mode === 'observe' ? '<span class="badge badge-observe">observe</span>' : ''}
-        ${runtimeBadge}
+        ${runtimeBadge}${roleBadge}
         ${isolate ? `<span class="badge badge-isolated" id="isolated-badge-${escHtml(name)}">isolated</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:6px" id="header-right-${name}">
@@ -1051,6 +1063,140 @@ document.getElementById('add-task-submit').addEventListener('click', async () =>
   document.getElementById('add-task-title').value = '';
   document.getElementById('add-task-desc').value = '';
   fetchAndRenderQueue(queueFilter);
+});
+
+function addOrchBadge(agentName) {
+  const nameEl = document.querySelector(`#panel-${escHtml(agentName)} .panel-name`);
+  if (!nameEl) return;
+  const existing = document.getElementById(`role-badge-${escHtml(agentName)}`);
+  if (existing) return;
+  const badge = document.createElement('span');
+  badge.className = 'badge badge-orch';
+  badge.id = `role-badge-${escHtml(agentName)}`;
+  badge.textContent = 'orch';
+  nameEl.after(badge);
+  // Add scratchpad viewer to the task sidebar
+  addScratchpadViewer(agentName, orchAgents[agentName]);
+}
+
+function addScratchpadViewer(agentName, orchId) {
+  const sidebar = document.querySelector(`#panel-${escHtml(agentName)} .task-sidebar`);
+  if (!sidebar || document.getElementById(`scratchpad-${escHtml(agentName)}`)) return;
+  const section = document.createElement('div');
+  section.className = 'scratchpad-section';
+  section.innerHTML = `
+    <h4 id="scratch-toggle-${escHtml(agentName)}">▶ Scratchpad</h4>
+    <pre class="scratchpad-content" id="scratchpad-${escHtml(agentName)}"></pre>
+  `;
+  sidebar.appendChild(section);
+
+  document.getElementById(`scratch-toggle-${escHtml(agentName)}`).addEventListener('click', () => {
+    const content = document.getElementById(`scratchpad-${escHtml(agentName)}`);
+    content.classList.toggle('open');
+  });
+
+  // Poll scratchpad every 15s while panel exists
+  const pollInterval = setInterval(async () => {
+    const panel = document.getElementById(`panel-${escHtml(agentName)}`);
+    if (!panel) { clearInterval(pollInterval); return; }
+    const contentEl = document.getElementById(`scratchpad-${escHtml(agentName)}`);
+    if (!contentEl?.classList.contains('open')) return; // only poll when visible
+    try {
+      const r = await fetch(`/orchestrations/${orchId}/scratchpad`);
+      const text = await r.text();
+      contentEl.textContent = text;
+    } catch {}
+  }, 15000);
+}
+
+// ============================================================
+// Orchestrate modal
+// ============================================================
+
+document.getElementById('btn-orchestrate').addEventListener('click', async () => {
+  const modal = document.getElementById('orch-modal');
+  modal.classList.remove('hidden');
+  document.getElementById('orch-goal').focus();
+
+  // Pre-fill workdir
+  const wdInput = document.getElementById('orch-workdir');
+  if (!wdInput.value) {
+    fetch('/config').then(r => r.json()).then(cfg => { wdInput.value = cfg.defaultWorkdir; }).catch(() => {});
+  }
+
+  // Populate workspace dropdown
+  const wsSel = document.getElementById('orch-workspace');
+  fetch('/workspaces').then(r => r.json()).then(list => {
+    wsSel.innerHTML = '<option value="">— manual entry —</option>';
+    list.forEach(ws => {
+      const opt = document.createElement('option');
+      opt.value = ws.path; opt.textContent = `${ws.name}  (${ws.path})`;
+      wsSel.appendChild(opt);
+    });
+  }).catch(() => {});
+
+  // Populate project dropdown
+  const projSel = document.getElementById('orch-project');
+  fetch('/projects').then(r => r.json()).then(projects => {
+    projSel.innerHTML = '<option value="">None</option>';
+    projects.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id; opt.textContent = p.name;
+      projSel.appendChild(opt);
+    });
+  }).catch(() => {});
+
+  // Populate model dropdown (reuse router models)
+  const modelSel = document.getElementById('orch-model');
+  fetch('/router/models').then(r => r.json()).then(models => {
+    if (models.error) return;
+    while (modelSel.options.length > 1) modelSel.remove(1);
+    for (const [provider, list] of Object.entries(models)) {
+      const group = document.createElement('optgroup');
+      group.label = provider;
+      for (const m of list) {
+        const opt = document.createElement('option');
+        opt.value = m; opt.textContent = m;
+        group.appendChild(opt);
+      }
+      modelSel.appendChild(group);
+    }
+  }).catch(() => {});
+});
+
+document.getElementById('orch-workspace').addEventListener('change', e => {
+  if (e.target.value) document.getElementById('orch-workdir').value = e.target.value;
+});
+
+document.getElementById('orch-cancel').addEventListener('click', () =>
+  document.getElementById('orch-modal').classList.add('hidden'));
+document.getElementById('orch-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('orch-modal'))
+    document.getElementById('orch-modal').classList.add('hidden');
+});
+
+document.getElementById('orch-spawn').addEventListener('click', async () => {
+  const goal    = document.getElementById('orch-goal').value.trim();
+  const workdir = document.getElementById('orch-workdir').value.trim();
+  if (!goal || !workdir) return;
+  const model      = document.getElementById('orch-model').value || undefined;
+  const project_id = document.getElementById('orch-project').value || undefined;
+
+  const r = await fetch('/orchestrations', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ goal, workdir, model, project_id }),
+  });
+  if (!r.ok) { console.error('Failed to start orchestration'); return; }
+  const orch = await r.json();
+
+  // Create the panel immediately (the WS event will also fire, ensurePanel is idempotent)
+  ensurePanel({ name: orch.agentName, mode: 'spawn', status: 'running', role: 'orchestrator' });
+  orchAgents[orch.agentName] = orch.id;
+  addOrchBadge(orch.agentName);
+
+  document.getElementById('orch-modal').classList.add('hidden');
+  document.getElementById('orch-goal').value = '';
+  document.getElementById('orch-workdir').value = '';
 });
 
 connect();

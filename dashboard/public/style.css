@@ -336,7 +336,29 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 .queue-expand td { padding: 8px 18px 12px; color: #8b949e; font-size: 12px; white-space: pre-wrap; }
 
 /* Add Task modal */
-#add-task-modal {
+#add-task-modal,
+#orch-modal {
   position: fixed; inset: 0; background: rgba(0,0,0,0.7);
   display: flex; align-items: center; justify-content: center; z-index: 200;
 }
+
+/* Orchestrator badges */
+.badge-orch {
+  background: #2d1f5e; color: #bf91f3;
+  font-size: 10px; padding: 1px 6px; border-radius: 10px; margin-left: 4px;
+}
+.badge-worker {
+  background: #1a3f6e; color: #58a6ff;
+  font-size: 10px; padding: 1px 6px; border-radius: 10px; margin-left: 4px;
+}
+
+/* Scratchpad section in task sidebar */
+.scratchpad-section { margin-top: 10px; border-top: 1px solid #30363d; padding-top: 8px; }
+.scratchpad-section h4 { color: #58a6ff; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; cursor: pointer; }
+.scratchpad-content {
+  font-size: 10px; color: #8b949e; white-space: pre-wrap; word-break: break-word;
+  max-height: 180px; overflow-y: auto; background: #0d1117;
+  padding: 6px 8px; border-radius: 4px; border: 1px solid #21262d;
+  display: none;
+}
+.scratchpad-content.open { display: block; }
