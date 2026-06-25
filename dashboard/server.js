@@ -352,6 +352,18 @@ export function createApp() {
     }
   });
 
+  // --- Docker routes ---
+
+  app.post('/api/docker/start', (_req, res) => {
+    if (TEST_MODE) return res.json({ ok: true });
+    try {
+      execSync('docker compose up -d', { cwd: FLINT_ROOT, timeout: 30000 });
+      res.json({ ok: true });
+    } catch (err) {
+      res.json({ ok: false, error: err.message });
+    }
+  });
+
   // --- Project routes ---
 
   app.get('/projects', (_req, res) => {
