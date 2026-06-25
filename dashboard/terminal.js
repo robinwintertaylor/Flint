@@ -55,6 +55,20 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
   // Inject project context into task file before spawning
   injectProjectContext(name);
 
+  // Prepend autonomous operating directive so the agent never pauses for human input
+  const AUTONOMOUS_BLOCK =
+    '## Operating Mode: Autonomous\n' +
+    'You are running as an autonomous agent orchestrated by Flint. No human is monitoring this session.\n' +
+    '- Never pause to ask for confirmation or approval\n' +
+    '- Make your best judgement on all decisions and proceed\n' +
+    '- If you encounter ambiguity, choose the most reasonable interpretation and continue\n' +
+    '- Complete all tasks fully without checking in\n' +
+    '---\n\n';
+  const _currentTasks = readTasks(name);
+  if (!_currentTasks.startsWith('## Operating Mode:')) {
+    writeTasks(name, AUTONOMOUS_BLOCK + _currentTasks);
+  }
+
   const isVibe = agent.runtime === 'vibe';
   const bin = isVibe ? VIBE_BIN : CLAUDE_BIN;
   const args = isVibe ? [] : ['--dangerously-skip-permissions'];
