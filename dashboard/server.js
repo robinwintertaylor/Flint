@@ -131,7 +131,7 @@ export function createApp() {
     if (!name || !command) return res.status(400).json({ error: 'name and command required' });
     try {
       const id = addMcpServer({ name, command, args, env, scope, enabled });
-      res.json({ id, name, command, args, env, scope, enabled });
+      res.status(201).json({ id, name, command, args, env, scope, enabled });
     } catch {
       res.status(409).json({ error: 'server name already registered' });
     }
@@ -143,19 +143,21 @@ export function createApp() {
   });
 
   app.delete('/mcp/servers/:id', (req, res) => {
-    removeMcpServer(Number(req.params.id));
+    const changes = removeMcpServer(Number(req.params.id));
+    if (!changes) return res.status(404).json({ error: 'server not found' });
     res.json({ ok: true });
   });
 
   // --- Task queue routes ---
 
   app.get('/queue/tasks', (req, res) => {
-    const { status, assigned_to, role, project_id } = req.query;
+    const { status, assigned_to, role, project_id, created_by } = req.query;
     res.json(listQueueTasks({
       ...(status      ? { status }      : {}),
       ...(assigned_to ? { assigned_to } : {}),
       ...(role        ? { role }         : {}),
       ...(project_id  ? { project_id: Number(project_id) } : {}),
+      ...(created_by  ? { created_by }  : {}),
     }));
   });
 
@@ -177,7 +179,14 @@ export function createApp() {
     const task = getQueueTask(id);
     if (!task) return res.status(404).json({ error: 'task not found' });
     const { assigned_to, status, result, priority, description } = req.body ?? {};
-    if (assigned_to !== undefined) return res.json(assignQueueTask(id, assigned_to));
+    if (assigned_to !== undefined) {
+      try {
+        return res.json(assignQueueTask(id, assigned_to));
+      } catch (err) {
+        if (err.message.includes('already')) return res.status(409).json({ error: err.message });
+        return res.status(500).json({ error: err.message });
+      }
+    }
     if (status === 'done')      { completeQueueTask(id, result ?? ''); return res.json(getQueueTask(id)); }
     if (status === 'cancelled') { cancelQueueTask(id); return res.json(getQueueTask(id)); }
     if (priority !== undefined || description !== undefined) {

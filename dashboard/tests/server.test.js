@@ -95,7 +95,7 @@ test('POST /mcp/servers creates a server and returns it', async () => {
   const r = await req('POST', '/mcp/servers', {
     name: 'test-fs', command: 'npx', args: ['-y', '@mcp/fs'], env: {}, scope: 'global',
   });
-  assert.equal(r.status, 200);
+  assert.equal(r.status, 201);
   const body = await r.json();
   assert.equal(body.name, 'test-fs');
   assert.ok(body.id, 'id should be present');
@@ -123,6 +123,11 @@ test('DELETE /mcp/servers/:id removes the server', async () => {
   await req('DELETE', `/mcp/servers/${id}`);
   const list = await req('GET', '/mcp/servers').then(r => r.json());
   assert.ok(!list.find(s => s.id === id), 'server should be gone');
+});
+
+test('DELETE /mcp/servers/:id returns 404 for nonexistent id', async () => {
+  const r = await req('DELETE', '/mcp/servers/99999');
+  assert.equal(r.status, 404);
 });
 
 test('GET /queue/tasks returns empty array initially', async () => {
@@ -191,6 +196,23 @@ test('GET /queue/tasks?status=pending filters correctly', async () => {
   const r = await req('GET', '/queue/tasks?status=pending');
   const list = await r.json();
   assert.ok(list.every(task => task.status === 'pending'), 'all returned tasks should be pending');
+});
+
+test('GET /queue/tasks?created_by= filters by creator', async () => {
+  await req('POST', '/queue/tasks', { title: 'Orch task', created_by: 'orch-99' });
+  await req('POST', '/queue/tasks', { title: 'Human task', created_by: 'human-1' });
+  const r = await req('GET', '/queue/tasks?created_by=orch-99');
+  assert.equal(r.status, 200);
+  const list = await r.json();
+  assert.ok(list.every(t => t.created_by === 'orch-99'), 'should only return orch-99 tasks');
+});
+
+test('PATCH /queue/tasks/:id with assigned_to on in_progress task returns 409', async () => {
+  await req('POST', '/agents/spawn', { name: 'worker-409', workdir: process.cwd() });
+  const created = await req('POST', '/queue/tasks', { title: 'Already assigned', assigned_to: 'worker-409', created_by: 'human' }).then(r => r.json());
+  assert.equal(created.status, 'in_progress');
+  const r = await req('PATCH', `/queue/tasks/${created.id}`, { assigned_to: 'worker-409b' });
+  assert.equal(r.status, 409);
 });
 
 test('GET /orchestrations returns empty array initially', async () => {

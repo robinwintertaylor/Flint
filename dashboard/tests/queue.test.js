@@ -69,6 +69,15 @@ test('listQueueTasks filters by assigned_to', () => {
   assert.equal(aliceTasks[0].title, 'For alice');
 });
 
+test('listQueueTasks filters by created_by', () => {
+  initDb(':memory:');
+  createQueueTask({ title: 'By orch', created_by: 'orch-1' });
+  createQueueTask({ title: 'By human', created_by: 'human' });
+  const results = listQueueTasks({ created_by: 'orch-1' });
+  assert.ok(results.every(t => t.created_by === 'orch-1'), 'should only return orch-1 tasks');
+  assert.ok(results.some(t => t.title === 'By orch'), 'orch-1 task should be present');
+});
+
 test('assignQueueTask sets assigned_to and in_progress', () => {
   initDb(':memory:');
   const task = createQueueTask({ title: 'Unassigned', created_by: 'human' });
@@ -76,6 +85,20 @@ test('assignQueueTask sets assigned_to and in_progress', () => {
   const updated = assignQueueTask(task.id, 'my-agent');
   assert.equal(updated.assigned_to, 'my-agent');
   assert.equal(updated.status, 'in_progress');
+});
+
+test('assignQueueTask throws when task is already in_progress', () => {
+  initDb(':memory:');
+  const task = createQueueTask({ title: 'Already in progress', assigned_to: 'agent-a', created_by: 'human' });
+  assert.equal(task.status, 'in_progress');
+  assert.throws(() => assignQueueTask(task.id, 'agent-b'), /already in_progress/);
+});
+
+test('assignQueueTask throws when task is already done', () => {
+  initDb(':memory:');
+  const task = createQueueTask({ title: 'Already done', created_by: 'human' });
+  completeQueueTask(task.id, 'result');
+  assert.throws(() => assignQueueTask(task.id, 'agent-b'), /already done/);
 });
 
 test('completeQueueTask sets done and result', () => {

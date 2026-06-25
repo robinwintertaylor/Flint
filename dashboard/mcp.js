@@ -32,7 +32,7 @@ export function updateMcpServer(id, fields) {
 }
 
 export function removeMcpServer(id) {
-  getDb().prepare('DELETE FROM mcp_servers WHERE id = ?').run(id);
+  return getDb().prepare('DELETE FROM mcp_servers WHERE id = ?').run(id).changes;
 }
 
 export function getMcpConfigForAgent(agentName) {

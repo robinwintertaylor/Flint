@@ -78,7 +78,7 @@ curl -s -X PATCH http://localhost:3000/queue/tasks/<id> \\
 \`\`\`
 curl -s -X POST http://localhost:3000/orchestrations/${id}/scratchpad \\
   -H "Content-Type: application/json" \\
-  -d '{"content":"\\n## Synthesis\\n\\n<your synthesis here>"}'
+  -d '{"text":"\\n## Synthesis\\n\\n<your synthesis here>"}'
 \`\`\`
 
 ## Worker Roles
@@ -123,7 +123,7 @@ export function createOrchestration({ goal, workdir, model, projectId } = {}) {
   // Create scratchpad directory + file
   const orchDir = join(getTasksDir(), `orch-${id}`);
   if (!existsSync(orchDir)) mkdirSync(orchDir, { recursive: true });
-  const scratchpadPath = `tasks/orch-${id}/scratchpad.md`;
+  const scratchpadPath = join(getTasksDir(), `orch-${id}`, 'scratchpad.md');
   const absPath = join(orchDir, 'scratchpad.md');
   const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
   writeFileSync(absPath, `# Orchestration: ${goal}\n\nStarted: ${timestamp}\n\n## Plan\n\n## Findings\n\n## Synthesis\n`, 'utf8');

@@ -12,7 +12,7 @@ function formatTaskForInjection(task) {
   return `${task.title}${desc}\n\n  _Queue task #${task.id}${roleTag}_`;
 }
 
-export function listQueueTasks({ status, assigned_to, project_id, role } = {}) {
+export function listQueueTasks({ status, assigned_to, project_id, role, created_by } = {}) {
   const db = getDb();
   const wheres = [];
   const vals = [];
@@ -20,6 +20,7 @@ export function listQueueTasks({ status, assigned_to, project_id, role } = {}) {
   if (assigned_to !== undefined) { wheres.push('assigned_to = ?'); vals.push(assigned_to); }
   if (project_id !== undefined)  { wheres.push('project_id = ?');  vals.push(project_id); }
   if (role !== undefined)        { wheres.push('role = ?');         vals.push(role); }
+  if (created_by !== undefined)  { wheres.push('created_by = ?');  vals.push(created_by); }
   const where = wheres.length ? `WHERE ${wheres.join(' AND ')}` : '';
   return db.prepare(`SELECT * FROM task_queue ${where} ORDER BY priority DESC, id ASC`).all(...vals);
 }
@@ -45,6 +46,9 @@ export function assignQueueTask(id, agentName) {
   const db = getDb();
   const task = getQueueTask(id);
   if (!task) throw new Error(`Task ${id} not found`);
+  if (task.status === 'in_progress' || task.status === 'done') {
+    throw new Error(`Task ${id} is already ${task.status}`);
+  }
   db.prepare(
     `UPDATE task_queue SET assigned_to = ?, status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
   ).run(agentName, id);
