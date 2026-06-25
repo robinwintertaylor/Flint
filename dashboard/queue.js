@@ -1,5 +1,6 @@
+import { join } from 'path';
 import { getDb } from './db.js';
-import { appendTask, readTasks, writeTasks } from './tasks.js';
+import { appendTask, getTasksDir, readTasks, writeTasks } from './tasks.js';
 import { broadcastGlobal } from './agents.js';
 
 function escapeRegex(str) {
@@ -61,7 +62,7 @@ export function assignQueueTask(id, agentName) {
       `SELECT id FROM orchestrations WHERE agent_name = ? AND status = 'running'`
     ).get(task.created_by);
     if (orch) {
-      const scratchpadPath = `tasks/orch-${orch.id}/scratchpad.md`;
+      const scratchpadPath = join(getTasksDir(), `orch-${orch.id}`, 'scratchpad.md');
       const role = task.role ?? 'worker';
       const context = `## Context — Orchestration Worker\nRole: ${role}\nShared scratchpad: ${scratchpadPath}\nRead the scratchpad for context. Append your findings under ## Findings.\nWhen done, your task will be marked complete automatically.\n\n---\n\n`;
       writeTasks(agentName, context + readTasks(agentName));

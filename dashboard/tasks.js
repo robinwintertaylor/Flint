@@ -5,7 +5,7 @@ import { dirname, join } from 'path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
 
-function getTasksDir() {
+export function getTasksDir() {
   return process.env.FLINT_TASKS_DIR ?? join(FLINT_ROOT, 'tasks');
 }
 
