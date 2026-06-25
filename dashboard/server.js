@@ -22,11 +22,25 @@ import { listApiKeys, getApiKeyValue, createApiKey, updateApiKey, deleteApiKey }
 import { initTelegram } from './telegram.js';
 import { isOllamaReachable, listModels, generate } from './ollama.js';
 import { isLmStudioReachable, listModels as listLmStudioModels, generate as lmStudioGenerate } from './lmstudio.js';
+import { listSkills, getSkill, createSkill, updateSkill, deleteSkill, upsertSkill } from './skills.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
 const PORT = process.env.PORT ?? 3000;
 const TEST_MODE = process.env.FLINT_TEST_MODE === '1';
+
+function parseFrontmatter(raw) {
+  const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (!m) return null;
+  const meta = {};
+  for (const line of m[1].split('\n')) {
+    const colon = line.indexOf(':');
+    if (colon < 1) continue;
+    meta[line.slice(0, colon).trim()] = line.slice(colon + 1).trim();
+  }
+  if (!meta.name || !meta.description) return null;
+  return { name: meta.name, description: meta.description, tags: meta.tags ?? '', body: m[2].trim() };
+}
 
 export { closeDb } from './db.js';
 
@@ -362,6 +376,106 @@ export function createApp() {
     } catch (err) {
       res.json({ ok: false, error: err.message });
     }
+  });
+
+  // --- Skills routes ---
+
+  app.get('/api/skills', (_req, res) => {
+    res.json(listSkills());
+  });
+
+  // import-github MUST be registered before /:id to avoid path collision
+  app.post('/api/skills/import-github', async (req, res) => {
+    const { url } = req.body ?? {};
+    if (!url) return res.status(400).json({ error: 'url required' });
+    if (TEST_MODE) return res.json({ imported: 1, updated: 0, skipped: 0 });
+    try {
+      const ghMatch = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\/tree\/([^/]+)(?:\/(.*))?)?(?:\.git)?(?:\/)?$/);
+      if (!ghMatch) return res.status(400).json({ error: 'invalid GitHub URL' });
+      const [, owner, repo, urlBranch, urlPrefix] = ghMatch;
+
+      const ghToken = getApiKeyValue('github');
+      const ghHeaders = ghToken
+        ? { Authorization: `Bearer ${ghToken}`, Accept: 'application/vnd.github+json' }
+        : { Accept: 'application/vnd.github+json' };
+
+      let branch = urlBranch;
+      if (!branch) {
+        const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers: ghHeaders });
+        if (!repoRes.ok) return res.status(400).json({ error: `GitHub API error: ${repoRes.status}` });
+        branch = (await repoRes.json()).default_branch;
+      }
+
+      const treeRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
+        { headers: ghHeaders }
+      );
+      if (!treeRes.ok) return res.status(400).json({ error: `GitHub tree API error: ${treeRes.status}` });
+      const treeData = await treeRes.json();
+
+      const candidates = (treeData.tree ?? []).filter(item => {
+        if (item.type !== 'blob' || !item.path.endsWith('.md')) return false;
+        if (urlPrefix && !item.path.startsWith(urlPrefix)) return false;
+        const parts = item.path.split('/');
+        const filename = parts[parts.length - 1].toLowerCase();
+        const inSkillsDir = parts.some((p, i) => i < parts.length - 1 && p.toLowerCase() === 'skills');
+        return filename === 'skill.md' || inSkillsDir;
+      });
+
+      let imported = 0, updated = 0, skipped = 0;
+      for (const item of candidates) {
+        const contentRes = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/contents/${item.path}?ref=${branch}`,
+          { headers: ghHeaders }
+        );
+        if (!contentRes.ok) { skipped++; continue; }
+        const raw = Buffer.from((await contentRes.json()).content, 'base64').toString('utf8');
+        const parsed = parseFrontmatter(raw);
+        if (!parsed) { skipped++; continue; }
+        const result = upsertSkill({ name: parsed.name, description: parsed.description, content: parsed.body, source: `github:${url}`, tags: parsed.tags });
+        if (result.created) imported++; else updated++;
+      }
+      res.json({ imported, updated, skipped });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/skills', (req, res) => {
+    const { name, description, content, source, tags } = req.body ?? {};
+    if (!name || !description || !content) return res.status(400).json({ error: 'name, description, and content required' });
+    try {
+      const id = createSkill({ name, description, content, source: source ?? 'manual', tags: tags ?? '' });
+      res.status(201).json({ id });
+    } catch (err) {
+      if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'skill name already exists' });
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/skills/:id', (req, res) => {
+    const skill = getSkill(Number(req.params.id));
+    if (!skill) return res.status(404).json({ error: 'skill not found' });
+    res.json(skill);
+  });
+
+  app.patch('/api/skills/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!getSkill(id)) return res.status(404).json({ error: 'skill not found' });
+    const body = req.body ?? {};
+    const fields = {};
+    for (const k of ['name', 'description', 'content', 'tags']) {
+      if (k in body) fields[k] = body[k];
+    }
+    updateSkill(id, fields);
+    res.json(getSkill(id));
+  });
+
+  app.delete('/api/skills/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!getSkill(id)) return res.status(404).json({ error: 'skill not found' });
+    deleteSkill(id);
+    res.status(204).end();
   });
 
   // --- Project routes ---

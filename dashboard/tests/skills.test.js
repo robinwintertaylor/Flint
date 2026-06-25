@@ -90,3 +90,81 @@ test('deleteSkill removes the skill — getSkill returns null afterwards', () =>
   deleteSkill(id);
   assert.equal(getSkill(id), null);
 });
+
+// --- Route tests ---
+
+test('GET /api/skills returns array', async () => {
+  const r = await req('GET', '/api/skills');
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.ok(Array.isArray(body));
+});
+
+test('POST /api/skills with valid body returns 201 and { id }', async () => {
+  const r = await req('POST', '/api/skills', {
+    name: 'route-create-test',
+    description: 'Route create test',
+    content: '# Route test\nContent',
+  });
+  assert.equal(r.status, 201);
+  const body = await r.json();
+  assert.ok('id' in body);
+  assert.ok(body.id > 0);
+});
+
+test('POST /api/skills missing required field returns 400', async () => {
+  const r = await req('POST', '/api/skills', { name: 'missing-fields-test' });
+  assert.equal(r.status, 400);
+});
+
+test('GET /api/skills/:id returns skill with content field', async () => {
+  const create = await req('POST', '/api/skills', {
+    name: 'route-get-test',
+    description: 'Get route test',
+    content: 'route get content',
+  });
+  const { id } = await create.json();
+  const r = await req('GET', `/api/skills/${id}`);
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.ok('content' in body);
+  assert.equal(body.content, 'route get content');
+});
+
+test('GET /api/skills/:id with unknown id returns 404', async () => {
+  const r = await req('GET', '/api/skills/999999');
+  assert.equal(r.status, 404);
+});
+
+test('PATCH /api/skills/:id updates name and returns updated skill', async () => {
+  const create = await req('POST', '/api/skills', {
+    name: 'route-patch-test',
+    description: 'Patch test',
+    content: 'content',
+  });
+  const { id } = await create.json();
+  const r = await req('PATCH', `/api/skills/${id}`, { name: 'updated-name' });
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.name, 'updated-name');
+});
+
+test('DELETE /api/skills/:id returns 204', async () => {
+  const create = await req('POST', '/api/skills', {
+    name: 'route-delete-test',
+    description: 'Delete test',
+    content: 'content',
+  });
+  const { id } = await create.json();
+  const r = await req('DELETE', `/api/skills/${id}`);
+  assert.equal(r.status, 204);
+});
+
+test('POST /api/skills/import-github returns { imported, updated, skipped } in TEST_MODE', async () => {
+  const r = await req('POST', '/api/skills/import-github', { url: 'https://github.com/test/repo' });
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.ok('imported' in body);
+  assert.ok('updated' in body);
+  assert.ok('skipped' in body);
+});
