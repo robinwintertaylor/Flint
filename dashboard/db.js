@@ -97,6 +97,16 @@ export function initDb(dbPath = DEFAULT_DB) {
       chat_id  TEXT PRIMARY KEY,
       added_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS skills (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT    NOT NULL UNIQUE,
+      description TEXT    NOT NULL,
+      content     TEXT    NOT NULL,
+      source      TEXT    NOT NULL DEFAULT 'manual',
+      tags        TEXT    NOT NULL DEFAULT '',
+      created_at  INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at  INTEGER NOT NULL DEFAULT (unixepoch())
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
