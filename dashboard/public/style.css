@@ -396,3 +396,55 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Skill cards */
+.skill-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+.skill-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+}
+.skill-name {
+  font-weight: 600;
+  color: #e6edf3;
+  flex: 1;
+}
+.skill-badge {
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #8b949e;
+  font-size: 12px;
+  padding: 2px 6px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.skill-tag {
+  background: #1f6feb22;
+  border: 1px solid #1f6feb55;
+  border-radius: 12px;
+  color: #58a6ff;
+  font-size: 12px;
+  padding: 1px 8px;
+}
+.skill-content {
+  margin-top: 10px;
+  background: #0d1117;
+  border-radius: 4px;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 13px;
+  color: #c9d1d9;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.skill-actions { display: flex; gap: 4px; }

@@ -426,27 +426,42 @@ let currentView = 'agents';
 
 function showView(view) {
   currentView = view;
-  const panels    = document.getElementById('panels');
-  const toolbar   = document.getElementById('toolbar');
-  const projView  = document.getElementById('project-view');
-  const projBar   = document.getElementById('proj-toolbar');
-  const queueView = document.getElementById('queue-view');
+  const panels     = document.getElementById('panels');
+  const toolbar    = document.getElementById('toolbar');
+  const projView   = document.getElementById('project-view');
+  const projBar    = document.getElementById('proj-toolbar');
+  const queueView  = document.getElementById('queue-view');
+  const skillsView = document.getElementById('skills-view');
   if (view === 'projects') {
-    panels.style.display   = 'none';
-    toolbar.style.display  = 'none';
-    projView.classList.remove('hidden'); queueView.classList.add('hidden');
+    panels.style.display = 'none';
+    toolbar.style.display = 'none';
+    projView.classList.remove('hidden');
+    queueView.classList.add('hidden');
+    skillsView.classList.add('hidden');
     if (projBar) projBar.style.display = 'flex';
     fetchProjects();
   } else if (view === 'queue') {
-    panels.style.display   = 'none';
-    toolbar.style.display  = 'none';
-    projView.classList.add('hidden'); queueView.classList.remove('hidden');
+    panels.style.display = 'none';
+    toolbar.style.display = 'none';
+    projView.classList.add('hidden');
+    queueView.classList.remove('hidden');
+    skillsView.classList.add('hidden');
     if (projBar) projBar.style.display = 'none';
     fetchAndRenderQueue();
+  } else if (view === 'skills') {
+    panels.style.display = 'none';
+    toolbar.style.display = 'none';
+    projView.classList.add('hidden');
+    queueView.classList.add('hidden');
+    skillsView.classList.remove('hidden');
+    if (projBar) projBar.style.display = 'none';
+    fetchAndRenderSkills();
   } else {
-    panels.style.display   = '';
-    toolbar.style.display  = '';
-    projView.classList.add('hidden'); queueView.classList.add('hidden');
+    panels.style.display = '';
+    toolbar.style.display = '';
+    projView.classList.add('hidden');
+    queueView.classList.add('hidden');
+    skillsView.classList.add('hidden');
     if (projBar) projBar.style.display = 'none';
   }
 }
@@ -904,6 +919,186 @@ document.getElementById('mcp-add-btn').addEventListener('click', async () => {
 let queueFilter = 'all';
 
 document.getElementById('btn-queue').addEventListener('click', () => showView('queue'));
+
+// ============================================================
+// Skills Library tab
+// ============================================================
+
+document.getElementById('btn-skills').addEventListener('click', () => showView('skills'));
+
+async function fetchAndRenderSkills() {
+  const skills = await fetch('/api/skills').then(r => r.json()).catch(() => []);
+  renderSkillsView(skills);
+}
+
+function renderSkillsView(skills) {
+  const view = document.getElementById('skills-view');
+  view.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <h2 style="margin:0;flex:1">Skills Library</h2>
+      <button id="btn-skill-new" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:15px">+ New Skill</button>
+      <button id="btn-skill-import" style="background:none;border:1px solid #30363d;color:#e6edf3;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:15px">⬇ Import from GitHub</button>
+      <button id="btn-skills-back" style="background:none;border:1px solid #30363d;color:#c9d1d9;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:14px">← Dashboard</button>
+    </div>
+    <div id="skills-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  `;
+
+  document.getElementById('btn-skills-back').addEventListener('click', () => showView('agents'));
+  document.getElementById('btn-skill-new').addEventListener('click', openNewSkillModal);
+  document.getElementById('btn-skill-import').addEventListener('click', openImportGitHubModal);
+
+  const list = document.getElementById('skills-list');
+  if (!skills.length) {
+    list.innerHTML = '<p style="color:#8b949e">No skills yet. Add one manually or import from GitHub.</p>';
+    return;
+  }
+
+  for (const skill of skills) {
+    const card = document.createElement('div');
+    card.className = 'skill-card';
+    const tagsHtml = skill.tags
+      ? skill.tags.split(',').filter(Boolean).map(t => `<span class="skill-tag">${escHtml(t.trim())}</span>`).join('')
+      : '';
+    card.innerHTML = `
+      <div class="skill-card-header" data-id="${skill.id}" style="cursor:pointer">
+        <span class="skill-name">${escHtml(skill.name)}</span>
+        <span class="skill-badge" title="${escHtml(skill.source)}">${escHtml(skill.source)}</span>
+        <div class="skill-actions">
+          <button class="btn-skill-edit" data-id="${skill.id}" style="background:none;border:none;color:#58a6ff;cursor:pointer;font-size:14px;padding:2px 6px">Edit</button>
+          <button class="btn-skill-delete" data-id="${skill.id}" style="background:none;border:none;color:#f85149;cursor:pointer;font-size:14px;padding:2px 6px">Delete</button>
+        </div>
+      </div>
+      <div style="color:#8b949e;font-size:14px;margin:4px 0">${escHtml(skill.description)}</div>
+      ${tagsHtml ? `<div class="skill-tags">${tagsHtml}</div>` : ''}
+      <div id="skill-content-${skill.id}" class="skill-content hidden"></div>
+    `;
+    list.appendChild(card);
+  }
+
+  list.querySelectorAll('.skill-card-header').forEach(header => {
+    header.addEventListener('click', async (e) => {
+      if (e.target.classList.contains('btn-skill-edit') || e.target.classList.contains('btn-skill-delete')) return;
+      const id = header.dataset.id;
+      const contentEl = document.getElementById(`skill-content-${id}`);
+      if (!contentEl.classList.contains('hidden')) {
+        contentEl.classList.add('hidden');
+        return;
+      }
+      if (!contentEl.dataset.loaded) {
+        const full = await fetch(`/api/skills/${id}`).then(r => r.json());
+        contentEl.innerHTML = `<pre style="margin:0;white-space:pre-wrap;word-break:break-word">${escHtml(full.content)}</pre>`;
+        contentEl.dataset.loaded = '1';
+      }
+      contentEl.classList.remove('hidden');
+    });
+  });
+
+  list.querySelectorAll('.btn-skill-edit').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const full = await fetch(`/api/skills/${btn.dataset.id}`).then(r => r.json());
+      openEditSkillModal(full);
+    });
+  });
+
+  list.querySelectorAll('.btn-skill-delete').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const skillName = btn.closest('.skill-card').querySelector('.skill-name').textContent;
+      if (!confirm(`Delete skill "${skillName}"?`)) return;
+      await fetch(`/api/skills/${btn.dataset.id}`, { method: 'DELETE' });
+      fetchAndRenderSkills();
+    });
+  });
+}
+
+// --- New Skill / Edit Skill Modal ---
+
+let _editingSkillId = null;
+
+function openNewSkillModal() {
+  _editingSkillId = null;
+  document.getElementById('skill-modal-title').textContent = 'New Skill';
+  ['skill-modal-name', 'skill-modal-desc', 'skill-modal-tags', 'skill-modal-content']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('skill-modal').classList.remove('hidden');
+}
+
+function openEditSkillModal(skill) {
+  _editingSkillId = skill.id;
+  document.getElementById('skill-modal-title').textContent = 'Edit Skill';
+  document.getElementById('skill-modal-name').value    = skill.name;
+  document.getElementById('skill-modal-desc').value    = skill.description;
+  document.getElementById('skill-modal-tags').value    = skill.tags;
+  document.getElementById('skill-modal-content').value = skill.content;
+  document.getElementById('skill-modal').classList.remove('hidden');
+}
+
+document.getElementById('skill-modal-cancel').addEventListener('click', () =>
+  document.getElementById('skill-modal').classList.add('hidden'));
+
+document.getElementById('skill-modal-save').addEventListener('click', async () => {
+  const name        = document.getElementById('skill-modal-name').value.trim();
+  const description = document.getElementById('skill-modal-desc').value.trim();
+  const tags        = document.getElementById('skill-modal-tags').value.trim();
+  const content     = document.getElementById('skill-modal-content').value.trim();
+  if (!name || !description || !content) return;
+
+  if (_editingSkillId) {
+    await fetch(`/api/skills/${_editingSkillId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, description, tags, content }),
+    });
+  } else {
+    await fetch('/api/skills', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, description, tags, content }),
+    });
+  }
+  document.getElementById('skill-modal').classList.add('hidden');
+  fetchAndRenderSkills();
+});
+
+// --- Import from GitHub Modal ---
+
+function openImportGitHubModal() {
+  document.getElementById('skill-import-url').value     = '';
+  document.getElementById('skill-import-result').textContent = '';
+  document.getElementById('skill-import-result').style.color = '';
+  document.getElementById('skill-import-modal').classList.remove('hidden');
+}
+
+document.getElementById('skill-import-cancel').addEventListener('click', () =>
+  document.getElementById('skill-import-modal').classList.add('hidden'));
+
+document.getElementById('skill-import-btn').addEventListener('click', async () => {
+  const url = document.getElementById('skill-import-url').value.trim();
+  if (!url) return;
+  const resultEl = document.getElementById('skill-import-result');
+  resultEl.textContent = 'Importing…';
+  resultEl.style.color = '#8b949e';
+  try {
+    const r = await fetch('/api/skills/import-github', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      resultEl.style.color = '#f85149';
+      resultEl.textContent = data.error || 'Import failed';
+    } else {
+      resultEl.style.color = '#3fb950';
+      resultEl.textContent = `Imported ${data.imported}, updated ${data.updated}, skipped ${data.skipped}`;
+      if (data.imported + data.updated > 0) fetchAndRenderSkills();
+    }
+  } catch {
+    resultEl.style.color = '#f85149';
+    resultEl.textContent = 'Network error';
+  }
+});
 
 async function fetchAndRenderQueue(statusFilter = queueFilter) {
   const url = statusFilter === 'all' ? '/queue/tasks' : `/queue/tasks?status=${statusFilter}`;
