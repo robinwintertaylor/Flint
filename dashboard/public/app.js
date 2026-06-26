@@ -471,6 +471,14 @@ async function fetchProjects() {
     const res = await fetch('/projects');
     const projects = await res.json();
     renderProjects(projects);
+    await Promise.all(projects.map(async p => {
+      try {
+        const r = await fetch(`/api/projects/${p.id}/docs`);
+        const docs = await r.json();
+        const btn = document.querySelector(`.btn-docs[data-proj-id="${p.id}"]`);
+        if (btn) btn.textContent = `📄 Docs (${docs.length})`;
+      } catch { /* silent fail */ }
+    }));
   } catch { /* silent fail */ }
 }
 
@@ -507,10 +515,12 @@ function renderProjects(projects) {
       <div class="project-card-meta">Week: $${p.costWeek.toFixed(4)} &nbsp; Month: $${p.costMonth.toFixed(4)}</div>
       ${notesSnip ? `<div class="project-card-notes">${escHtml(notesSnip)}</div>` : ''}
       <div class="project-card-footer">
+        <button class="btn-docs" data-proj-id="${p.id}">📄 Docs</button>
         <button class="btn-edit" data-proj-id="${p.id}">Edit</button>
       </div>
     `;
-    card.querySelector('[data-proj-id]').addEventListener('click', () => openEditProjectModal(p.id));
+    card.querySelector('.btn-edit').addEventListener('click', () => openEditProjectModal(p.id));
+    card.querySelector('.btn-docs').addEventListener('click', () => openDocsModal(p.id, p.name));
     view.appendChild(card);
   }
 }
@@ -628,6 +638,98 @@ document.getElementById('edit-proj-link-btn').addEventListener('click', async ()
     body: JSON.stringify({ agentName }),
   });
   openEditProjectModal(id);
+});
+
+// --- Project docs modal ---
+
+let _docsProjectId = null;
+
+async function openDocsModal(projectId, projectName) {
+  _docsProjectId = projectId;
+  document.getElementById('proj-docs-title').textContent = `Docs — ${projectName}`;
+  document.getElementById('proj-docs-modal').classList.remove('hidden');
+  await _refreshDocsList();
+}
+
+async function _refreshDocsList() {
+  const list = document.getElementById('proj-docs-list');
+  list.innerHTML = '<span style="color:#8b949e;font-size:13px">Loading…</span>';
+  const r = await fetch(`/api/projects/${_docsProjectId}/docs`);
+  const docs = await r.json();
+  if (!docs.length) {
+    list.innerHTML = '<span style="color:#8b949e;font-size:13px">No documents yet. Upload a PRD, BRD, or design doc.</span>';
+    return;
+  }
+  list.innerHTML = '';
+  for (const doc of docs) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px';
+    const date = new Date(doc.created_at * 1000).toLocaleDateString();
+    const badge = doc.source === 'agent'
+      ? '<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:#21262d;color:#8b949e">agent</span>'
+      : '<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:#21262d;color:#8b949e">upload</span>';
+    row.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <span style="font-weight:600;font-size:14px">${escHtml(doc.title)}</span>
+        <span style="font-size:12px;color:#8b949e">${badge} &nbsp; ${date}</span>
+      </div>
+      <button data-del-doc-id="${doc.id}" style="background:none;border:none;color:#f85149;cursor:pointer;font-size:18px;padding:0 4px" title="Delete document">🗑</button>
+    `;
+    row.querySelector('[data-del-doc-id]').addEventListener('click', async () => {
+      await fetch(`/api/projects/${_docsProjectId}/docs/${doc.id}`, { method: 'DELETE' });
+      await _refreshDocsList();
+    });
+    list.appendChild(row);
+  }
+}
+
+document.getElementById('proj-docs-close').addEventListener('click', () => {
+  document.getElementById('proj-docs-modal').classList.add('hidden');
+  fetchProjects();
+});
+
+document.getElementById('proj-docs-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('proj-docs-modal')) {
+    document.getElementById('proj-docs-modal').classList.add('hidden');
+    fetchProjects();
+  }
+});
+
+document.getElementById('proj-docs-upload-btn').addEventListener('click', () => {
+  document.getElementById('proj-docs-file-input').value = '';
+  document.getElementById('proj-docs-file-input').click();
+});
+
+document.getElementById('proj-docs-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const title = file.name;
+  const isPdf = file.name.toLowerCase().endsWith('.pdf');
+  const isMd  = file.name.toLowerCase().endsWith('.md');
+
+  const content = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = ev => resolve(ev.target.result);
+    reader.onerror = reject;
+    if (isPdf) reader.readAsDataURL(file);
+    else       reader.readAsText(file);
+  });
+
+  const mimeType = isPdf ? 'application/pdf' : (isMd ? 'text/markdown' : 'text/plain');
+
+  const r = await fetch(`/api/projects/${_docsProjectId}/docs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, content, mimeType, source: 'upload' }),
+  });
+
+  if (r.ok) {
+    await _refreshDocsList();
+    fetchProjects();
+  } else {
+    const err = await r.json().catch(() => ({}));
+    alert(`Upload failed: ${err.error ?? 'unknown error'}`);
+  }
 });
 
 // Projects tab button

@@ -271,6 +271,21 @@
     </div>
   </div>
 
+  <!-- Project docs modal -->
+  <div id="proj-docs-modal" class="hidden" role="dialog" aria-modal="true">
+    <div class="modal-box" style="max-width:560px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 id="proj-docs-title" style="margin:0">Project Documents</h2>
+        <button id="proj-docs-close" style="background:none;border:none;color:#8b949e;font-size:18px;cursor:pointer">✕</button>
+      </div>
+      <div id="proj-docs-list" style="min-height:40px;margin-bottom:16px;display:flex;flex-direction:column;gap:8px"></div>
+      <div style="display:flex;gap:8px">
+        <button id="proj-docs-upload-btn" style="background:#238636;border:none;color:#fff;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:14px">Upload Document</button>
+      </div>
+      <input id="proj-docs-file-input" type="file" accept=".txt,.md,.pdf" style="display:none">
+    </div>
+  </div>
+
   <!-- API Keys modal -->
   <div id="keys-modal" class="hidden" role="dialog" aria-modal="true">
     <div class="modal-box" style="max-width:720px;width:95vw">
