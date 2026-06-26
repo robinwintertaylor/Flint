@@ -10,6 +10,8 @@ import { getProjectForAgent, updateProject } from './projects.js';
 import { injectMcpConfig } from './mcp.js';
 import { notify } from './telegram.js';
 import { buildApiKeyEnv } from './apikeys.js';
+import { resolveSpecialistRoute } from '../router/config.js';
+import { touchUsage } from '../agents/specialists/selector.js';
 
 function resolveBin(name) {
   try {
@@ -51,10 +53,19 @@ export function injectProjectContext(agentName) {
   writeTasks(agentName, block + '\n' + cleaned);
 }
 
-export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
+export function spawnAgent(name, workdir, model, { onWorktreePending, specialist } = {}) {
   const agent = getAgent(name);
   if (!agent) throw new Error(`Agent "${name}" not registered`);
   if (agent.ptyProcess) throw new Error(`Agent "${name}" already has a running process`);
+
+  // Inject specialist identity into task file before spawning
+  if (specialist?.soul) {
+    const SPECIALIST_BLOCK = `## Specialist Identity\n${specialist.soul}\n---\n\n`;
+    const currentTasks = readTasks(name);
+    if (!currentTasks.startsWith('## Specialist Identity')) {
+      writeTasks(name, SPECIALIST_BLOCK + currentTasks);
+    }
+  }
 
   // Inject project context into task file before spawning
   injectProjectContext(name);
@@ -74,6 +85,19 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
     const _currentTasks = readTasks(name);
     if (!_currentTasks.startsWith('## Operating Mode:')) {
       writeTasks(name, AUTONOMOUS_BLOCK + _currentTasks);
+    }
+  }
+
+  // Use specialist's preferred model if no explicit model was requested
+  if (!model && specialist && !isVibe && !isOllama) {
+    try {
+      const { model: resolved } = resolveSpecialistRoute(
+        specialist.preferred_tier ?? 2,
+        specialist.preferred_provider ?? null,
+      );
+      model = resolved;
+    } catch (err) {
+      console.warn(`[specialists] model resolution failed for "${specialist.name}": ${err.message}`);
     }
   }
 
@@ -190,6 +214,9 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
     agent.ptyProcess = null;
     lastCost = 0;
     setAgentStatus(name, 'stopped');
+    if (specialist?.name) {
+      try { touchUsage(specialist.name); } catch {}
+    }
   });
 
   return ptyProcess;
