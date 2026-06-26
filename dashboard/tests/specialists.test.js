@@ -191,3 +191,80 @@ test('touchUsage increments use_count in specialists.json and DB', async () => {
   assert.equal(entry.use_count, 2);
   assert.ok(entry.last_used);
 });
+
+// ── Route tests ──────────────────────────────────────────────────
+
+test('GET /api/specialists returns array', async () => {
+  const r = await req('GET', '/api/specialists');
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.ok(Array.isArray(body));
+});
+
+test('POST /api/specialists creates specialist — returns 201 with id', async () => {
+  const r = await req('POST', '/api/specialists', {
+    name: 'route-test-spec', label: 'Route Test Spec',
+    description: 'Created via route', domains: ['testing'],
+  });
+  assert.equal(r.status, 201);
+  const body = await r.json();
+  assert.equal(body.name, 'route-test-spec');
+  assert.equal(body.label, 'Route Test Spec');
+  assert.deepEqual(body.domains, ['testing']);
+});
+
+test('POST /api/specialists missing name returns 400', async () => {
+  const r = await req('POST', '/api/specialists', { label: 'No Name' });
+  assert.equal(r.status, 400);
+});
+
+test('POST /api/specialists invalid name returns 400', async () => {
+  const r = await req('POST', '/api/specialists', { name: 'Bad Name!', label: 'Bad' });
+  assert.equal(r.status, 400);
+});
+
+test('POST /api/specialists duplicate name returns 409', async () => {
+  await req('POST', '/api/specialists', { name: 'route-dup', label: 'Dup One' });
+  const r = await req('POST', '/api/specialists', { name: 'route-dup', label: 'Dup Two' });
+  assert.equal(r.status, 409);
+});
+
+test('GET /api/specialists/:name returns specialist', async () => {
+  await req('POST', '/api/specialists', { name: 'route-get', label: 'Route Get' });
+  const r = await req('GET', '/api/specialists/route-get');
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.name, 'route-get');
+  assert.ok('soul' in body, 'soul field must be present');
+});
+
+test('GET /api/specialists/:name unknown returns 404', async () => {
+  const r = await req('GET', '/api/specialists/no-such-one-xyz');
+  assert.equal(r.status, 404);
+});
+
+test('PATCH /api/specialists/:name updates label', async () => {
+  await req('POST', '/api/specialists', { name: 'route-patch', label: 'Original Label' });
+  const r = await req('PATCH', '/api/specialists/route-patch', { label: 'Updated Label' });
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.equal(body.label, 'Updated Label');
+});
+
+test('PATCH /api/specialists/:name unknown returns 404', async () => {
+  const r = await req('PATCH', '/api/specialists/no-such-xyz', { label: 'X' });
+  assert.equal(r.status, 404);
+});
+
+test('DELETE /api/specialists/:name removes specialist — returns 204', async () => {
+  await req('POST', '/api/specialists', { name: 'route-delete', label: 'To Delete' });
+  const r = await req('DELETE', '/api/specialists/route-delete');
+  assert.equal(r.status, 204);
+  const check = await req('GET', '/api/specialists/route-delete');
+  assert.equal(check.status, 404);
+});
+
+test('DELETE /api/specialists/:name unknown returns 404', async () => {
+  const r = await req('DELETE', '/api/specialists/no-such-xyz');
+  assert.equal(r.status, 404);
+});

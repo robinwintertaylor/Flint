@@ -2,6 +2,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import { execSync } from 'child_process';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -25,6 +26,7 @@ import { isLmStudioReachable, listModels as listLmStudioModels, generate as lmSt
 import { listSkills, getSkill, createSkill, updateSkill, deleteSkill, upsertSkill } from './skills.js';
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { listDocs, getDoc, createDoc, deleteDoc } from './project_docs.js';
+import { listSpecialists, getSpecialist, createSpecialist, updateSpecialist, deleteSpecialist } from './specialists.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -583,6 +585,72 @@ export function createApp() {
     const id = Number(req.params.docId);
     if (!getDoc(id)) return res.status(404).json({ error: 'doc not found' });
     deleteDoc(id);
+    res.status(204).end();
+  });
+
+  // --- Specialist routes ---
+
+  app.get('/api/specialists', (_req, res) => {
+    res.json(listSpecialists());
+  });
+
+  app.post('/api/specialists', (req, res) => {
+    const { name, label, description, domains, skills, preferred_tier, preferred_provider, created_by, soul } = req.body ?? {};
+    if (!name || !label) return res.status(400).json({ error: 'name and label required' });
+    try {
+      createSpecialist({ name, label, description, domains, skills, preferred_tier, preferred_provider, created_by });
+      if (soul !== undefined) {
+        const dir = join(FLINT_ROOT, 'agents', 'specialists', name);
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, 'soul.md'), soul, 'utf8');
+        const config = { name, label, description: description ?? '', domains: domains ?? [], skills: skills ?? [], preferred_tier: preferred_tier ?? 2, preferred_provider: preferred_provider ?? null, created_by: created_by ?? 'robin', created_at: new Date().toISOString(), use_count: 0, last_used: null };
+        writeFileSync(join(dir, 'config.json'), JSON.stringify(config, null, 2), 'utf8');
+        const idxPath = join(FLINT_ROOT, 'agents', 'specialists.json');
+        let idx = [];
+        try { idx = JSON.parse(readFileSync(idxPath, 'utf8')); } catch {}
+        const entry = { name, label, description: description ?? '', domains: domains ?? [], use_count: 0, last_used: null };
+        const pos = idx.findIndex(s => s.name === name);
+        if (pos >= 0) idx[pos] = entry; else idx.push(entry);
+        writeFileSync(idxPath, JSON.stringify(idx, null, 2), 'utf8');
+      }
+      res.status(201).json(getSpecialist(name));
+    } catch (err) {
+      if (err.message?.includes('UNIQUE') || err.message?.includes('already')) return res.status(409).json({ error: 'specialist name already exists' });
+      if (err.message?.includes('lowercase')) return res.status(400).json({ error: err.message });
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/specialists/:name', (req, res) => {
+    const specialist = getSpecialist(req.params.name);
+    if (!specialist) return res.status(404).json({ error: 'specialist not found' });
+    const soulPath = join(FLINT_ROOT, 'agents', 'specialists', req.params.name, 'soul.md');
+    const soul = existsSync(soulPath) ? readFileSync(soulPath, 'utf8') : '';
+    res.json({ ...specialist, soul });
+  });
+
+  app.patch('/api/specialists/:name', (req, res) => {
+    const { soul, ...fields } = req.body ?? {};
+    if (!getSpecialist(req.params.name)) return res.status(404).json({ error: 'specialist not found' });
+    updateSpecialist(req.params.name, fields);
+    if (soul !== undefined) {
+      const soulPath = join(FLINT_ROOT, 'agents', 'specialists', req.params.name, 'soul.md');
+      mkdirSync(dirname(soulPath), { recursive: true });
+      writeFileSync(soulPath, soul, 'utf8');
+    }
+    res.json(getSpecialist(req.params.name));
+  });
+
+  app.delete('/api/specialists/:name', (req, res) => {
+    const changes = deleteSpecialist(req.params.name);
+    if (!changes) return res.status(404).json({ error: 'specialist not found' });
+    try { rmSync(join(FLINT_ROOT, 'agents', 'specialists', req.params.name), { recursive: true, force: true }); } catch {}
+    const idxPath = join(FLINT_ROOT, 'agents', 'specialists.json');
+    try {
+      let idx = JSON.parse(readFileSync(idxPath, 'utf8'));
+      idx = idx.filter(s => s.name !== req.params.name);
+      writeFileSync(idxPath, JSON.stringify(idx, null, 2), 'utf8');
+    } catch {}
     res.status(204).end();
   });
 
