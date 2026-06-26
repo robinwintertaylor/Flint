@@ -654,32 +654,36 @@ async function openDocsModal(projectId, projectName) {
 async function _refreshDocsList() {
   const list = document.getElementById('proj-docs-list');
   list.innerHTML = '<span style="color:#8b949e;font-size:13px">Loading…</span>';
-  const r = await fetch(`/api/projects/${_docsProjectId}/docs`);
-  const docs = await r.json();
-  if (!docs.length) {
-    list.innerHTML = '<span style="color:#8b949e;font-size:13px">No documents yet. Upload a PRD, BRD, or design doc.</span>';
-    return;
-  }
-  list.innerHTML = '';
-  for (const doc of docs) {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px';
-    const date = new Date(doc.created_at * 1000).toLocaleDateString();
-    const badge = doc.source === 'agent'
-      ? '<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:#21262d;color:#8b949e">agent</span>'
-      : '<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:#21262d;color:#8b949e">upload</span>';
-    row.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:3px">
-        <span style="font-weight:600;font-size:14px">${escHtml(doc.title)}</span>
-        <span style="font-size:12px;color:#8b949e">${badge} &nbsp; ${date}</span>
-      </div>
-      <button data-del-doc-id="${doc.id}" style="background:none;border:none;color:#f85149;cursor:pointer;font-size:18px;padding:0 4px" title="Delete document">🗑</button>
-    `;
-    row.querySelector('[data-del-doc-id]').addEventListener('click', async () => {
-      await fetch(`/api/projects/${_docsProjectId}/docs/${doc.id}`, { method: 'DELETE' });
-      await _refreshDocsList();
-    });
-    list.appendChild(row);
+  try {
+    const r = await fetch(`/api/projects/${_docsProjectId}/docs`);
+    const docs = await r.json();
+    if (!docs.length) {
+      list.innerHTML = '<span style="color:#8b949e;font-size:13px">No documents yet. Upload a PRD, BRD, or design doc.</span>';
+      return;
+    }
+    list.innerHTML = '';
+    for (const doc of docs) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px';
+      const date = new Date(doc.created_at * 1000).toLocaleDateString();
+      const badge = doc.source === 'agent'
+        ? '<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:#21262d;color:#8b949e">agent</span>'
+        : '<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:#21262d;color:#8b949e">upload</span>';
+      row.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <span style="font-weight:600;font-size:14px">${escHtml(doc.title)}</span>
+          <span style="font-size:12px;color:#8b949e">${badge} &nbsp; ${date}</span>
+        </div>
+        <button data-del-doc-id="${doc.id}" style="background:none;border:none;color:#f85149;cursor:pointer;font-size:18px;padding:0 4px" title="Delete document">🗑</button>
+      `;
+      row.querySelector('[data-del-doc-id]').addEventListener('click', async () => {
+        await fetch(`/api/projects/${_docsProjectId}/docs/${doc.id}`, { method: 'DELETE' });
+        await _refreshDocsList();
+      });
+      list.appendChild(row);
+    }
+  } catch {
+    list.innerHTML = '<span style="color:#f85149;font-size:13px">Failed to load documents.</span>';
   }
 }
 
