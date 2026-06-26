@@ -32,7 +32,7 @@ after(() => {
   delete process.env.FLINT_ROUTER_CONFIG;
 });
 
-const { getConfig, resolveRoute, getModels, resetConfig } = await import('../config.js');
+const { getConfig, resolveRoute, getModels, resetConfig, resolveSpecialistRoute } = await import('../config.js');
 
 test('getConfig returns parsed config', () => {
   const cfg = getConfig();
@@ -90,4 +90,60 @@ test('resetConfig clears cache so next getConfig re-reads', () => {
 
 test('resolveRoute throws for provider not in tier', () => {
   assert.throws(() => resolveRoute('research', 'nonexistent-provider'), /No model configured/);
+});
+
+test('resolveSpecialistRoute returns model for configured provider at tier', () => {
+  process.env.ANTHROPIC_API_KEY = 'test-key';
+  resetConfig();
+  // Write a config with providerPriority
+  const cfgWithPriority = {
+    ...MINIMAL_CONFIG,
+    providerPriority: ['anthropic', 'openai'],
+  };
+  const cfgPath = join(TMP, 'router-specialist.json');
+  writeFileSync(cfgPath, JSON.stringify(cfgWithPriority));
+  process.env.FLINT_ROUTER_CONFIG = cfgPath;
+  resetConfig();
+
+  const r = resolveSpecialistRoute(2, 'anthropic');
+  assert.equal(r.provider, 'anthropic');
+  assert.equal(r.model, 'claude-sonnet-4-6');
+  assert.equal(r.tier, 2);
+
+  delete process.env.ANTHROPIC_API_KEY;
+  process.env.FLINT_ROUTER_CONFIG = join(TMP, 'router.json');
+  resetConfig();
+});
+
+test('resolveSpecialistRoute falls back to next priority when preferred unavailable', () => {
+  process.env.OPENAI_API_KEY = 'test-openai-key';
+  delete process.env.ANTHROPIC_API_KEY;
+  resetConfig();
+  const cfgPath = join(TMP, 'router-fallback.json');
+  writeFileSync(cfgPath, JSON.stringify({ ...MINIMAL_CONFIG, providerPriority: ['anthropic', 'openai'] }));
+  process.env.FLINT_ROUTER_CONFIG = cfgPath;
+  resetConfig();
+
+  const r = resolveSpecialistRoute(2, 'anthropic'); // anthropic unavailable, falls back to openai
+  assert.equal(r.provider, 'openai');
+  assert.equal(r.model, 'gpt-4o');
+
+  delete process.env.OPENAI_API_KEY;
+  process.env.FLINT_ROUTER_CONFIG = join(TMP, 'router.json');
+  resetConfig();
+});
+
+test('resolveSpecialistRoute throws when no provider configured', () => {
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  resetConfig();
+  const cfgPath = join(TMP, 'router-empty.json');
+  writeFileSync(cfgPath, JSON.stringify({ ...MINIMAL_CONFIG, providerPriority: ['anthropic', 'openai'] }));
+  process.env.FLINT_ROUTER_CONFIG = cfgPath;
+  resetConfig();
+
+  assert.throws(() => resolveSpecialistRoute(2, null), /No configured provider/);
+
+  process.env.FLINT_ROUTER_CONFIG = join(TMP, 'router.json');
+  resetConfig();
 });

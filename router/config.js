@@ -53,6 +53,28 @@ export function resolveRoute(taskType, providerOverride) {
   );
 }
 
+export function resolveSpecialistRoute(tier, preferredProvider) {
+  const cfg      = getConfig();
+  const active   = configuredProviders();
+  const tierKey  = String(tier ?? cfg.defaultTier);
+  const priority = cfg.providerPriority ?? [];
+
+  const candidates = preferredProvider
+    ? [preferredProvider, ...priority.filter(p => p !== preferredProvider)]
+    : priority;
+
+  for (const provider of candidates) {
+    if (active.has(provider) && cfg.tiers[tierKey]?.[provider]) {
+      return { provider, model: cfg.tiers[tierKey][provider], tier: Number(tierKey) };
+    }
+  }
+
+  throw new Error(
+    `No configured provider available for tier ${tierKey}. ` +
+    `Add an API key for one of: ${priority.join(', ')}`
+  );
+}
+
 function configuredProviders() {
   const set = new Set();
   if (process.env.ANTHROPIC_API_KEY)  set.add('anthropic');
