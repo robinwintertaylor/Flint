@@ -191,7 +191,7 @@ function ensurePanel({ name, mode, status, isolate, runtime, role }) {
   });
 
   // Add task button + Enter key
-  const taskInput = panel.querySelector(`#task-input-${name}`);
+  const taskInput = panel.querySelector('.task-add input');
   panel.querySelector('[data-add]').addEventListener('click', () => addTask(name));
   taskInput.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(name); });
 
@@ -426,18 +426,21 @@ let currentView = 'agents';
 
 function showView(view) {
   currentView = view;
-  const panels     = document.getElementById('panels');
-  const toolbar    = document.getElementById('toolbar');
-  const projView   = document.getElementById('project-view');
-  const projBar    = document.getElementById('proj-toolbar');
-  const queueView  = document.getElementById('queue-view');
-  const skillsView = document.getElementById('skills-view');
+  const panels          = document.getElementById('panels');
+  const toolbar         = document.getElementById('toolbar');
+  const projView        = document.getElementById('project-view');
+  const projBar         = document.getElementById('proj-toolbar');
+  const queueView       = document.getElementById('queue-view');
+  const skillsView      = document.getElementById('skills-view');
+  const specialistsView = document.getElementById('specialists-view');
+
   if (view === 'projects') {
     panels.style.display = 'none';
     toolbar.style.display = 'none';
     projView.classList.remove('hidden');
     queueView.classList.add('hidden');
     skillsView.classList.add('hidden');
+    specialistsView.classList.add('hidden');
     if (projBar) projBar.style.display = 'flex';
     fetchProjects();
   } else if (view === 'queue') {
@@ -446,6 +449,7 @@ function showView(view) {
     projView.classList.add('hidden');
     queueView.classList.remove('hidden');
     skillsView.classList.add('hidden');
+    specialistsView.classList.add('hidden');
     if (projBar) projBar.style.display = 'none';
     fetchAndRenderQueue();
   } else if (view === 'skills') {
@@ -454,14 +458,25 @@ function showView(view) {
     projView.classList.add('hidden');
     queueView.classList.add('hidden');
     skillsView.classList.remove('hidden');
+    specialistsView.classList.add('hidden');
     if (projBar) projBar.style.display = 'none';
     fetchAndRenderSkills();
+  } else if (view === 'specialists') {
+    panels.style.display = 'none';
+    toolbar.style.display = 'none';
+    projView.classList.add('hidden');
+    queueView.classList.add('hidden');
+    skillsView.classList.add('hidden');
+    specialistsView.classList.remove('hidden');
+    if (projBar) projBar.style.display = 'none';
+    fetchAndRenderSpecialists();
   } else {
     panels.style.display = '';
     toolbar.style.display = '';
     projView.classList.add('hidden');
     queueView.classList.add('hidden');
     skillsView.classList.add('hidden');
+    specialistsView.classList.add('hidden');
     if (projBar) projBar.style.display = 'none';
   }
 }
@@ -1669,3 +1684,186 @@ async function startup() {
 }
 
 startup();
+
+// ============================================================
+// Specialists tab
+// ============================================================
+
+document.getElementById('btn-specialists').addEventListener('click', () => showView('specialists'));
+
+async function fetchAndRenderSpecialists() {
+  const specialists = await fetch('/api/specialists').then(r => r.json()).catch(() => []);
+  renderSpecialistsView(specialists);
+}
+
+function renderSpecialistsView(specialists) {
+  const view = document.getElementById('specialists-view');
+  view.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <h2 style="margin:0;flex:1">Specialists</h2>
+      <button id="btn-specialist-new" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:15px">+ New Specialist</button>
+      <button id="btn-specialists-back" style="background:none;border:1px solid #30363d;color:#c9d1d9;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:14px">← Dashboard</button>
+    </div>
+    <div id="specialists-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px"></div>
+  `;
+
+  document.getElementById('btn-specialists-back').addEventListener('click', () => showView('agents'));
+  document.getElementById('btn-specialist-new').addEventListener('click', openNewSpecialistModal);
+
+  const grid = document.getElementById('specialists-grid');
+
+  if (!specialists.length) {
+    grid.innerHTML = '<p style="color:#8b949e;grid-column:1/-1">No specialists yet. Create one to get started.</p>';
+    return;
+  }
+
+  for (const s of specialists) {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:8px';
+    const createdByBadge = s.created_by === 'flint'
+      ? `<span style="background:#1f3a4f;color:#58a6ff;font-size:11px;padding:1px 6px;border-radius:10px">⚡ Flint</span>`
+      : `<span style="background:#1e3a1e;color:#3fb950;font-size:11px;padding:1px 6px;border-radius:10px">Robin</span>`;
+    const domainsHtml = (s.domains ?? []).map(d =>
+      `<span style="background:#21262d;color:#8b949e;font-size:11px;padding:1px 6px;border-radius:10px">${escHtml(d)}</span>`
+    ).join('');
+    const lastUsed = s.last_used ? new Date(s.last_used).toLocaleDateString() : 'never';
+
+    card.innerHTML = `
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <span style="font-weight:600;color:#e6edf3;font-size:15px">${escHtml(s.label)}</span>
+        ${createdByBadge}
+      </div>
+      <div style="color:#8b949e;font-size:13px;line-height:1.4">${escHtml(s.description ?? '')}</div>
+      ${domainsHtml ? `<div style="display:flex;flex-wrap:wrap;gap:4px">${domainsHtml}</div>` : ''}
+      <div style="font-size:12px;color:#6e7681">Used ${s.use_count ?? 0}× · Last: ${lastUsed}</div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button data-spec-edit="${escHtml(s.name)}" style="flex:1;background:none;border:1px solid #30363d;color:#58a6ff;border-radius:4px;padding:4px 0;cursor:pointer;font-size:13px">Edit</button>
+        <button data-spec-delete="${escHtml(s.name)}" style="flex:1;background:none;border:1px solid #30363d;color:#f85149;border-radius:4px;padding:4px 0;cursor:pointer;font-size:13px">Delete</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  }
+
+  grid.querySelectorAll('[data-spec-edit]').forEach(btn => {
+    btn.addEventListener('click', () => openEditSpecialistModal(btn.dataset.specEdit));
+  });
+  grid.querySelectorAll('[data-spec-delete]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(`Delete specialist "${btn.dataset.specDelete}"?`)) return;
+      await fetch(`/api/specialists/${encodeURIComponent(btn.dataset.specDelete)}`, { method: 'DELETE' });
+      fetchAndRenderSpecialists();
+    });
+  });
+}
+
+// ── Specialist modal ─────────────────────────────────────────────
+
+let _editingSpecialistName = null;
+
+function openNewSpecialistModal() {
+  _editingSpecialistName = null;
+  showSpecialistModal({ name: '', label: '', description: '', domains: '', preferred_tier: 2, preferred_provider: '', soul: '' });
+}
+
+async function openEditSpecialistModal(name) {
+  _editingSpecialistName = name;
+  const s = await fetch(`/api/specialists/${encodeURIComponent(name)}`).then(r => r.json()).catch(() => null);
+  if (!s) return;
+  showSpecialistModal({
+    name: s.name,
+    label: s.label,
+    description: s.description ?? '',
+    domains: (s.domains ?? []).join(', '),
+    preferred_tier: s.preferred_tier ?? 2,
+    preferred_provider: s.preferred_provider ?? '',
+    soul: s.soul ?? '',
+  });
+}
+
+function showSpecialistModal({ name, label, description, domains, preferred_tier, preferred_provider, soul }) {
+  const existing = document.getElementById('specialist-modal-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'specialist-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:1000';
+
+  overlay.innerHTML = `
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:24px;width:560px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px">
+      <h3 style="margin:0;color:#e6edf3">${_editingSpecialistName ? 'Edit Specialist' : 'New Specialist'}</h3>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Name (slug)
+        <input id="sp-name" type="text" value="${escHtml(name)}" ${_editingSpecialistName ? 'disabled' : ''} placeholder="e.g. research-expert" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:14px">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Label
+        <input id="sp-label" type="text" value="${escHtml(label)}" placeholder="Research Expert" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:14px">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Description
+        <textarea id="sp-description" rows="2" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:14px;resize:vertical">${escHtml(description)}</textarea>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Domains (comma-separated)
+        <input id="sp-domains" type="text" value="${escHtml(domains)}" placeholder="research, web, market-analysis" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:14px">
+      </label>
+      <div style="display:flex;gap:12px">
+        <label style="flex:1;display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Preferred Tier
+          <select id="sp-tier" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:14px">
+            <option value="1" ${preferred_tier == 1 ? 'selected' : ''}>1 — Fast</option>
+            <option value="2" ${preferred_tier == 2 ? 'selected' : ''}>2 — Standard</option>
+            <option value="3" ${preferred_tier == 3 ? 'selected' : ''}>3 — Frontier</option>
+          </select>
+        </label>
+        <label style="flex:1;display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Preferred Provider
+          <input id="sp-provider" type="text" value="${escHtml(preferred_provider)}" placeholder="anthropic" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:14px">
+        </label>
+      </div>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Soul (identity — first-person markdown)
+        <textarea id="sp-soul" rows="8" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:13px;font-family:monospace;resize:vertical">${escHtml(soul)}</textarea>
+      </label>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button id="sp-cancel" style="background:none;border:1px solid #30363d;color:#8b949e;border-radius:4px;padding:6px 16px;cursor:pointer">Cancel</button>
+        <button id="sp-save" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 16px;cursor:pointer">Save</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('sp-cancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  document.getElementById('sp-save').addEventListener('click', async () => {
+    const nameVal     = document.getElementById('sp-name').value.trim();
+    const labelVal    = document.getElementById('sp-label').value.trim();
+    const descVal     = document.getElementById('sp-description').value.trim();
+    const domainsVal  = document.getElementById('sp-domains').value.split(',').map(d => d.trim()).filter(Boolean);
+    const tierVal     = Number(document.getElementById('sp-tier').value);
+    const providerVal = document.getElementById('sp-provider').value.trim() || null;
+    const soulVal     = document.getElementById('sp-soul').value;
+
+    if (!nameVal || !labelVal) {
+      alert('Name and Label are required.');
+      return;
+    }
+
+    const body = { name: nameVal, label: labelVal, description: descVal, domains: domainsVal, preferred_tier: tierVal, preferred_provider: providerVal, soul: soulVal };
+
+    if (_editingSpecialistName) {
+      await fetch(`/api/specialists/${encodeURIComponent(_editingSpecialistName)}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: labelVal, description: descVal, domains: domainsVal, preferred_tier: tierVal, preferred_provider: providerVal, soul: soulVal }),
+      });
+    } else {
+      const r = await fetch('/api/specialists', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        alert(err.error ?? 'Failed to create specialist');
+        return;
+      }
+    }
+
+    overlay.remove();
+    fetchAndRenderSpecialists();
+  });
+}
