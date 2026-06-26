@@ -467,8 +467,13 @@ export function createApp() {
     for (const k of ['name', 'description', 'content', 'tags']) {
       if (k in body) fields[k] = body[k];
     }
-    updateSkill(id, fields);
-    res.json(getSkill(id));
+    try {
+      updateSkill(id, fields);
+      res.json(getSkill(id));
+    } catch (err) {
+      if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'skill name already exists' });
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.delete('/api/skills/:id', (req, res) => {
