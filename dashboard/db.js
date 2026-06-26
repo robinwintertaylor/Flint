@@ -116,6 +116,19 @@ export function initDb(dbPath = DEFAULT_DB) {
       source      TEXT    NOT NULL DEFAULT 'upload',
       created_at  INTEGER NOT NULL DEFAULT (unixepoch())
     );
+    CREATE TABLE IF NOT EXISTS specialists (
+      name               TEXT PRIMARY KEY,
+      label              TEXT NOT NULL,
+      description        TEXT,
+      domains            TEXT,
+      skills             TEXT,
+      preferred_tier     INTEGER DEFAULT 2,
+      preferred_provider TEXT,
+      created_by         TEXT NOT NULL DEFAULT 'robin',
+      created_at         TEXT NOT NULL,
+      use_count          INTEGER NOT NULL DEFAULT 0,
+      last_used          TEXT
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
