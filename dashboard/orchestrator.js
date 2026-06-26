@@ -6,6 +6,7 @@ import { getDb } from './db.js';
 import { writeTasks } from './tasks.js';
 import { registerAgent, broadcastGlobal } from './agents.js';
 import { spawnAgent } from './terminal.js';
+import { listDocsWithContent } from './project_docs.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -26,10 +27,14 @@ export function updateOrchestrationStatus(id, status) {
   getDb().prepare('UPDATE orchestrations SET status = ? WHERE id = ?').run(status, id);
 }
 
-export function buildOrchestratorTaskFile({ goal, id, workdir, scratchpadPath }) {
+export function buildOrchestratorTaskFile({ goal, id, workdir, scratchpadPath, projectDocs = [] }) {
+  const docsSection = projectDocs.length > 0
+    ? `\n## Project Documents\n\nThe following reference documents are attached to this project. Use them to inform your plan.\n\n${projectDocs.map(d => `### ${d.title}\n\n${d.content}`).join('\n\n---\n\n')}\n`
+    : '';
+
   return `## Orchestration Goal
 ${goal}
-
+${docsSection}
 ## Your Role — Orchestrator
 You are the Flint Orchestrator. Your job:
 1. Read the goal above and think through what needs to happen.
@@ -129,7 +134,8 @@ export function createOrchestration({ goal, workdir, model, projectId } = {}) {
   writeFileSync(absPath, `# Orchestration: ${goal}\n\nStarted: ${timestamp}\n\n## Plan\n\n## Findings\n\n## Synthesis\n`, 'utf8');
 
   // Write orchestrator task file
-  writeTasks(agentName, buildOrchestratorTaskFile({ goal, id, workdir, scratchpadPath }));
+  const projectDocs = projectId ? listDocsWithContent(projectId) : [];
+  writeTasks(agentName, buildOrchestratorTaskFile({ goal, id, workdir, scratchpadPath, projectDocs }));
 
   // Register the orchestrator agent
   registerAgent(agentName, 'spawn', workdir, null, model ?? '', 'claude');
