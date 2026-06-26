@@ -70,3 +70,75 @@ test('listDocsWithContent returns docs including content field', () => {
   assert.ok(docs.length > 0);
   assert.ok('content' in docs[0], 'listDocsWithContent should include content');
 });
+
+// --- Route tests ---
+
+async function req(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(`${baseUrl}${path}`, opts);
+}
+
+test('GET /api/projects/:id/docs returns array', async () => {
+  const r = await req('GET', '/api/projects/1/docs');
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.ok(Array.isArray(body));
+});
+
+test('POST /api/projects/:id/docs with plain text returns 201 and { id }', async () => {
+  const r = await req('POST', '/api/projects/1/docs', {
+    title: 'route-test-prd.txt',
+    content: 'This is the product requirements document.',
+    mimeType: 'text/plain',
+  });
+  assert.equal(r.status, 201);
+  const body = await r.json();
+  assert.ok('id' in body);
+  assert.ok(body.id > 0);
+});
+
+test('POST /api/projects/:id/docs with PDF mimeType returns 201 in TEST_MODE', async () => {
+  const r = await req('POST', '/api/projects/1/docs', {
+    title: 'spec.pdf',
+    content: 'fake-base64-pdf-content',
+    mimeType: 'application/pdf',
+  });
+  assert.equal(r.status, 201);
+  const body = await r.json();
+  assert.ok('id' in body);
+});
+
+test('POST /api/projects/:id/docs missing title returns 400', async () => {
+  const r = await req('POST', '/api/projects/1/docs', { content: 'some content' });
+  assert.equal(r.status, 400);
+});
+
+test('GET /api/projects/:id/docs/:docId returns doc with content', async () => {
+  const create = await req('POST', '/api/projects/1/docs', {
+    title: 'route-get-test.md',
+    content: '# Design\n\nArchitecture notes.',
+    mimeType: 'text/markdown',
+  });
+  const { id } = await create.json();
+  const r = await req('GET', `/api/projects/1/docs/${id}`);
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.ok('content' in body);
+  assert.equal(body.content, '# Design\n\nArchitecture notes.');
+});
+
+test('GET /api/projects/:id/docs/:docId with unknown id returns 404', async () => {
+  const r = await req('GET', '/api/projects/1/docs/999999');
+  assert.equal(r.status, 404);
+});
+
+test('DELETE /api/projects/:id/docs/:docId returns 204', async () => {
+  const create = await req('POST', '/api/projects/1/docs', {
+    title: 'delete-me.txt',
+    content: 'temporary',
+  });
+  const { id } = await create.json();
+  const r = await req('DELETE', `/api/projects/1/docs/${id}`);
+  assert.equal(r.status, 204);
+});

@@ -23,6 +23,8 @@ import { initTelegram } from './telegram.js';
 import { isOllamaReachable, listModels, generate } from './ollama.js';
 import { isLmStudioReachable, listModels as listLmStudioModels, generate as lmStudioGenerate } from './lmstudio.js';
 import { listSkills, getSkill, createSkill, updateSkill, deleteSkill, upsertSkill } from './skills.js';
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
+import { listDocs, getDoc, createDoc, deleteDoc } from './project_docs.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -544,6 +546,44 @@ export function createApp() {
     if (!getProject(id)) return res.status(404).json({ error: 'project not found' });
     unlinkAgent(id, req.params.agentName);
     res.json({ ok: true });
+  });
+
+  // --- Project doc routes ---
+
+  app.get('/api/projects/:id/docs', (req, res) => {
+    res.json(listDocs(Number(req.params.id)));
+  });
+
+  app.post('/api/projects/:id/docs', async (req, res) => {
+    const { title, content, mimeType = 'text/plain', source = 'upload' } = req.body ?? {};
+    if (!title || !content) return res.status(400).json({ error: 'title and content required' });
+    const projectId = Number(req.params.id);
+    let text = content;
+    if (mimeType === 'application/pdf' && !TEST_MODE) {
+      try {
+        const b64 = content.replace(/^data:[^;]+;base64,/, '');
+        const buf = Buffer.from(b64, 'base64');
+        const parsed = await pdfParse(buf);
+        text = parsed.text;
+      } catch (err) {
+        return res.status(422).json({ error: `PDF extraction failed: ${err.message}` });
+      }
+    }
+    const id = createDoc({ projectId, title, mimeType, content: text, source });
+    res.status(201).json({ id });
+  });
+
+  app.get('/api/projects/:id/docs/:docId', (req, res) => {
+    const doc = getDoc(Number(req.params.docId));
+    if (!doc) return res.status(404).json({ error: 'doc not found' });
+    res.json(doc);
+  });
+
+  app.delete('/api/projects/:id/docs/:docId', (req, res) => {
+    const id = Number(req.params.docId);
+    if (!getDoc(id)) return res.status(404).json({ error: 'doc not found' });
+    deleteDoc(id);
+    res.status(204).end();
   });
 
   // --- Suggestion routes ---
