@@ -641,6 +641,11 @@ document.getElementById('btn-projects').addEventListener('click', () => {
   }
 });
 
+document.getElementById('btn-agents-home').addEventListener('click', () => {
+  showView('agents');
+  document.getElementById('btn-projects').textContent = 'Projects';
+});
+
 function showPRLink(agentName, prUrl, prNumber) {
   const headerRight = document.getElementById(`header-right-${escHtml(agentName)}`);
   if (!headerRight) return;
