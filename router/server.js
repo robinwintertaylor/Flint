@@ -1,5 +1,4 @@
 import { createServer } from 'node:http';
-import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { route } from './router.js';
 import { getModels, getConfig } from './config.js';
@@ -23,6 +22,9 @@ function aggregateCosts(rows) {
 }
 
 export function createApp() {
+  initDb();
+  Object.assign(process.env, buildApiKeyEnv());
+
   const app = express();
   app.use(express.json());
 
@@ -60,9 +62,5 @@ export function createApp() {
   return httpServer;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  initDb();
-  Object.assign(process.env, buildApiKeyEnv());
-  const server = createApp();
-  server.listen(3001, () => console.log('[router] listening on port 3001'));
-}
+const server = createApp();
+server.listen(3001, () => console.log('[router] listening on port 3001'));
