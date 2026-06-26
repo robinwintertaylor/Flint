@@ -22,13 +22,35 @@ export function resetConfig() {
 }
 
 export function resolveRoute(taskType, providerOverride) {
-  const cfg = getConfig();
+  const cfg    = getConfig();
   const taskDef = cfg.taskTypes[taskType];
-  const tier    = String(taskDef?.tier ?? cfg.defaultTier);
-  const provider = providerOverride ?? taskDef?.provider ?? cfg.defaultProvider;
-  const model    = cfg.tiers[tier][provider];
-  if (!model) throw new Error(`No model configured for provider "${provider}" at tier ${tier}`);
-  return { provider, model, tier: Number(tier) };
+  const tier   = String(taskDef?.tier ?? cfg.defaultTier);
+  const active = configuredProviders();
+
+  // Explicit request-level override — hard requirement, fail if unavailable
+  if (providerOverride) {
+    const model = cfg.tiers[tier]?.[providerOverride];
+    if (!model) throw new Error(`No model configured for provider "${providerOverride}" at tier ${tier}`);
+    return { provider: providerOverride, model, tier: Number(tier) };
+  }
+
+  // Task-type preference goes first, then priority order
+  const preferred  = taskDef?.provider;
+  const priority   = cfg.providerPriority ?? [];
+  const candidates = preferred
+    ? [preferred, ...priority.filter(p => p !== preferred)]
+    : priority;
+
+  for (const provider of candidates) {
+    if (active.has(provider) && cfg.tiers[tier]?.[provider]) {
+      return { provider, model: cfg.tiers[tier][provider], tier: Number(tier) };
+    }
+  }
+
+  throw new Error(
+    `No configured provider available for tier ${tier}. ` +
+    `Add an API key for one of: ${priority.join(', ')}`
+  );
 }
 
 function configuredProviders() {

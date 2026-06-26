@@ -31,6 +31,6 @@
     "code":            { "tier": 2, "provider": "openai" },
     "architecture":    { "tier": 3, "provider": "anthropic" }
   },
-  "defaultProvider": "anthropic",
+  "providerPriority": ["anthropic", "openai", "google", "azure", "openrouter"],
   "defaultTier": 2
 }
