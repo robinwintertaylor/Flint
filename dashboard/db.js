@@ -107,6 +107,15 @@ export function initDb(dbPath = DEFAULT_DB) {
       created_at  INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at  INTEGER NOT NULL DEFAULT (unixepoch())
     );
+    CREATE TABLE IF NOT EXISTS project_docs (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id  INTEGER NOT NULL,
+      title       TEXT    NOT NULL,
+      mime_type   TEXT    NOT NULL DEFAULT 'text/plain',
+      content     TEXT    NOT NULL,
+      source      TEXT    NOT NULL DEFAULT 'upload',
+      created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
