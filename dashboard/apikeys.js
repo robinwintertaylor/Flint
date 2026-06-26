@@ -34,7 +34,7 @@ export function getApiKeyValue(name) {
 
 export function createApiKey({ name, label, key_value = null, env_var = null }) {
   if (!name || !label) throw new Error('name and label required');
-  if (!/^[a-z0-9-]+$/.test(name)) throw new Error('name must be alphanumeric + hyphens only');
+  if (!/^[a-z0-9-]+$/.test(name)) throw new Error('name must be lowercase letters, numbers, and hyphens only (e.g. openrouter)');
   try {
     getDb().prepare(
       'INSERT INTO api_keys (name, label, key_value, env_var) VALUES (?, ?, ?, ?)'
@@ -61,4 +61,15 @@ export function updateApiKey(name, { key_value, label, env_var } = {}) {
 export function deleteApiKey(name) {
   if (SEEDED.has(name)) throw new Error(`Cannot delete seeded provider: ${name}`);
   return getDb().prepare('DELETE FROM api_keys WHERE name = ?').run(name).changes;
+}
+
+export function buildApiKeyEnv() {
+  const rows = getDb()
+    .prepare('SELECT key_value, env_var FROM api_keys WHERE env_var IS NOT NULL AND key_value IS NOT NULL')
+    .all();
+  const env = {};
+  for (const row of rows) {
+    if (!process.env[row.env_var]) env[row.env_var] = row.key_value;
+  }
+  return env;
 }

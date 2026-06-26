@@ -9,6 +9,7 @@ import { readTasks, writeTasks } from './tasks.js';
 import { getProjectForAgent, updateProject } from './projects.js';
 import { injectMcpConfig } from './mcp.js';
 import { notify } from './telegram.js';
+import { buildApiKeyEnv } from './apikeys.js';
 
 function resolveBin(name) {
   try {
@@ -98,7 +99,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending } = {}) {
     cols: 220,
     rows: 50,
     cwd: workdir,
-    env: process.env,
+    env: { ...process.env, ...buildApiKeyEnv() },
   });
 
   agent.ptyProcess = ptyProcess;

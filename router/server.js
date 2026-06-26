@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { route } from './router.js';
 import { getModels, getConfig } from './config.js';
-import { getCostsByProvider } from '../dashboard/db.js';
+import { initDb, getCostsByProvider } from '../dashboard/db.js';
+import { buildApiKeyEnv } from '../dashboard/apikeys.js';
 
 function aggregateCosts(rows) {
   const cfg = getConfig();
@@ -60,6 +61,8 @@ export function createApp() {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  initDb();
+  Object.assign(process.env, buildApiKeyEnv());
   const server = createApp();
   server.listen(3001, () => console.log('[router] listening on port 3001'));
 }

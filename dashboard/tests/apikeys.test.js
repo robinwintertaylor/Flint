@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { initDb } from '../db.js';
 import {
   maskKey, listApiKeys, getApiKeyValue,
-  createApiKey, updateApiKey, deleteApiKey,
+  createApiKey, updateApiKey, deleteApiKey, buildApiKeyEnv,
 } from '../apikeys.js';
 
 test('initDb creates api_keys table with 5 seeded rows', () => {
@@ -87,7 +87,7 @@ test('createApiKey throws on duplicate name', () => {
 
 test('createApiKey throws on invalid name', () => {
   initDb(':memory:');
-  assert.throws(() => createApiKey({ name: 'Bad Name!', label: 'Bad' }), /alphanumeric/);
+  assert.throws(() => createApiKey({ name: 'Bad Name!', label: 'Bad' }), /lowercase/);
 });
 
 test('updateApiKey clears key when empty string passed', () => {
@@ -118,4 +118,20 @@ test('deleteApiKey throws for seeded provider', () => {
 test('deleteApiKey returns 0 for unknown provider', () => {
   initDb(':memory:');
   assert.equal(deleteApiKey('no-such-xyz'), 0);
+});
+
+test('buildApiKeyEnv returns env_var mapping for keys with stored values', () => {
+  initDb(':memory:');
+  createApiKey({ name: 'openrouter', label: 'OpenRouter', env_var: 'OPENROUTER_API_KEY', key_value: 'sk-or-test-1234' });
+  const env = buildApiKeyEnv();
+  assert.equal(env['OPENROUTER_API_KEY'], 'sk-or-test-1234');
+});
+
+test('buildApiKeyEnv does not override existing process.env vars', () => {
+  initDb(':memory:');
+  process.env.OPENROUTER_API_KEY = 'from-env';
+  createApiKey({ name: 'openrouter', label: 'OpenRouter', env_var: 'OPENROUTER_API_KEY', key_value: 'from-db' });
+  const env = buildApiKeyEnv();
+  assert.ok(!('OPENROUTER_API_KEY' in env));
+  delete process.env.OPENROUTER_API_KEY;
 });
