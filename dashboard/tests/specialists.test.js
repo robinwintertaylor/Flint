@@ -114,3 +114,80 @@ test('createSpecialist throws on duplicate name', () => {
   createSpecialist({ name: 'test-spec-dup', label: 'First' });
   assert.throws(() => createSpecialist({ name: 'test-spec-dup', label: 'Second' }));
 });
+
+// ── Selector tests ───────────────────────────────────────────────
+
+const { mkdirSync, writeFileSync, existsSync, readFileSync } = await import('node:fs');
+const { join: pathJoin } = await import('node:path');
+const { selectSpecialist, createSpecialist: selectorCreate, loadSpecialist, touchUsage } = await import('../../agents/specialists/selector.js');
+
+// FLINT_AGENTS_ROOT is already set to TEMP_AGENTS_ROOT above
+
+test('loadSpecialist returns null for unknown specialist', () => {
+  assert.equal(loadSpecialist('no-such-specialist-xyz'), null);
+});
+
+test('createSpecialist (selector) writes soul.md and config.json', async () => {
+  const mockRoute = async () => 'I am a test specialist.\n\n## My approach:\n- Test carefully\n';
+  const specialist = await selectorCreate(
+    { name: 'test-writer', description: 'A test writing specialist', domains: ['testing'] },
+    mockRoute,
+  );
+  assert.equal(specialist.name, 'test-writer');
+  assert.equal(specialist.label, 'Test Writer');
+  assert.ok(specialist.soul.length > 0, 'soul must be non-empty');
+
+  const specialistsDir = pathJoin(TEMP_AGENTS_ROOT, 'specialists');
+  assert.ok(existsSync(pathJoin(specialistsDir, 'test-writer', 'soul.md')));
+  assert.ok(existsSync(pathJoin(specialistsDir, 'test-writer', 'config.json')));
+});
+
+test('createSpecialist (selector) updates specialists.json index', async () => {
+  const mockRoute = async () => 'I am the index-test specialist.';
+  await selectorCreate({ name: 'index-test', description: 'Tests the index' }, mockRoute);
+
+  const indexPath = pathJoin(TEMP_AGENTS_ROOT, 'specialists.json');
+  assert.ok(existsSync(indexPath));
+  const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+  assert.ok(index.some(s => s.name === 'index-test'));
+});
+
+test('selectSpecialist returns existing specialist when match found', async () => {
+  // Seed a specialist in the index
+  const mockRoute1 = async () => 'soul content';
+  await selectorCreate({ name: 'match-me', description: 'A matchable specialist', domains: ['code'] }, mockRoute1);
+
+  const mockRoute2 = async () => JSON.stringify({ match: 'match-me' });
+  const result = await selectSpecialist('write some code', mockRoute2);
+  assert.equal(result.name, 'match-me');
+});
+
+test('selectSpecialist creates new specialist when match is null', async () => {
+  const mockRoute = async (_taskType, prompt) => {
+    if (prompt.startsWith('You are a specialist selector')) {
+      return JSON.stringify({ match: null, suggest: { name: 'new-created', description: 'Auto-created', domains: ['general'] } });
+    }
+    return '# New Created\n\nI am new.\n\n## My approach:\n- Be new\n';
+  };
+  const result = await selectSpecialist('do something entirely new', mockRoute);
+  assert.equal(result.name, 'new-created');
+});
+
+test('selectSpecialist handles malformed JSON from selector — falls back to create', async () => {
+  const mockRoute = async () => 'not valid json at all';
+  const result = await selectSpecialist('something broken', mockRoute);
+  assert.ok(result.name, 'should return a specialist even on bad JSON');
+});
+
+test('touchUsage increments use_count in specialists.json and DB', async () => {
+  const mockRoute = async () => 'soul';
+  await selectorCreate({ name: 'touch-me', description: 'Touch usage test' }, mockRoute);
+  touchUsage('touch-me');
+  touchUsage('touch-me');
+
+  const indexPath = pathJoin(TEMP_AGENTS_ROOT, 'specialists.json');
+  const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+  const entry = index.find(s => s.name === 'touch-me');
+  assert.equal(entry.use_count, 2);
+  assert.ok(entry.last_used);
+});
