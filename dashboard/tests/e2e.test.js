@@ -12,7 +12,7 @@
  *   - /llm/complete returns 500 — OpenRouter model IDs in router.json are outdated
  *   - /router/complete does NOT exist on dashboard (use router directly)
  */
-import { test, before } from 'node:test';
+import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
 
 const BASE   = 'http://localhost:3000';
@@ -154,32 +154,32 @@ test('[S5] GET /agents returns array', { timeout: 10000 }, async () => {
 });
 
 // ── S6: Agent Task Files ──────────────────────────────────────────
-test('[S6] POST /agents/spawn registers e2e-probe agent', { timeout: 10000 }, async () => {
-  const r = await api('POST', '/agents/spawn', { name: 'e2e-probe', workdir: 'C:\\Temp', model: '', runtime: 'claude' });
+test('[S6] POST /agents/spawn registers e2e-test-probe agent', { timeout: 10000, skip: FULL ? false : 'Set E2E_FULL=1 to test live agent spawn' }, async (t) => {
+  const r = await api('POST', '/agents/spawn', { name: 'e2e-test-probe', workdir: 'C:\\Temp', model: '', runtime: 'claude' });
   assert.equal(r.status, 200);
   const b = await r.json();
   assert.ok(b.ok, 'spawn did not return ok');
-  assert.equal(b.name, 'e2e-probe');
+  assert.equal(b.name, 'e2e-test-probe');
 });
 
-test('[S6] GET /tasks/e2e-probe returns string content', { timeout: 10000 }, async () => {
-  const r = await api('GET', '/tasks/e2e-probe');
+test('[S6] GET /tasks/e2e-test-probe returns string content', { timeout: 10000 }, async () => {
+  const r = await api('GET', '/tasks/e2e-test-probe');
   assert.equal(r.status, 200);
   const b = await r.json();
   assert.ok(typeof b.content === 'string', 'task content must be string');
 });
 
-test('[S6] PATCH /tasks/e2e-probe updates content', { timeout: 10000 }, async () => {
-  const r = await api('PATCH', '/tasks/e2e-probe', { content: '# E2E Test\n\nUpdated by e2e test.\n' });
+test('[S6] PATCH /tasks/e2e-test-probe updates content', { timeout: 10000 }, async () => {
+  const r = await api('PATCH', '/tasks/e2e-test-probe', { content: '# E2E Test\n\nUpdated by e2e test.\n' });
   assert.equal(r.status, 200);
-  const check = await (await api('GET', '/tasks/e2e-probe')).json();
+  const check = await (await api('GET', '/tasks/e2e-test-probe')).json();
   assert.ok(check.content.includes('Updated by e2e test'), 'content not updated');
 });
 
-test('[S6] POST /tasks/e2e-probe appends checkbox', { timeout: 10000 }, async () => {
-  const r = await api('POST', '/tasks/e2e-probe', { task: 'e2e checkbox item' });
+test('[S6] POST /tasks/e2e-test-probe appends checkbox', { timeout: 10000 }, async () => {
+  const r = await api('POST', '/tasks/e2e-test-probe', { task: 'e2e checkbox item' });
   assert.equal(r.status, 200);
-  const check = await (await api('GET', '/tasks/e2e-probe')).json();
+  const check = await (await api('GET', '/tasks/e2e-test-probe')).json();
   assert.ok(check.content.includes('e2e checkbox item'), 'checkbox not appended');
 });
 
@@ -225,14 +225,14 @@ test('[S8] GET /projects/:id returns detail with cost fields', { timeout: 10000 
 });
 
 test('[S8] POST /projects/:id/agents links agent', { timeout: 10000 }, async () => {
-  const r = await api('POST', `/projects/${_projId}/agents`, { agentName: 'e2e-probe' });
+  const r = await api('POST', `/projects/${_projId}/agents`, { agentName: 'e2e-test-probe' });
   assert.ok(r.status === 200 || r.status === 201, `link agent returned ${r.status}`);
   const b = await r.json();
   assert.ok(b.ok, 'link agent did not return ok');
 });
 
 test('[S8] DELETE /projects/:id/agents/:name unlinks agent', { timeout: 10000 }, async () => {
-  const r = await api('DELETE', `/projects/${_projId}/agents/e2e-probe`);
+  const r = await api('DELETE', `/projects/${_projId}/agents/e2e-test-probe`);
   assert.ok(r.status === 200 || r.status === 204, `unlink returned ${r.status}`);
 });
 
@@ -266,10 +266,10 @@ test('[S9] GET /queue/tasks includes new task', { timeout: 10000 }, async () => 
 
 test('[S9] PATCH /queue/tasks/:id assigns agent', { timeout: 10000 }, async () => {
   // PATCH with assigned_to sets the assignee and returns the full task
-  const r = await api('PATCH', `/queue/tasks/${_queueId}`, { assigned_to: 'e2e-probe' });
+  const r = await api('PATCH', `/queue/tasks/${_queueId}`, { assigned_to: 'e2e-test-probe' });
   assert.equal(r.status, 200);
   const b = await r.json();
-  assert.equal(b.assigned_to, 'e2e-probe');
+  assert.equal(b.assigned_to, 'e2e-test-probe');
 });
 
 test('[S9] DELETE /queue/tasks/:id cancels task', { timeout: 10000 }, async () => {
@@ -511,6 +511,12 @@ test('[S16] Forgejo shows as reachable in /health', { timeout: 10000 }, async ()
   assert.equal(b.forgejo, 'reachable', 'Forgejo not reachable — check Docker');
 });
 
+describe('[S16] Forgejo PR flow', () => {
+  test('[S16] full PR flow (E2E_FULL only)', { timeout: 30000, skip: FULL ? false : 'Set E2E_FULL=1 to run Forgejo PR flow' }, async (t) => {
+    t.skip('E2E_FULL not set');
+  });
+});
+
 // ── S17: Suggestions ─────────────────────────────────────────────
 test('[S17] GET /suggestions returns array', { timeout: 10000 }, async () => {
   const r = await api('GET', '/suggestions');
@@ -529,8 +535,8 @@ test('[S18] GET /costs returns monthTotal as non-negative number', { timeout: 10
   assert.ok(Array.isArray(b.costs), 'costs array missing');
 });
 
-// ── Cleanup: remove e2e-probe agent ──────────────────────────────
-test('[cleanup] DELETE /agents/e2e-probe', { timeout: 10000 }, async () => {
-  await api('DELETE', '/agents/e2e-probe');
+// ── Cleanup: remove e2e-test-probe agent ──────────────────────────────
+test('[cleanup] DELETE /agents/e2e-test-probe', { timeout: 10000 }, async () => {
+  await api('DELETE', '/agents/e2e-test-probe');
   // Not asserting status — agent may already be gone if S6 was skipped
 });
