@@ -842,7 +842,8 @@ do {
 } while ($s.status -notin @("done","error","failed") -and ((Get-Date) - $start).TotalSeconds -lt 120)
 
 # Check PR created in Forgejo
-$prs = Invoke-RestMethod "http://localhost:3030/api/v1/repos/robin/flint/pulls?state=open&token=<forgejo-token>"
+$token = (Invoke-RestMethod "http://localhost:3000/api/api-keys/forgejo/value").value
+$prs = Invoke-RestMethod "http://localhost:3030/api/v1/repos/robin/flint/pulls?state=open&token=$token"
 $e2ePR = $prs | Where-Object { $_.head.ref -eq "e2e-test-branch" }
 if ($e2ePR) {
   Write-Output "PR found: $($e2ePR.title) — PASS"
@@ -877,7 +878,7 @@ Write-Output "Suggestions count: $($suggestions.Count)"
 $suggestions | ConvertTo-Json -Depth 5
 
 # Verify it's an array
-if ($suggestions -is [array] -or $suggestions.GetType().Name -eq 'Object[]' -or $suggestions.Count -ge 0) {
+if ($null -ne $suggestions -and ($suggestions -is [array] -or $suggestions.Count -ge 0)) {
   Write-Output "Valid array — PASS"
 } else {
   Write-Output "Not an array — FAIL"
