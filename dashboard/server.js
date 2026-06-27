@@ -27,6 +27,7 @@ import { listSkills, getSkill, createSkill, updateSkill, deleteSkill, upsertSkil
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { listDocs, getDoc, createDoc, deleteDoc } from './project_docs.js';
 import { listSpecialists, getSpecialist, createSpecialist, updateSpecialist, deleteSpecialist } from './specialists.js';
+import { loadSpecialist } from '../agents/specialists/selector.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -246,10 +247,13 @@ export function createApp() {
   });
 
   app.post('/agents/spawn', (req, res) => {
-    const { name, workdir, model, runtime } = req.body ?? {};
+    const { name, workdir, model, runtime, specialistName } = req.body ?? {};
     if (!name || !workdir) return res.status(400).json({ error: 'name and workdir required' });
     registerAgent(name, 'spawn', workdir, null, model ?? '', runtime ?? 'claude');
-    if (!TEST_MODE) spawnAgent(name, workdir, model ?? null, { onWorktreePending: createPRForAgent });
+    if (!TEST_MODE) {
+      const specialist = specialistName ? loadSpecialist(specialistName) : null;
+      spawnAgent(name, workdir, model ?? null, { onWorktreePending: createPRForAgent, specialist });
+    }
     res.json({ ok: true, name });
   });
 
@@ -802,7 +806,7 @@ export function createApp() {
           break;
 
         case 'spawn': {
-          const { agent: name, workdir, model, isolate, runtime } = msg;
+          const { agent: name, workdir, model, isolate, runtime, specialistName } = msg;
           if (!name || !workdir) break;
           registerAgent(name, 'spawn', workdir, null, model, runtime ?? 'claude');
           upsertAgentLog(name, { mode: 'spawn', workdir, status: 'running' });
@@ -819,7 +823,8 @@ export function createApp() {
                 break;
               }
             }
-            spawnAgent(name, spawnDir, model, { onWorktreePending: createPRForAgent });
+            const specialist = specialistName ? loadSpecialist(specialistName) : null;
+            spawnAgent(name, spawnDir, model, { onWorktreePending: createPRForAgent, specialist });
           }
           broadcastToAgent(name, { type: 'status', agent: name, status: 'running' });
           break;

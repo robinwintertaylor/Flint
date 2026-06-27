@@ -347,6 +347,19 @@ document.getElementById('btn-new-agent').addEventListener('click', () => {
   if (!wdInput.value) {
     fetch('/config').then(r => r.json()).then(cfg => { wdInput.value = cfg.defaultWorkdir; }).catch(() => {});
   }
+  fetch('/api/specialists')
+    .then(r => r.json())
+    .then(specialists => {
+      const sel = document.getElementById('modal-specialist');
+      sel.innerHTML = '<option value="">— none —</option>';
+      specialists.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.name;
+        opt.textContent = s.label;
+        sel.appendChild(opt);
+      });
+    })
+    .catch(() => {});
 });
 document.getElementById('modal-cancel').addEventListener('click', () => {
   document.getElementById('modal').classList.add('hidden');
@@ -368,10 +381,12 @@ document.getElementById('modal-spawn').addEventListener('click', () => {
   const model = document.getElementById('modal-model').value;
   const isolate = document.getElementById('modal-isolate').checked;
   const runtime = document.getElementById('modal-runtime').value || 'claude';
+  const specialistName = document.getElementById('modal-specialist')?.value || undefined;
   ws.send(JSON.stringify({
     type: 'spawn', agent: name, workdir, runtime,
     ...(model && runtime !== 'vibe' ? { model } : {}),
     ...(isolate ? { isolate: true } : {}),
+    ...(specialistName ? { specialistName } : {}),
   }));
   ensurePanel({ name, mode: 'spawn', status: 'running', isolate, runtime });
   document.getElementById('modal').classList.add('hidden');
@@ -379,6 +394,7 @@ document.getElementById('modal-spawn').addEventListener('click', () => {
   document.getElementById('modal-workdir').value = '';
   document.getElementById('modal-isolate').checked = false;
   document.getElementById('modal-runtime').value = 'claude';
+  document.getElementById('modal-specialist').value = '';
   document.getElementById('modal-model-group').style.display = '';
 });
 
