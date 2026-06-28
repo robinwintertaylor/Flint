@@ -9,7 +9,6 @@
  *   - Orchestrations POST → 201; NO DELETE endpoint
  *   - Scratchpad POST uses {text} field; GET returns raw text (not JSON)
  *   - Project docs uses JSON {title, content} — NOT multipart form upload
- *   - /llm/complete returns 500 — OpenRouter model IDs in router.json are outdated
  *   - /router/complete does NOT exist on dashboard (use router directly)
  */
 import { test, describe, before } from 'node:test';
@@ -85,12 +84,8 @@ test('[S2] GET /router/models proxies router models via dashboard', { timeout: 1
   assert.ok(typeof b === 'object' && b !== null, 'router/models must be object');
 });
 
-// NOTE: /llm/complete is skipped — router.json model IDs are outdated (e.g. "mistral/mistral-medium"
-// is rejected by OpenRouter with 400 "not a valid model ID"). The endpoint, key, and routing logic
-// all work correctly; only the configured model names need updating in router.json.
 test('[S2] POST /llm/complete returns JSON response', {
-  timeout: 10000,
-  skip: 'OpenRouter model IDs in router.json are outdated — endpoint returns 500 from provider. Fix router.json to use current model slugs.',
+  timeout: 15000,
 }, async () => {
   const r = await fetch(`${ROUTER}/llm/complete`, {
     method: 'POST',
