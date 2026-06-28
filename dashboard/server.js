@@ -575,8 +575,12 @@ export function createApp() {
         return res.status(422).json({ error: `PDF extraction failed: ${err.message}` });
       }
     }
-    const id = createDoc({ projectId, title, mimeType, content: text, source });
-    res.status(201).json({ id });
+    try {
+      const id = createDoc({ projectId, title, mimeType, content: text, source });
+      res.status(201).json({ id });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.get('/api/projects/:id/docs/:docId', (req, res) => {

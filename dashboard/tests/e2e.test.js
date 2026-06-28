@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 const BASE   = 'http://localhost:3000';
 const ROUTER = 'http://localhost:3001';
 const FULL   = process.env.E2E_FULL === '1';
+const RUN_ID = Date.now().toString().slice(-6);
 
 async function api(method, path, body, base = BASE) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -193,12 +194,13 @@ test('[S7] GET /worktrees returns array', { timeout: 10000 }, async () => {
 
 // ── S8: Projects ──────────────────────────────────────────────────
 let _projId;
+const PROJ_NAME = `e2e-test-project-${RUN_ID}`;
 test('[S8] POST /projects creates project', { timeout: 10000 }, async () => {
-  const r = await api('POST', '/projects', { name: 'e2e-test-project', notes: 'Created by e2e test' });
+  const r = await api('POST', '/projects', { name: PROJ_NAME, notes: 'Created by e2e test' });
   assert.equal(r.status, 201);
   const b = await r.json();
   assert.ok(b.id, 'project missing id');
-  assert.equal(b.name, 'e2e-test-project');
+  assert.equal(b.name, PROJ_NAME);
   _projId = b.id;
 });
 
@@ -206,7 +208,7 @@ test('[S8] GET /projects includes new project', { timeout: 10000 }, async () => 
   const r = await api('GET', '/projects');
   assert.equal(r.status, 200);
   const b = await r.json();
-  assert.ok(b.some(p => p.name === 'e2e-test-project'), 'project not in list');
+  assert.ok(b.some(p => p.name === PROJ_NAME), 'project not in list');
 });
 
 test('[S8] PATCH /projects/:id updates status and notes', { timeout: 10000 }, async () => {
@@ -438,7 +440,7 @@ test('[S13] DELETE /api/specialists/:name removes specialist', { timeout: 10000 
 // NOTE: Docs API uses JSON body {title, content} — NOT multipart/form-data.
 let _docProjId, _docId;
 test('[S14] create project for doc test', { timeout: 10000 }, async () => {
-  const r = await api('POST', '/projects', { name: 'e2e-test-docs-project', notes: '' });
+  const r = await api('POST', '/projects', { name: `e2e-test-docs-project-${RUN_ID}`, notes: '' });
   assert.equal(r.status, 201);
   const b = await r.json();
   _docProjId = b.id;
