@@ -4,7 +4,7 @@ import { createServer } from 'http';
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname, join, resolve } from 'path';
 
 import { initDb, getTodayCost, getMonthCost, closeDb, upsertAgentLog, setAgentWorktree, getAgentWorktree, setAgentPR, clearAgentPR, getAgentPR, listOpenPRAgents, clearAgentWorktree, listWorkspaces, addWorkspace, removeWorkspace } from './db.js';
 import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, removeAgent, broadcastToAgent, addGlobalWsClient, removeGlobalWsClient } from './agents.js';
@@ -884,8 +884,11 @@ export function createApp() {
   return httpServer;
 }
 
-// Only start server when run directly (not imported by tests)
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Only start server when run directly or via PM2 (not imported by tests)
+// PM2 sets process.argv[1] to its own ProcessContainerFork.js wrapper, so we also check PM2_HOME
+const _isMain = (process.argv[1] && resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()) ||
+  process.env.PM2_HOME !== undefined;
+if (_isMain) {
   const server = createApp();
   server.listen(PORT, () => {
     console.log(`Flint Dashboard → http://localhost:${PORT}`);
