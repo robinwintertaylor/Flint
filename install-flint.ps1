@@ -20,6 +20,15 @@ param(
   [switch]$SkipPrereqs
 )
 
+# Require administrator rights (needed for npm install -g and pm2-startup install)
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+  Write-Host ""
+  Write-Host "  ERROR: This installer must be run as Administrator." -ForegroundColor Red
+  Write-Host "  Right-click PowerShell → 'Run as Administrator', then re-run." -ForegroundColor Red
+  Write-Host ""
+  exit 1
+}
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -56,7 +65,10 @@ function Wait-For-Dashboard {
       return
     } catch { }
   }
-  throw "Dashboard did not respond after 30 seconds. Check logs: pm2 logs flint-dashboard"
+  Write-Host ""
+  Write-Host "   Dashboard did not respond after 30 seconds. Last PM2 logs:" -ForegroundColor Red
+  pm2 logs flint-dashboard --lines 20 --nostream 2>&1 | ForEach-Object { Write-Host "   $_" }
+  throw "Startup timed out. Fix the error above and re-run the installer."
 }
 
 function Post-ApiKey([string]$name, [string]$label, [string]$envVar, [string]$keyValue) {
@@ -165,6 +177,10 @@ if (-not $SkipPrereqs) {
     Write-Host "   Installing Claude Code CLI..." -ForegroundColor Yellow
     npm install -g @anthropic-ai/claude-code
     Refresh-Path
+    if (-not (Test-Command 'claude')) {
+      Write-Host "   ERROR: Claude Code CLI install failed. Run: npm install -g @anthropic-ai/claude-code" -ForegroundColor Red
+      exit 1
+    }
   }
   Write-Ok "Claude Code CLI installed"
 }
@@ -172,16 +188,28 @@ if (-not $SkipPrereqs) {
 # ── 3. npm install ────────────────────────────────────────────────────────────
 
 Write-Step "Installing dashboard dependencies..."
-Push-Location C:\Flint\dashboard
-npm install
-Pop-Location
-Write-Ok "dashboard/node_modules ready"
+try {
+  Push-Location C:\Flint\dashboard
+  npm install
+  Pop-Location
+  Write-Ok "dashboard/node_modules ready"
+} catch {
+  Pop-Location -ErrorAction SilentlyContinue
+  Write-Host "   ERROR: npm install failed in dashboard/: $($_.Exception.Message)" -ForegroundColor Red
+  exit 1
+}
 
 Write-Step "Installing router dependencies..."
-Push-Location C:\Flint\router
-npm install
-Pop-Location
-Write-Ok "router/node_modules ready"
+try {
+  Push-Location C:\Flint\router
+  npm install
+  Pop-Location
+  Write-Ok "router/node_modules ready"
+} catch {
+  Pop-Location -ErrorAction SilentlyContinue
+  Write-Host "   ERROR: npm install failed in router/: $($_.Exception.Message)" -ForegroundColor Red
+  exit 1
+}
 
 # ── 4. Start PM2 services ─────────────────────────────────────────────────────
 
