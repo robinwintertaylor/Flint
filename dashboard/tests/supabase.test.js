@@ -121,3 +121,19 @@ test('pullMemories returns records when enabled', async () => {
   assert.equal(result.length, 1);
   assert.equal(result[0].name, 'a');
 });
+
+test('searchMemories falls back to ilike when embedding not available', async () => {
+  const selectResult = [
+    { id: '1', name: 'memory-a', type: 'user', description: 'About robin', body: 'Find me in the database' },
+    { id: '2', name: 'memory-b', type: 'user', description: 'About coding', body: 'Another record to find' },
+  ];
+  const mock = makeMockClient({ selectResult });
+  setSupabaseClient(mock);
+  // Call without _embedding; generateEmbedding will return null since OPENAI_API_KEY is not set
+  const result = await searchMemories('find me', {});
+  assert.equal(result.length, 2);
+  assert.equal(result[0].name, 'memory-a');
+  assert.equal(result[1].name, 'memory-b');
+  assert.equal(mock.calls.select.length, 1);
+  assert.equal(mock.calls.select[0].table, 'memories');
+});
