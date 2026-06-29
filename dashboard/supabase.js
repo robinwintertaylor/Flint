@@ -38,7 +38,8 @@ export async function searchMemories(queryText, { type = null, count = 10, thres
   if (!embedding) {
     let q = client.from('memories').select('id, name, type, description, body').ilike('body', `%${queryText}%`);
     if (type) q = q.eq('type', type);
-    const { data } = await q.limit(count);
+    const { data, error } = await q.limit(count);
+    if (error) throw error;
     return data ?? [];
   }
   const { data, error } = await client.rpc('search_memories', {
@@ -75,6 +76,7 @@ export async function pullMemories({ type = null } = {}) {
   if (!client) return [];
   let q = client.from('memories').select('id, name, type, description, body, created_at, updated_at').order('updated_at', { ascending: false });
   if (type) q = q.eq('type', type);
-  const { data } = await q;
+  const { data, error } = await q;
+  if (error) throw error;
   return data ?? [];
 }
