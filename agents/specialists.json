@@ -1,1 +1,15 @@
-[]
+[
+  {
+    "name": "code-reviewer",
+    "label": "Code Reviewer",
+    "description": "Expert at reviewing code for correctness, security, and style",
+    "domains": [
+      "code-review",
+      "security",
+      "javascript",
+      "node"
+    ],
+    "use_count": 0,
+    "last_used": null
+  }
+]
