@@ -34,6 +34,7 @@ export function initAgents(agentsFile) {
         ...a,
         model: a.model ?? '',
         runtime: a.runtime ?? 'claude',
+        role: a.role ?? null,
         status: 'stopped',
         ptyProcess: null,
         watcher: null,
@@ -46,17 +47,19 @@ export function initAgents(agentsFile) {
 }
 
 function save() {
-  const data = [...registry.values()].map(({ name, mode, workdir, logPath, model, runtime, status }) => ({
+  const data = [...registry.values()].map(({ name, mode, workdir, logPath, model, runtime, role, status }) => ({
     name, mode, workdir, logPath: logPath ?? null, model: model ?? '',
     runtime: runtime ?? 'claude',
+    role: role ?? null,
     status: status === 'running' ? 'stopped' : status,
   }));
   writeFileSync(AGENTS_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
-export function registerAgent(name, mode, workdir, logPath = null, model = '', runtime = 'claude') {
+export function registerAgent(name, mode, workdir, logPath = null, model = '', runtime = 'claude', role = null) {
   const agent = {
     name, mode, workdir, logPath, model: model ?? '', runtime: runtime ?? 'claude',
+    role: role ?? null,
     status: 'stopped', ptyProcess: null, watcher: null, wsClients: new Set(),
   };
   registry.set(name, agent);
@@ -65,7 +68,7 @@ export function registerAgent(name, mode, workdir, logPath = null, model = '', r
 }
 
 export function listAgents() {
-  return [...registry.values()].map(({ name, mode, status, workdir, model, runtime }) => ({ name, mode, status, workdir, model: model ?? '', runtime: runtime ?? 'claude' }));
+  return [...registry.values()].map(({ name, mode, status, workdir, model, runtime, role }) => ({ name, mode, status, workdir, model: model ?? '', runtime: runtime ?? 'claude', role: role ?? null }));
 }
 
 export function getAgent(name) {
