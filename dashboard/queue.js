@@ -4,6 +4,7 @@ import { appendTask, getTasksDir, readTasks, writeTasks } from './tasks.js';
 import { broadcastGlobal } from './agents.js';
 import { notify } from './telegram.js';
 import { autoAssignPendingTasks } from './autoPickup.js';
+import { writeToAgent } from './terminal.js';
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -40,7 +41,10 @@ export function createQueueTask({ title, description = '', project_id, assigned_
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(title, description, project_id ?? null, assigned_to ?? null, role ?? null, priority, status, created_by);
   const task = getQueueTask(r.lastInsertRowid);
-  if (assigned_to) appendTask(assigned_to, formatTaskForInjection(task));
+  if (assigned_to) {
+    appendTask(assigned_to, formatTaskForInjection(task));
+    writeToAgent(assigned_to, `\nNew task assigned from queue: "${task.title}". Please check your task list and action it.\n`);
+  }
   broadcastGlobal({ type: 'queue_task_added', task });
   return task;
 }
@@ -72,6 +76,7 @@ export function assignQueueTask(id, agentName) {
   } catch { /* orchestrations table not yet present — skip */ }
 
   appendTask(agentName, formatTaskForInjection(updated));
+  writeToAgent(agentName, `\nNew task assigned from queue: "${updated.title}". Please check your task list and action it.\n`);
   broadcastGlobal({ type: 'queue_task_assigned', task: updated });
   return updated;
 }
