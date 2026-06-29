@@ -121,7 +121,7 @@ export async function checkQueueTasks() {
 
 export function startQueuePoller(intervalMs = 10000) {
   return setInterval(async () => {
-    checkQueueTasks();
+    await checkQueueTasks();
     await autoAssignPendingTasks();
   }, intervalMs);
 }

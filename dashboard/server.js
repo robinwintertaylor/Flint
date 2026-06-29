@@ -147,8 +147,8 @@ export function createApp() {
   app.get('/agents/:name', (req, res) => {
     const agent = getAgent(req.params.name);
     if (!agent) return res.status(404).json({ error: 'not found' });
-    const { name, mode, status, workdir, model, runtime } = agent;
-    res.json({ name, mode, status, workdir, model: model ?? '', runtime: runtime ?? 'claude' });
+    const { name, mode, status, workdir, model, runtime, role } = agent;
+    res.json({ name, mode, status, workdir, model: model ?? '', runtime: runtime ?? 'claude', role: role ?? null });
   });
 
   app.get('/workspaces', (_req, res) => res.json(listWorkspaces()));
