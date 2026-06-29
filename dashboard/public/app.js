@@ -382,11 +382,13 @@ document.getElementById('modal-spawn').addEventListener('click', () => {
   const isolate = document.getElementById('modal-isolate').checked;
   const runtime = document.getElementById('modal-runtime').value || 'claude';
   const specialistName = document.getElementById('modal-specialist')?.value || undefined;
+  const role = document.getElementById('modal-role')?.value.trim() || undefined;
   ws.send(JSON.stringify({
     type: 'spawn', agent: name, workdir, runtime,
     ...(model && runtime !== 'vibe' ? { model } : {}),
     ...(isolate ? { isolate: true } : {}),
     ...(specialistName ? { specialistName } : {}),
+    ...(role ? { role } : {}),
   }));
   ensurePanel({ name, mode: 'spawn', status: 'running', isolate, runtime });
   document.getElementById('modal').classList.add('hidden');
@@ -395,6 +397,7 @@ document.getElementById('modal-spawn').addEventListener('click', () => {
   document.getElementById('modal-isolate').checked = false;
   document.getElementById('modal-runtime').value = 'claude';
   document.getElementById('modal-specialist').value = '';
+  document.getElementById('modal-role').value = '';
   document.getElementById('modal-model-group').style.display = '';
 });
 
@@ -1247,6 +1250,14 @@ async function fetchAndRenderQueue(statusFilter = queueFilter) {
   const tasks = await fetch(url).then(r => r.json()).catch(() => []);
   const agents = await fetch('/agents').then(r => r.json()).catch(() => []);
   renderQueueView(tasks, agents, statusFilter);
+  // Populate default agent config
+  fetch('/queue/config')
+    .then(r => r.json())
+    .then(cfg => {
+      const input = document.getElementById('queue-default-agent');
+      if (input) input.value = cfg.defaultAgent ?? '';
+    })
+    .catch(() => {});
 }
 
 function relativeTime(iso) {
@@ -1272,6 +1283,12 @@ function renderQueueView(tasks, agents, activeFilter) {
       <button id="btn-queue-back" style="background:none;border:1px solid #30363d;color:#c9d1d9;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:14px">← Dashboard</button>
       <h3 style="margin:0;font-size:18px">Task Queue</h3>
       <button id="btn-add-task" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:16px">+ Add Task</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0 10px;border-bottom:1px solid #30363d;margin-bottom:8px;font-size:13px;color:#8b949e">
+      <span>Default agent (roleless tasks):</span>
+      <input id="queue-default-agent" type="text" placeholder="agent name or leave blank to skip"
+        style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:3px 8px;border-radius:4px;font-size:13px;width:220px">
+      <button id="btn-save-default-agent" style="background:#21262d;border:1px solid #30363d;color:#c9d1d9;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:13px">Save</button>
     </div>
     <div class="queue-filters">
       ${['all','pending','in_progress','done','cancelled'].map(f =>
@@ -1342,6 +1359,16 @@ function renderQueueView(tasks, agents, activeFilter) {
 
   // Add Task button
   document.getElementById('btn-add-task').addEventListener('click', () => openAddTaskModal(agents));
+
+  // Save default agent config
+  document.getElementById('btn-save-default-agent')?.addEventListener('click', () => {
+    const val = document.getElementById('queue-default-agent')?.value.trim() ?? '';
+    fetch('/queue/config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultAgent: val }),
+    }).catch(() => {});
+  });
 }
 
 function openAddTaskModal(agents, preAssignTaskId = null) {
