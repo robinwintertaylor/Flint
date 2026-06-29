@@ -3,6 +3,7 @@ import { getDb } from './db.js';
 import { appendTask, getTasksDir, readTasks, writeTasks } from './tasks.js';
 import { broadcastGlobal } from './agents.js';
 import { notify } from './telegram.js';
+import { autoAssignPendingTasks } from './autoPickup.js';
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -119,5 +120,8 @@ export async function checkQueueTasks() {
 }
 
 export function startQueuePoller(intervalMs = 10000) {
-  return setInterval(checkQueueTasks, intervalMs);
+  return setInterval(async () => {
+    checkQueueTasks();
+    await autoAssignPendingTasks();
+  }, intervalMs);
 }
