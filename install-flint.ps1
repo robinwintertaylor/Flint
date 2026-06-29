@@ -153,6 +153,10 @@ if (-not $SkipPrereqs) {
     Write-Host "   Installing PM2..." -ForegroundColor Yellow
     npm install -g pm2
     Refresh-Path
+    if (-not (Test-Command 'pm2')) {
+      Write-Host "   ERROR: PM2 install failed. Run: npm install -g pm2" -ForegroundColor Red
+      exit 1
+    }
   }
   Write-Ok "PM2 $(pm2 --version)"
 
@@ -211,7 +215,7 @@ Write-Host ""
 # GitHub token — required for agent PR creation
 $ghToken = Read-Host "   GitHub Personal Access Token (repo scope — required for PR creation)"
 if ($ghToken -and $ghToken.Trim() -ne '') {
-  Post-ApiKey 'github_token' 'GitHub' 'GITHUB_TOKEN' $ghToken.Trim()
+  Post-ApiKey 'github-token' 'GitHub' 'GITHUB_TOKEN' $ghToken.Trim()
 } else {
   Write-Warn "GitHub token skipped — agent PR creation will not work until added via the API Keys tab"
 }
@@ -226,19 +230,19 @@ Prompt-Key "Google AI API key"    'google'      'Google AI'    'GOOGLE_API_KEY'
 # Azure — three values
 $azureKey = Read-Host "   Azure OpenAI key (Enter to skip)"
 if ($azureKey -and $azureKey.Trim() -ne '') {
-  Post-ApiKey 'azure_key' 'Azure OpenAI Key' 'AZURE_OPENAI_KEY' $azureKey.Trim()
+  Post-ApiKey 'azure-key' 'Azure OpenAI Key' 'AZURE_OPENAI_KEY' $azureKey.Trim()
   $azureEndpoint = Read-Host "   Azure OpenAI endpoint (e.g. https://myinstance.openai.azure.com)"
   if ($azureEndpoint -and $azureEndpoint.Trim() -ne '') {
-    Post-ApiKey 'azure_endpoint' 'Azure OpenAI Endpoint' 'AZURE_OPENAI_ENDPOINT' $azureEndpoint.Trim()
+    Post-ApiKey 'azure-endpoint' 'Azure OpenAI Endpoint' 'AZURE_OPENAI_ENDPOINT' $azureEndpoint.Trim()
   }
   $azureDeployment = Read-Host "   Azure deployment name (Enter to use model name as deployment)"
   if ($azureDeployment -and $azureDeployment.Trim() -ne '') {
-    Post-ApiKey 'azure_deployment' 'Azure OpenAI Deployment' 'AZURE_OPENAI_DEPLOYMENT' $azureDeployment.Trim()
+    Post-ApiKey 'azure-deployment' 'Azure OpenAI Deployment' 'AZURE_OPENAI_DEPLOYMENT' $azureDeployment.Trim()
   }
 }
 
-Prompt-Key "Ollama base URL (e.g. http://localhost:11434)"  'ollama_url'    'Ollama Base URL'    'OLLAMA_BASE_URL'
-Prompt-Key "LM Studio base URL (e.g. http://localhost:1234)" 'lmstudio_url' 'LM Studio Base URL' 'LMSTUDIO_BASE_URL'
+Prompt-Key "Ollama base URL (e.g. http://localhost:11434)"   'ollama-url'    'Ollama Base URL'    'OLLAMA_BASE_URL'
+Prompt-Key "LM Studio base URL (e.g. http://localhost:1234)" 'lmstudio-url'  'LM Studio Base URL' 'LMSTUDIO_BASE_URL'
 
 # ── 7. Verify + open ───────────────────────────────────────────────────────────
 
@@ -266,5 +270,5 @@ Write-Host "    • Add remaining API keys via the API Keys tab"
 Write-Host "    • Set a default agent in the Queue tab for auto-pickup"
 Write-Host ""
 Write-Host "  To update Flint:"
-Write-Host "    cd C:\Flint && git pull && pm2 restart all"
+Write-Host "    cd C:\Flint; git pull; pm2 restart all"
 Write-Host ("━" * 60) -ForegroundColor Cyan
