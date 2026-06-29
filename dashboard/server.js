@@ -19,7 +19,8 @@ import { info, error as logError } from './logger.js';
 import { listMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from './mcp.js';
 import { listQueueTasks, getQueueTask, createQueueTask, assignQueueTask, updateQueueTask, completeQueueTask, cancelQueueTask, startQueuePoller } from './queue.js';
 import { createOrchestration, getOrchestration, listOrchestrations, appendScratchpad, readScratchpad } from './orchestrator.js';
-import { listApiKeys, getApiKeyValue, createApiKey, updateApiKey, deleteApiKey } from './apikeys.js';
+import { listApiKeys, getApiKeyValue, createApiKey, updateApiKey, deleteApiKey, buildApiKeyEnv } from './apikeys.js';
+import { initSupabase, isSupabaseEnabled, upsertMemory, searchMemories, logSessionStart, logSessionEnd, pullMemories } from './supabase.js';
 import { initTelegram } from './telegram.js';
 import { isOllamaReachable, listModels, generate } from './ollama.js';
 import { isLmStudioReachable, listModels as listLmStudioModels, generate as lmStudioGenerate } from './lmstudio.js';
@@ -107,6 +108,8 @@ async function handlePRMerged(name) {
 export function createApp() {
   // Init subsystems
   initDb(process.env.FLINT_DB_PATH);
+  Object.assign(process.env, buildApiKeyEnv());
+  initSupabase();
   initAgents(process.env.FLINT_AGENTS_FILE);
   if (!TEST_MODE) startQueuePoller();
   if (!TEST_MODE) initTelegram({ writeToAgent, createQueueTask });
@@ -740,6 +743,68 @@ export function createApp() {
     if (typeof text !== 'string') return res.status(400).json({ error: 'text required' });
     appendScratchpad(Number(req.params.id), text);
     res.json({ ok: true });
+  });
+
+  // --- Memory sync (Supabase) ---
+
+  app.get('/api/memory', async (_req, res) => {
+    if (!isSupabaseEnabled()) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+      const memories = await pullMemories();
+      res.json({ memories });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/memory/sync', async (req, res) => {
+    if (!isSupabaseEnabled()) return res.status(503).json({ error: 'Supabase not configured' });
+    const { memories } = req.body ?? {};
+    if (!Array.isArray(memories)) return res.status(400).json({ error: 'memories array required' });
+    try {
+      let synced = 0;
+      for (const m of memories) {
+        await upsertMemory(m);
+        synced++;
+      }
+      res.json({ synced });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/memory/search', async (req, res) => {
+    if (!isSupabaseEnabled()) return res.status(503).json({ error: 'Supabase not configured' });
+    const { query, type, count, threshold } = req.body ?? {};
+    if (!query) return res.status(400).json({ error: 'query required' });
+    try {
+      const results = await searchMemories(query, { type, count, threshold });
+      res.json({ results });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/memory/session', async (_req, res) => {
+    if (!isSupabaseEnabled()) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+      const id = await logSessionStart();
+      res.json({ id });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.patch('/api/memory/session/:id', async (req, res) => {
+    if (!isSupabaseEnabled()) return res.status(503).json({ error: 'Supabase not configured' });
+    const { id } = req.params;
+    const { summary, learnings, agentNames } = req.body ?? {};
+    try {
+      await logSessionEnd(id, { summary, learnings, agentNames });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // --- API Key routes ---

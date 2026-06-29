@@ -378,3 +378,18 @@ test('POST /agents/spawn with role registers agent with that role', async () => 
   assert.ok(qa, 'agent not found');
   assert.equal(qa.role, 'tester');
 });
+
+test('GET /api/memory returns 503 when Supabase not configured', async () => {
+  const r = await req('GET', '/api/memory');
+  assert.equal(r.status, 503);
+});
+
+test('POST /api/memory/search returns 503 when Supabase not configured', async () => {
+  const r = await req('POST', '/api/memory/search', { query: 'test' });
+  assert.equal(r.status, 503);
+});
+
+test('POST /api/memory/session returns 503 when Supabase not configured', async () => {
+  const r = await req('POST', '/api/memory/session');
+  assert.equal(r.status, 503);
+});
