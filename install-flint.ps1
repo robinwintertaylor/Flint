@@ -59,21 +59,21 @@ function Wait-For-Dashboard {
   throw "Dashboard did not respond after 30 seconds. Check logs: pm2 logs flint-dashboard"
 }
 
-function Post-ApiKey([string]$name, [string]$label, [string]$keyValue) {
-  $body = @{ name = $name; label = $label; key_value = $keyValue } | ConvertTo-Json
+function Post-ApiKey([string]$name, [string]$label, [string]$envVar, [string]$keyValue) {
+  $body = @{ name = $name; label = $label; env_var = $envVar; key_value = $keyValue } | ConvertTo-Json
   try {
     $null = Invoke-RestMethod http://localhost:3000/api-keys `
       -Method POST -ContentType 'application/json' -Body $body -ErrorAction Stop
-    Write-Ok "Stored $name"
+    Write-Ok "Stored $name → $envVar"
   } catch {
     Write-Warn "Failed to store ${name}: $($_.Exception.Message)"
   }
 }
 
-function Prompt-Key([string]$prompt, [string]$name, [string]$label) {
+function Prompt-Key([string]$prompt, [string]$name, [string]$label, [string]$envVar) {
   $val = Read-Host "   $prompt (Enter to skip)"
   if ($val -and $val.Trim() -ne '') {
-    Post-ApiKey $name $label $val.Trim()
+    Post-ApiKey $name $label $envVar $val.Trim()
   }
 }
 
@@ -141,6 +141,10 @@ if (-not $SkipPrereqs) {
     winget install --id Git.Git --silent `
       --accept-package-agreements --accept-source-agreements
     Refresh-Path
+    if (-not (Test-Command 'git')) {
+      Write-Host "   ERROR: Git install failed. Install from https://git-scm.com then re-run with -SkipPrereqs" -ForegroundColor Red
+      exit 1
+    }
   }
   Write-Ok "Git $(git --version)"
 
@@ -183,10 +187,8 @@ Write-Ok "Services started (flint-dashboard on :3000, flint-router on :3001)"
 
 Write-Step "Configuring boot persistence..."
 try {
-  $startupOut = (pm2 startup 2>&1) | Out-String
-  if ($startupOut -match 'pm2-startup install') {
-    pm2-startup install
-  }
+  npm install -g pm2-startup --silent 2>$null
+  pm2-startup install
   pm2 save
   Write-Ok "Boot persistence configured (Windows Task Scheduler)"
 } catch {
@@ -209,7 +211,7 @@ Write-Host ""
 # GitHub token — required for agent PR creation
 $ghToken = Read-Host "   GitHub Personal Access Token (repo scope — required for PR creation)"
 if ($ghToken -and $ghToken.Trim() -ne '') {
-  Post-ApiKey 'github' 'GitHub' $ghToken.Trim()
+  Post-ApiKey 'github_token' 'GitHub' 'GITHUB_TOKEN' $ghToken.Trim()
 } else {
   Write-Warn "GitHub token skipped — agent PR creation will not work until added via the API Keys tab"
 }
@@ -217,26 +219,26 @@ if ($ghToken -and $ghToken.Trim() -ne '') {
 Write-Host ""
 Write-Host "   Optional LLM providers:" -ForegroundColor Gray
 
-Prompt-Key "OpenAI API key"       'openai'      'OpenAI'
-Prompt-Key "OpenRouter API key"   'openrouter'  'openrouter_multi'
-Prompt-Key "Google AI API key"    'google'      'Google AI'
+Prompt-Key "OpenAI API key"       'openai'      'OpenAI'       'OPENAI_API_KEY'
+Prompt-Key "OpenRouter API key"   'openrouter'  'OpenRouter'   'OPENROUTER_API_KEY'
+Prompt-Key "Google AI API key"    'google'      'Google AI'    'GOOGLE_API_KEY'
 
 # Azure — three values
 $azureKey = Read-Host "   Azure OpenAI key (Enter to skip)"
 if ($azureKey -and $azureKey.Trim() -ne '') {
-  Post-ApiKey 'azure_key' 'Azure OpenAI Key' $azureKey.Trim()
+  Post-ApiKey 'azure_key' 'Azure OpenAI Key' 'AZURE_OPENAI_KEY' $azureKey.Trim()
   $azureEndpoint = Read-Host "   Azure OpenAI endpoint (e.g. https://myinstance.openai.azure.com)"
   if ($azureEndpoint -and $azureEndpoint.Trim() -ne '') {
-    Post-ApiKey 'azure_endpoint' 'Azure OpenAI Endpoint' $azureEndpoint.Trim()
+    Post-ApiKey 'azure_endpoint' 'Azure OpenAI Endpoint' 'AZURE_OPENAI_ENDPOINT' $azureEndpoint.Trim()
   }
   $azureDeployment = Read-Host "   Azure deployment name (Enter to use model name as deployment)"
   if ($azureDeployment -and $azureDeployment.Trim() -ne '') {
-    Post-ApiKey 'azure_deployment' 'Azure OpenAI Deployment' $azureDeployment.Trim()
+    Post-ApiKey 'azure_deployment' 'Azure OpenAI Deployment' 'AZURE_OPENAI_DEPLOYMENT' $azureDeployment.Trim()
   }
 }
 
-Prompt-Key "Ollama base URL (e.g. http://localhost:11434)"  'ollama_url'    'Ollama Base URL'
-Prompt-Key "LM Studio base URL (e.g. http://localhost:1234)" 'lmstudio_url' 'LM Studio Base URL'
+Prompt-Key "Ollama base URL (e.g. http://localhost:11434)"  'ollama_url'    'Ollama Base URL'    'OLLAMA_BASE_URL'
+Prompt-Key "LM Studio base URL (e.g. http://localhost:1234)" 'lmstudio_url' 'LM Studio Base URL' 'LMSTUDIO_BASE_URL'
 
 # ── 7. Verify + open ───────────────────────────────────────────────────────────
 
