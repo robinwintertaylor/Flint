@@ -353,3 +353,28 @@ test('DELETE /api-keys/:name returns 404 for unknown provider', async () => {
   const r = await req('DELETE', '/api-keys/unknown-xyz-999');
   assert.equal(r.status, 404);
 });
+
+test('GET /queue/config returns defaultAgent empty string by default', async () => {
+  const r = await req('GET', '/queue/config');
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).defaultAgent, '');
+});
+
+test('PATCH /queue/config persists defaultAgent', async () => {
+  const patch = await req('PATCH', '/queue/config', { defaultAgent: 'my-worker' });
+  assert.equal(patch.status, 200);
+  assert.equal((await patch.json()).defaultAgent, 'my-worker');
+  const get = await req('GET', '/queue/config');
+  assert.equal((await get.json()).defaultAgent, 'my-worker');
+});
+
+test('POST /agents/spawn with role registers agent with that role', async () => {
+  const r = await req('POST', '/agents/spawn', {
+    name: 'qa-agent', workdir: 'C:/flint', role: 'tester',
+  });
+  assert.equal(r.status, 200);
+  const agents = await req('GET', '/agents');
+  const qa = (await agents.json()).find(a => a.name === 'qa-agent');
+  assert.ok(qa, 'agent not found');
+  assert.equal(qa.role, 'tester');
+});

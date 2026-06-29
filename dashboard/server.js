@@ -28,6 +28,7 @@ import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { listDocs, getDoc, createDoc, deleteDoc } from './project_docs.js';
 import { listSpecialists, getSpecialist, createSpecialist, updateSpecialist, deleteSpecialist } from './specialists.js';
 import { loadSpecialist } from '../agents/specialists/selector.js';
+import { getSetting, setSetting } from './settings.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -194,6 +195,17 @@ export function createApp() {
 
   // --- Task queue routes ---
 
+  app.get('/queue/config', (_req, res) => {
+    res.json({ defaultAgent: getSetting('default_agent') });
+  });
+
+  app.patch('/queue/config', (req, res) => {
+    const { defaultAgent } = req.body ?? {};
+    if (defaultAgent === undefined) return res.status(400).json({ error: 'defaultAgent required' });
+    setSetting('default_agent', defaultAgent ?? '');
+    res.json({ defaultAgent: getSetting('default_agent') });
+  });
+
   app.get('/queue/tasks', (req, res) => {
     const { status, assigned_to, role, project_id, created_by } = req.query;
     res.json(listQueueTasks({
@@ -247,9 +259,9 @@ export function createApp() {
   });
 
   app.post('/agents/spawn', (req, res) => {
-    const { name, workdir, model, runtime, specialistName } = req.body ?? {};
+    const { name, workdir, model, runtime, specialistName, role } = req.body ?? {};
     if (!name || !workdir) return res.status(400).json({ error: 'name and workdir required' });
-    registerAgent(name, 'spawn', workdir, null, model ?? '', runtime ?? 'claude');
+    registerAgent(name, 'spawn', workdir, null, model ?? '', runtime ?? 'claude', role ?? null);
     if (!TEST_MODE) {
       const specialist = specialistName ? loadSpecialist(specialistName) : null;
       spawnAgent(name, workdir, model ?? null, { onWorktreePending: createPRForAgent, specialist });
@@ -810,9 +822,9 @@ export function createApp() {
           break;
 
         case 'spawn': {
-          const { agent: name, workdir, model, isolate, runtime, specialistName } = msg;
+          const { agent: name, workdir, model, isolate, runtime, specialistName, role } = msg;
           if (!name || !workdir) break;
-          registerAgent(name, 'spawn', workdir, null, model, runtime ?? 'claude');
+          registerAgent(name, 'spawn', workdir, null, model, runtime ?? 'claude', role ?? null);
           upsertAgentLog(name, { mode: 'spawn', workdir, status: 'running' });
           if (!TEST_MODE) {
             let spawnDir = workdir;
