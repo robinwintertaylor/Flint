@@ -1,6 +1,6 @@
 import { join } from 'path';
 import { getDb } from './db.js';
-import { appendTask, getTasksDir, readTasks, writeTasks } from './tasks.js';
+import { appendTask, getTasksDir, readTasks, writeTasks, taskPath } from './tasks.js';
 import { broadcastGlobal } from './agents.js';
 import { notify } from './telegram.js';
 import { autoAssignPendingTasks } from './autoPickup.js';
@@ -43,7 +43,7 @@ export function createQueueTask({ title, description = '', project_id, assigned_
   const task = getQueueTask(r.lastInsertRowid);
   if (assigned_to) {
     appendTask(assigned_to, formatTaskForInjection(task));
-    writeToAgent(assigned_to, `\nNew task assigned from queue: "${task.title}". Please check your task list and action it.\n`);
+    writeToAgent(assigned_to, `\nFlint queue task assigned:\n\n${formatTaskForInjection(task)}\n\nPlease action this now. When done, open ${taskPath(assigned_to)} and change "- [ ]" to "- [x]" for this task.\n`);
   }
   broadcastGlobal({ type: 'queue_task_added', task });
   return task;
@@ -76,7 +76,7 @@ export function assignQueueTask(id, agentName) {
   } catch { /* orchestrations table not yet present — skip */ }
 
   appendTask(agentName, formatTaskForInjection(updated));
-  writeToAgent(agentName, `\nNew task assigned from queue: "${updated.title}". Please check your task list and action it.\n`);
+  writeToAgent(agentName, `\nFlint queue task assigned:\n\n${formatTaskForInjection(updated)}\n\nPlease action this now. When done, open ${taskPath(agentName)} and change "- [ ]" to "- [x]" for this task.\n`);
   broadcastGlobal({ type: 'queue_task_assigned', task: updated });
   return updated;
 }
