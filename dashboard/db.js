@@ -129,6 +129,10 @@ export function initDb(dbPath = DEFAULT_DB) {
       use_count          INTEGER NOT NULL DEFAULT 0,
       last_used          TEXT
     );
+    CREATE TABLE IF NOT EXISTS settings (
+      key   TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
