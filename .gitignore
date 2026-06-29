@@ -3,3 +3,6 @@
 node_modules/
 forgejo.token
 .worktrees/
+agents.json
+tasks/
+logs/*.log
