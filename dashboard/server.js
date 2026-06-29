@@ -309,6 +309,14 @@ export function createApp() {
     res.json({ ok: true });
   });
 
+  app.delete('/tasks/:agent', (req, res) => {
+    const { agent } = req.params;
+    const reset = `# Tasks — ${agent}\n\n`;
+    writeTasks(agent, reset);
+    broadcastToAgent(agent, { type: 'tasks', agent, content: reset });
+    res.json({ ok: true });
+  });
+
   app.get('/costs', (_req, res) => {
     const agents = listAgents();
     const costs = agents.map(({ name }) => ({ agent: name, today: getTodayCost(name) }));

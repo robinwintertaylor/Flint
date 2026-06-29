@@ -141,6 +141,7 @@ function ensurePanel({ name, mode, status, isolate, runtime, role }) {
       </div>
       <div style="display:flex;align-items:center;gap:6px" id="header-right-${name}">
         <span class="panel-cost" id="cost-${name}">$0.00 today</span>
+        <button class="btn-clear-tasks" data-agent="${name}">Clear tasks</button>
         <button class="btn-kill" data-agent="${name}">Kill</button>
       </div>
     </div>
@@ -188,6 +189,12 @@ function ensurePanel({ name, mode, status, isolate, runtime, role }) {
   // Kill button
   panel.querySelector('.btn-kill').addEventListener('click', () => {
     ws.send(JSON.stringify({ type: 'kill', agent: name }));
+  });
+
+  // Clear tasks button
+  panel.querySelector('.btn-clear-tasks').addEventListener('click', async () => {
+    if (!confirm(`Clear all tasks for ${name}?`)) return;
+    await fetch(`/tasks/${encodeURIComponent(name)}`, { method: 'DELETE' });
   });
 
   // Add task button + Enter key
