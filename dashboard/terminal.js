@@ -24,6 +24,7 @@ function resolveBin(name) {
   }
 }
 
+const NODE_BIN    = resolveBin('node');
 const CLAUDE_BIN  = resolveBin('claude');
 const VIBE_BIN    = resolveBin('vibe');
 const OLLAMA_BIN  = resolveBin('ollama');
@@ -114,7 +115,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
     bin  = VIBE_BIN;
     args = [];
   } else if (isOpenRouter) {
-    bin  = 'node';
+    bin  = NODE_BIN;
     args = [join(FLINT_ROOT, 'router', 'openrouter-agent.js'), model || 'mistralai/mistral-nemo'];
   } else {
     bin  = CLAUDE_BIN;

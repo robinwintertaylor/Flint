@@ -209,11 +209,17 @@ function executeActions(actions) {
           const spec = getSpecialist(action.specialist);
           if (!spec) { console.warn(`[heartbeat] spawn_agent: specialist "${action.specialist}" not found`); break; }
 
+          // Don't spawn if an agent with this role already exists (running or stopped)
+          const alreadyExists = listAgents().find(a => a.role === spec.name);
+          if (alreadyExists) {
+            console.log(`[heartbeat] spawn_agent skipped — agent "${alreadyExists.name}" already exists for role "${spec.name}" (status: ${alreadyExists.status})`);
+            break;
+          }
+
           const base = `${spec.name}-auto`;
-          const existing = listAgents();
           let agentName = base;
           let n = 2;
-          while (existing.find(a => a.name === agentName)) agentName = `${base}-${n++}`;
+          while (listAgents().find(a => a.name === agentName)) agentName = `${base}-${n++}`;
 
           const workdir  = getSetting('default_workdir') || process.cwd();
           const runtime  = runtimeForProvider(spec.preferred_provider);
