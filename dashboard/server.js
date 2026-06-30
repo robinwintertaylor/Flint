@@ -806,6 +806,15 @@ export function createApp() {
     });
   });
 
+  app.patch('/heartbeat/settings', (req, res) => {
+    const { enabled, intervalMinutes, model, provider } = req.body ?? {};
+    if (enabled         !== undefined) setSetting('heartbeat_enabled',          String(enabled));
+    if (intervalMinutes !== undefined) setSetting('heartbeat_interval_minutes', String(parseInt(intervalMinutes, 10) || 5));
+    if (model           !== undefined) setSetting('heartbeat_model',            model    || 'router-default');
+    if (provider        !== undefined) setSetting('heartbeat_provider',         provider || 'router-default');
+    res.json({ ok: true });
+  });
+
   app.post('/heartbeat/trigger', async (_req, res) => {
     try {
       const result = await runHeartbeatCycle();

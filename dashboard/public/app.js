@@ -1309,6 +1309,7 @@ async function fetchAndRenderQueue(statusFilter = queueFilter) {
   const agents = await fetch('/agents').then(r => r.json()).catch(() => []);
   renderQueueView(tasks, agents, statusFilter);
   fetchHeartbeatLog();
+  fetchHeartbeatStatus();
   // Populate default agent config
   fetch('/queue/config')
     .then(r => r.json())
@@ -1337,6 +1338,53 @@ async function fetchHeartbeatLog() {
         <div class="hb-meta">${new Date(e.created_at).toLocaleString()}</div>
       </div>`;
     }).join('');
+  } catch {}
+}
+
+async function fetchHeartbeatStatus() {
+  try {
+    const [status, routerModels] = await Promise.all([
+      fetch('/heartbeat/status').then(r => r.json()).catch(() => ({})),
+      fetch('/router/models').then(r => r.json()).catch(() => ({})),
+    ]);
+
+    const enabledEl  = document.getElementById('hb-enabled');
+    const intervalEl = document.getElementById('hb-interval');
+    const modelEl    = document.getElementById('hb-model');
+    if (!enabledEl || !modelEl) return;
+
+    enabledEl.checked  = status.enabled !== false;
+    if (intervalEl) intervalEl.value = status.intervalMinutes ?? 5;
+
+    // Rebuild model dropdown: Router default + one optgroup per provider
+    modelEl.innerHTML = '<option value="router-default">Router default</option>';
+    if (routerModels && !routerModels.error) {
+      for (const [provider, models] of Object.entries(routerModels)) {
+        if (!Array.isArray(models) || models.length === 0) continue;
+        const grp = document.createElement('optgroup');
+        grp.label = provider;
+        for (const m of models) {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = m;
+          grp.appendChild(opt);
+        }
+        modelEl.appendChild(grp);
+      }
+    }
+
+    // Set current selection — try exact model match, fall back to router-default
+    const currentModel = status.model || 'router-default';
+    if ([...modelEl.options].some(o => o.value === currentModel)) {
+      modelEl.value = currentModel;
+    } else {
+      // Model not in dropdown (e.g. a custom string) — add it
+      const opt = document.createElement('option');
+      opt.value = currentModel;
+      opt.textContent = currentModel;
+      modelEl.insertBefore(opt, modelEl.options[1] || null);
+      modelEl.value = currentModel;
+    }
   } catch {}
 }
 
@@ -1406,6 +1454,23 @@ function renderQueueView(tasks, agents, activeFilter) {
     }
     <div class="heartbeat-log" id="heartbeat-log-panel">
       <h3>Flint Heartbeat <button class="hb-trigger" id="btn-hb-trigger">Run now</button></h3>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;font-size:13px;color:#c9d1d9;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+          <input type="checkbox" id="hb-enabled"> Enabled
+        </label>
+        <label style="display:flex;align-items:center;gap:5px">
+          Every <input type="number" id="hb-interval" min="1" max="120"
+            style="width:46px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:4px;padding:2px 6px;font-size:13px"> min
+        </label>
+        <label style="display:flex;align-items:center;gap:5px">
+          Model: <select id="hb-model"
+            style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:4px;padding:2px 6px;font-size:13px;max-width:240px">
+            <option value="router-default">Router default</option>
+          </select>
+        </label>
+        <button id="btn-hb-save"
+          style="background:#21262d;border:1px solid #30363d;color:#c9d1d9;padding:2px 10px;border-radius:4px;cursor:pointer;font-size:13px">Save</button>
+      </div>
       <div id="hb-log-entries"></div>
     </div>
   `;
@@ -1428,6 +1493,29 @@ function renderQueueView(tasks, agents, activeFilter) {
         return;
       }
     } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
+
+  // Heartbeat save settings button
+  document.getElementById('btn-hb-save')?.addEventListener('click', async () => {
+    const btn      = document.getElementById('btn-hb-save');
+    const modelEl  = document.getElementById('hb-model');
+    const selected = modelEl?.options[modelEl.selectedIndex];
+    const provider = (selected?.parentElement?.tagName === 'OPTGROUP')
+      ? selected.parentElement.label
+      : 'router-default';
+    const body = {
+      enabled:         document.getElementById('hb-enabled')?.checked ?? true,
+      intervalMinutes: parseInt(document.getElementById('hb-interval')?.value || '5', 10),
+      model:           modelEl?.value || 'router-default',
+      provider:        modelEl?.value === 'router-default' ? 'router-default' : provider,
+    };
+    if (btn) btn.disabled = true;
+    try {
+      await fetch('/heartbeat/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1500); }
+    } catch {
       if (btn) btn.disabled = false;
     }
   });
