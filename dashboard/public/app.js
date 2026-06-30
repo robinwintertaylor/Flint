@@ -383,22 +383,52 @@ document.getElementById('modal-runtime').addEventListener('change', e => {
   filterModelDropdownForRuntime(runtime);
 });
 
-function filterModelDropdownForRuntime(runtime) {
+async function filterModelDropdownForRuntime(runtime) {
   const select = document.getElementById('modal-model');
   if (!select) return;
-  for (const group of select.querySelectorAll('optgroup')) {
-    const provider = group.label;
-    // For claude/gemini/mistral/ollama runtimes: hide openrouter group
-    // For openrouter runtime: hide all non-openrouter groups
-    if (runtime === 'openrouter') {
-      group.style.display = provider === 'openrouter' ? '' : 'none';
-    } else {
-      group.style.display = provider === 'openrouter' ? 'none' : '';
+
+  if (runtime === 'openrouter') {
+    // Remove any existing openrouter optgroup and rebuild from live API
+    select.querySelectorAll('optgroup').forEach(g => { g.style.display = 'none'; });
+    let orGroup = select.querySelector('optgroup[label="openrouter"]');
+    if (orGroup) orGroup.remove();
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Loading OpenRouter models…';
+    placeholder.id = 'or-loading';
+    select.appendChild(placeholder);
+    select.value = '';
+
+    try {
+      const res = await fetch('/api/openrouter/models');
+      const models = res.ok ? await res.json() : [];
+      const loading = document.getElementById('or-loading');
+      if (loading) loading.remove();
+
+      orGroup = document.createElement('optgroup');
+      orGroup.label = 'openrouter';
+      for (const m of (models.length ? models : [{ id: 'mistralai/mistral-nemo', name: 'Mistral Nemo (default)' }])) {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name || m.id;
+        orGroup.appendChild(opt);
+      }
+      select.appendChild(orGroup);
+      const first = orGroup.querySelector('option');
+      if (first) select.value = first.value;
+    } catch {
+      const loading = document.getElementById('or-loading');
+      if (loading) { loading.textContent = 'mistralai/mistral-nemo'; loading.value = 'mistralai/mistral-nemo'; select.value = 'mistralai/mistral-nemo'; }
     }
+  } else {
+    // Hide openrouter group, show all others
+    for (const group of select.querySelectorAll('optgroup')) {
+      group.style.display = group.label === 'openrouter' ? 'none' : '';
+    }
+    const first = select.querySelector('optgroup:not([style*="none"]) option');
+    if (first) select.value = first.value;
   }
-  // Auto-select first visible option
-  const first = select.querySelector('optgroup:not([style*="none"]) option');
-  if (first) select.value = first.value;
 }
 
 document.getElementById('modal-spawn').addEventListener('click', () => {

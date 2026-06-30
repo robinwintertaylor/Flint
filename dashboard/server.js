@@ -334,6 +334,26 @@ export function createApp() {
     }
   });
 
+  app.get('/api/openrouter/models', async (_req, res) => {
+    try {
+      const key = getApiKeyValue('openrouter');
+      if (!key) return res.status(400).json({ error: 'OpenRouter API key not configured' });
+      const r = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (!r.ok) return res.status(r.status).json({ error: `OpenRouter API error ${r.status}` });
+      const data = await r.json();
+      const models = (data.data || [])
+        .filter(m => m.id && !m.id.startsWith(':'))
+        .sort((a, b) => (b.context_length || 0) - (a.context_length || 0))
+        .slice(0, 15)
+        .map(m => ({ id: m.id, name: m.name || m.id }));
+      res.json(models);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get('/router/config', async (_req, res) => {
     try {
       const r = await fetch('http://localhost:3001/llm/config');
