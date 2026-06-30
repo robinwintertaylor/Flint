@@ -211,7 +211,7 @@ function ensurePanel({ name, mode, status, isolate, runtime, role, model }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: newModel.trim(), runtime: newRuntime.trim() }),
     });
-    const label = document.getElementById(`model-label-${name}`);
+    const label = document.getElementById(`model-label-${escHtml(name)}`);
     if (label) label.textContent = newModel.trim() || 'default';
   });
 

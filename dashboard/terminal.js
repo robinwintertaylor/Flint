@@ -117,10 +117,10 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
     args = [];
   } else if (isOpenRouter) {
     bin  = NODE_BIN;
-    args = [join(FLINT_ROOT, 'router', 'openrouter-agent.js'), model || 'openai/gpt-4o-mini', name];
+    args = [join(FLINT_ROOT, 'router', 'openai-compat-agent.js'), model || 'openai/gpt-4o-mini', name, 'openrouter'];
   } else if (isMammouth) {
     bin  = NODE_BIN;
-    args = [join(FLINT_ROOT, 'router', 'mammouth-agent.js'), model || 'gpt-5.4-mini', name];
+    args = [join(FLINT_ROOT, 'router', 'openai-compat-agent.js'), model || 'gpt-5.4-mini', name, 'mammouth'];
   } else {
     bin  = CLAUDE_BIN;
     args = ['--dangerously-skip-permissions'];

@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /**
- * Mammouth AI agentic worker — runs a tool-calling loop using any Mammouth model.
- * Spawned as a PTY process: node router/mammouth-agent.js <model> <agent-name>
- * API docs: https://info.mammouth.ai/docs/api-quick-start/
+ * OpenAI-compatible agentic worker — runs a tool-calling loop against any OpenAI-compatible API.
+ * Spawned as a PTY process: node router/openai-compat-agent.js <model> <agent-name> <provider>
+ *
+ * Supported providers: openrouter | mammouth
  *
  * Tools available to the model:
  *   bash        — execute shell commands
  *   read_file   — read a file's contents
  *   write_file  — write/overwrite a file
- *   str_replace — targeted string replacement in a file
+ *   str_replace — targeted string replacement in a file (all occurrences)
  *   task_done   — mark a task complete in the agent's task file
  */
 
@@ -21,18 +22,44 @@ import { dirname, join, resolve, isAbsolute } from 'path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
 
-const model     = process.argv[2] || 'gpt-5.4-mini';
+// ─── provider config ──────────────────────────────────────────────────────
+
+const PROVIDERS = {
+  openrouter: {
+    label:        'OpenRouter',
+    envKey:       'OPENROUTER_API_KEY',
+    baseURL:      'https://openrouter.ai/api/v1',
+    extraHeaders: { 'HTTP-Referer': 'https://flint.local', 'X-Title': 'Flint' },
+    defaultModel: 'openai/gpt-4o-mini',
+  },
+  mammouth: {
+    label:        'Mammouth',
+    envKey:       'MAMMOUTH_API_KEY',
+    baseURL:      'https://api.mammouth.ai/v1',
+    extraHeaders: {},
+    defaultModel: 'gpt-5.4-mini',
+  },
+};
+
+const providerName = process.argv[4] || 'openrouter';
+const config       = PROVIDERS[providerName];
+if (!config) {
+  process.stderr.write(`Unknown provider: ${providerName}. Use: ${Object.keys(PROVIDERS).join(' | ')}\n`);
+  process.exit(1);
+}
+
+const model     = process.argv[2] || config.defaultModel;
 const agentName = process.argv[3] || 'agent';
 const taskFile  = join(FLINT_ROOT, 'tasks', `${agentName}.md`);
 const workdir   = process.cwd();
 
-const apiKey = process.env.MAMMOUTH_API_KEY;
+const apiKey = process.env[config.envKey];
 if (!apiKey) {
-  out('\x1b[31mERROR: MAMMOUTH_API_KEY is not set. Add it in the Flint API Keys tab.\x1b[0m');
+  out(`\x1b[31mERROR: ${config.envKey} is not set. Add it in the Flint API Keys tab.\x1b[0m`);
   process.exit(1);
 }
 
-const client = new OpenAI({ apiKey, baseURL: 'https://api.mammouth.ai/v1' });
+const client = new OpenAI({ apiKey, baseURL: config.baseURL, defaultHeaders: config.extraHeaders });
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -107,12 +134,12 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'str_replace',
-      description: 'Replace an exact string in a file. Fails if the string is not found.',
+      description: 'Replace all occurrences of an exact string in a file. Fails if the string is not found.',
       parameters: {
         type: 'object',
         properties: {
           path:       { type: 'string', description: 'Absolute or workdir-relative path' },
-          old_string: { type: 'string', description: 'Exact string to find' },
+          old_string: { type: 'string', description: 'Exact string to find and replace (all occurrences)' },
           new_string: { type: 'string', description: 'Replacement string' },
         },
         required: ['path', 'old_string', 'new_string'],
@@ -191,7 +218,7 @@ function execTool(name, args) {
         if (!original.includes(args.old_string)) {
           return `Error: old_string not found in ${p}`;
         }
-        writeFileSync(p, original.replace(args.old_string, args.new_string), 'utf8');
+        writeFileSync(p, original.replaceAll(args.old_string, args.new_string), 'utf8');
         out(`\x1b[90mstr_replace in ${p}\x1b[0m`);
         return `Replaced in ${p}`;
       } catch (err) {
@@ -229,7 +256,7 @@ function execTool(name, args) {
 // ─── main agentic loop ────────────────────────────────────────────────────
 
 async function run() {
-  out(`\x1b[36m┌─ Mammouth Agent: ${agentName}\x1b[0m`);
+  out(`\x1b[36m┌─ ${config.label} Agent: ${agentName}\x1b[0m`);
   out(`\x1b[36m│  model:   ${model}\x1b[0m`);
   out(`\x1b[36m│  workdir: ${workdir}\x1b[0m`);
   out(`\x1b[36m└─────────────────────────────────\x1b[0m`);
@@ -282,6 +309,7 @@ async function run() {
       if (String(err.status) === '429') {
         out('Rate limited — waiting 10s...');
         await new Promise(r => setTimeout(r, 10_000));
+        turn--;
         continue;
       }
       break;
@@ -292,12 +320,10 @@ async function run() {
 
     messages.push(msg);
 
-    // Print any text the model sent
     if (msg.content) {
       out(`\n${msg.content}`);
     }
 
-    // Handle tool calls
     if (msg.tool_calls?.length) {
       for (const tc of msg.tool_calls) {
         let args;
@@ -314,13 +340,11 @@ async function run() {
         });
       }
     } else {
-      // No tool calls — model finished reasoning. Check if tasks remain.
       const remaining = pendingCount();
       if (remaining === 0) {
         out('\x1b[32mAll tasks complete. Exiting.\x1b[0m');
         break;
       }
-      // Prompt to continue if there are still pending tasks
       out('\x1b[90m(no tool calls — prompting to continue)\x1b[0m');
       messages.push({
         role:    'user',

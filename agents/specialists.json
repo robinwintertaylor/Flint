@@ -11,5 +11,29 @@
     ],
     "use_count": 0,
     "last_used": null
+  },
+  {
+    "name": "research-expert",
+    "label": "Research Expert",
+    "description": "Researches subjects proposed from projects with a deep research function. then documents the findings.",
+    "domains": [],
+    "use_count": 1,
+    "last_used": "2026-06-30T16:38:43.155Z"
+  },
+  {
+    "name": "mcp-server-installer",
+    "label": "MCP installer",
+    "description": "Specializes in installing and building MCP servers so other agents can use them and their tools.",
+    "domains": [],
+    "use_count": 0,
+    "last_used": null
+  },
+  {
+    "name": "database-expert",
+    "label": "Database Expert",
+    "description": "Analyses database schemas, queries, and configurations. Specialises in PostgreSQL, pgvector, Supabase, and SQL optimisation.",
+    "domains": ["postgresql", "supabase", "pgvector", "sql", "database-design"],
+    "use_count": 0,
+    "last_used": null
   }
 ]
