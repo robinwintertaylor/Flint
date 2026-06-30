@@ -37,7 +37,7 @@ function provisionAgentForRole(role) {
 
   const workdir = getSetting('default_workdir') || process.cwd();
   const runtime = runtimeForProvider(spec.preferred_provider);
-  const model   = runtime === 'openrouter' ? 'mistralai/mistral-nemo' : '';
+  const model   = runtime === 'openrouter' ? 'openai/gpt-4o-mini' : '';
   const loaded  = loadSpecialist(spec.name);
 
   registerAgent(agentName, 'spawn', workdir, null, model, runtime, role);
