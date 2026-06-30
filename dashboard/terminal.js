@@ -18,14 +18,19 @@ import { touchUsage } from '../agents/specialists/selector.js';
 function resolveBin(name) {
   try {
     const cmd = platform() === 'win32' ? `where ${name}` : `which ${name}`;
-    return execSync(cmd, { encoding: 'utf8' }).trim().split('\n')[0].trim();
+    const found = execSync(cmd, { encoding: 'utf8' }).trim().split('\n')[0].trim();
+    return found || name; // never return empty string
   } catch {
     return name;
   }
 }
 
-const NODE_BIN    = resolveBin('node');
+// process.execPath is the Node.js binary that is currently running PM2 — always correct.
+const NODE_BIN    = process.execPath;
 const CLAUDE_BIN  = resolveBin('claude');
+
+console.log(`[terminal] NODE_BIN=${NODE_BIN}`);
+console.log(`[terminal] CLAUDE_BIN=${CLAUDE_BIN}`);
 const VIBE_BIN    = resolveBin('vibe');
 const OLLAMA_BIN  = resolveBin('ollama');
 

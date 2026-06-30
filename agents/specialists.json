@@ -35,5 +35,13 @@
     "domains": ["postgresql", "supabase", "pgvector", "sql", "database-design"],
     "use_count": 0,
     "last_used": null
+  },
+  {
+    "name": "builder",
+    "label": "Builder",
+    "description": "Researches and creates new agent roles, specialist souls, and system capabilities as required",
+    "domains": ["agent-design", "system-architecture", "prompt-engineering", "specialist-creation"],
+    "use_count": 0,
+    "last_used": null
   }
 ]
