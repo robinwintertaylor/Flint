@@ -2,6 +2,8 @@ import pty from 'node-pty';
 import { watch, existsSync, writeFileSync, statSync, openSync, readSync, closeSync } from 'fs';
 import { execSync } from 'child_process';
 import { platform } from 'os';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { getAgent, setAgentStatus, broadcastToAgent, broadcastGlobal } from './agents.js';
 import { writeUsage, getAgentWorktree } from './db.js';
 import { createSuggestion } from './suggestions.js';
@@ -25,6 +27,8 @@ function resolveBin(name) {
 const CLAUDE_BIN  = resolveBin('claude');
 const VIBE_BIN    = resolveBin('vibe');
 const OLLAMA_BIN  = resolveBin('ollama');
+
+const FLINT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const COST_REGEX = /Total cost:\s+\$?([\d.]+)/i;
 const MODEL_REGEX = /Model:\s+(\S+)/i;
@@ -70,10 +74,11 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
   // Inject project context into task file before spawning
   injectProjectContext(name);
 
-  const isVibe   = agent.runtime === 'vibe';
-  const isOllama = agent.runtime === 'ollama';
+  const isVibe       = agent.runtime === 'vibe';
+  const isOllama     = agent.runtime === 'ollama';
+  const isOpenRouter = agent.runtime === 'openrouter';
 
-  if (!isOllama) {
+  if (!isOllama && !isOpenRouter) {
     const AUTONOMOUS_BLOCK =
       '## Operating Mode: Autonomous\n' +
       'You are running as an autonomous agent orchestrated by Flint. No human is monitoring this session.\n' +
@@ -89,7 +94,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
   }
 
   // Use specialist's preferred model if no explicit model was requested
-  if (!model && specialist && !isVibe && !isOllama) {
+  if (!model && specialist && !isVibe && !isOllama && !isOpenRouter) {
     try {
       const { model: resolved } = resolveSpecialistRoute(
         specialist.preferred_tier ?? 2,
@@ -108,13 +113,16 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
   } else if (isVibe) {
     bin  = VIBE_BIN;
     args = [];
+  } else if (isOpenRouter) {
+    bin  = 'node';
+    args = [join(FLINT_ROOT, 'router', 'openrouter-agent.js'), model || 'mistralai/mistral-nemo'];
   } else {
     bin  = CLAUDE_BIN;
     args = ['--dangerously-skip-permissions'];
     if (model) args.push('--model', model);
   }
 
-  if (!isVibe && !isOllama) {
+  if (!isVibe && !isOllama && !isOpenRouter) {
     try { injectMcpConfig(name, workdir); } catch {}
   }
 
@@ -130,7 +138,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
   setAgentStatus(name, 'running');
   notify(`🟢 Agent \`${name}\` started`);
 
-  let lastModel = isOllama ? (agent.model || 'llama3') : isVibe ? 'mistral' : 'claude';
+  let lastModel = isOllama ? (agent.model || 'llama3') : isVibe ? 'mistral' : isOpenRouter ? (model || 'mistralai/mistral-nemo') : 'claude';
   let lastCost = 0;
   const outputBuffer = [];
   let suggBuffer = '';
