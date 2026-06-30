@@ -377,9 +377,29 @@ document.getElementById('modal').addEventListener('click', (e) => {
   }
 });
 document.getElementById('modal-runtime').addEventListener('change', e => {
+  const runtime = e.target.value;
   const modelGroup = document.getElementById('modal-model-group');
-  modelGroup.style.display = e.target.value === 'vibe' ? 'none' : '';
+  modelGroup.style.display = runtime === 'vibe' ? 'none' : '';
+  filterModelDropdownForRuntime(runtime);
 });
+
+function filterModelDropdownForRuntime(runtime) {
+  const select = document.getElementById('modal-model');
+  if (!select) return;
+  for (const group of select.querySelectorAll('optgroup')) {
+    const provider = group.label;
+    // For claude/gemini/mistral/ollama runtimes: hide openrouter group
+    // For openrouter runtime: hide all non-openrouter groups
+    if (runtime === 'openrouter') {
+      group.style.display = provider === 'openrouter' ? '' : 'none';
+    } else {
+      group.style.display = provider === 'openrouter' ? 'none' : '';
+    }
+  }
+  // Auto-select first visible option
+  const first = select.querySelector('optgroup:not([style*="none"]) option');
+  if (first) select.value = first.value;
+}
 
 document.getElementById('modal-spawn').addEventListener('click', () => {
   const name = document.getElementById('modal-name').value.trim();
@@ -1257,6 +1277,7 @@ async function fetchAndRenderQueue(statusFilter = queueFilter) {
   const tasks = await fetch(url).then(r => r.json()).catch(() => []);
   const agents = await fetch('/agents').then(r => r.json()).catch(() => []);
   renderQueueView(tasks, agents, statusFilter);
+  fetchHeartbeatLog();
   // Populate default agent config
   fetch('/queue/config')
     .then(r => r.json())
@@ -1265,6 +1286,27 @@ async function fetchAndRenderQueue(statusFilter = queueFilter) {
       if (input) input.value = cfg.defaultAgent ?? '';
     })
     .catch(() => {});
+}
+
+async function fetchHeartbeatLog() {
+  try {
+    const entries = await fetch('/heartbeat/log?limit=10').then(r => r.json());
+    const container = document.getElementById('hb-log-entries');
+    if (!container) return;
+    if (!entries.length) {
+      container.innerHTML = '<div class="hb-entry"><div class="hb-note" style="color:#8b949e">No heartbeat cycles run yet.</div></div>';
+      return;
+    }
+    container.innerHTML = entries.map(e => {
+      const actions = JSON.parse(e.actions_json || '[]');
+      const actionsHtml = actions.length ? `<div class="hb-actions">Actions: ${actions.map(a => a.type + (a.title ? ': ' + escHtml(a.title) : '')).join(', ')}</div>` : '';
+      return `<div class="hb-entry">
+        <div class="hb-note">${escHtml(e.note)}</div>
+        ${actionsHtml}
+        <div class="hb-meta">${new Date(e.created_at).toLocaleString()}</div>
+      </div>`;
+    }).join('');
+  } catch {}
 }
 
 function relativeTime(iso) {
@@ -1328,10 +1370,26 @@ function renderQueueView(tasks, agents, activeFilter) {
           `).join('')}</tbody>
         </table>`
     }
+    <div class="heartbeat-log" id="heartbeat-log-panel">
+      <h3>Flint Heartbeat <button class="hb-trigger" id="btn-hb-trigger">Run now</button></h3>
+      <div id="hb-log-entries"></div>
+    </div>
   `;
 
   // Back button
   document.getElementById('btn-queue-back').addEventListener('click', () => showView('agents'));
+
+  // Heartbeat trigger button
+  document.getElementById('btn-hb-trigger')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-hb-trigger');
+    if (btn) btn.disabled = true;
+    try {
+      await fetch('/heartbeat/trigger', { method: 'POST' });
+      await fetchHeartbeatLog();
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
 
   // Filter pills
   view.querySelectorAll('.filter-pill').forEach(btn => {
