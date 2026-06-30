@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { getDb } from './db.js';
 import { appendTask, getTasksDir, readTasks, writeTasks, taskPath } from './tasks.js';
-import { broadcastGlobal } from './agents.js';
+import { broadcastGlobal, listAgents } from './agents.js';
 import { notify } from './telegram.js';
 import { autoAssignPendingTasks } from './autoPickup.js';
 import { writeToAgent } from './terminal.js';
@@ -139,4 +139,21 @@ export function startQueuePoller(intervalMs = 10000) {
     await checkQueueTasks();
     await autoAssignPendingTasks();
   }, intervalMs);
+}
+
+// Reset in-progress tasks whose assigned agent no longer exists back to pending
+// so auto-pickup can re-allocate them.
+export function releaseOrphanedTasks() {
+  const db = getDb();
+  const knownNames = new Set(listAgents().map(a => a.name));
+  const stuck = db.prepare(
+    `SELECT id, assigned_to FROM task_queue WHERE status = 'in_progress' AND assigned_to IS NOT NULL`
+  ).all().filter(t => !knownNames.has(t.assigned_to));
+  if (stuck.length === 0) return 0;
+  const ids = stuck.map(t => t.id);
+  db.prepare(
+    `UPDATE task_queue SET status = 'pending', assigned_to = NULL, updated_at = CURRENT_TIMESTAMP WHERE id IN (${ids.map(() => '?').join(',')})`
+  ).run(...ids);
+  broadcastGlobal({ type: 'queue_tasks_released', count: ids.length });
+  return ids.length;
 }

@@ -17,7 +17,7 @@ import { isForgejoReachable, pushBranch, createPR, getPRStatus } from './forgejo
 import { detectProvider, isGitHubReachable, pushToGitHub, createGitHubPR, getGitHubPRStatus } from './github.js';
 import { info, error as logError } from './logger.js';
 import { listMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from './mcp.js';
-import { listQueueTasks, getQueueTask, createQueueTask, assignQueueTask, updateQueueTask, completeQueueTask, cancelQueueTask, startQueuePoller } from './queue.js';
+import { listQueueTasks, getQueueTask, createQueueTask, assignQueueTask, updateQueueTask, completeQueueTask, cancelQueueTask, startQueuePoller, releaseOrphanedTasks } from './queue.js';
 import { createOrchestration, getOrchestration, listOrchestrations, appendScratchpad, readScratchpad } from './orchestrator.js';
 import { listApiKeys, getApiKeyValue, createApiKey, updateApiKey, deleteApiKey, buildApiKeyEnv } from './apikeys.js';
 import { initSupabase, isSupabaseEnabled, upsertMemory, searchMemories, logSessionStart, logSessionEnd, pullMemories } from './supabase.js';
@@ -262,6 +262,11 @@ export function createApp() {
     res.json({ ok: true });
   });
 
+  app.post('/queue/release-orphaned', (_req, res) => {
+    const count = releaseOrphanedTasks();
+    res.json({ released: count });
+  });
+
   app.post('/agents/spawn', (req, res) => {
     const { name, workdir, model, runtime, specialistName, role } = req.body ?? {};
     if (!name || !workdir) return res.status(400).json({ error: 'name and workdir required' });
@@ -343,10 +348,18 @@ export function createApp() {
       });
       if (!r.ok) return res.status(r.status).json({ error: `OpenRouter API error ${r.status}` });
       const data = await r.json();
+      // Score by a mix of context length and provider tier — penalise
+      // unknown/niche providers so well-known frontier models surface first.
+      const TIER1 = new Set(['anthropic', 'openai', 'google', 'meta-llama', 'mistralai', 'deepseek', 'qwen', 'microsoft', 'x-ai', 'cohere']);
+      const score = m => {
+        const provider = m.id.split('/')[0];
+        const tier = TIER1.has(provider) ? 1 : 0;
+        return tier * 10_000_000 + (m.context_length || 0);
+      };
       const models = (data.data || [])
         .filter(m => m.id && !m.id.startsWith(':'))
-        .sort((a, b) => (b.context_length || 0) - (a.context_length || 0))
-        .slice(0, 15)
+        .sort((a, b) => score(b) - score(a))
+        .slice(0, 30)
         .map(m => ({ id: m.id, name: m.name || m.id }));
       res.json(models);
     } catch (err) {

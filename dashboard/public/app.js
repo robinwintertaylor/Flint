@@ -1362,7 +1362,10 @@ function renderQueueView(tasks, agents, activeFilter) {
     <div class="queue-header">
       <button id="btn-queue-back" style="background:none;border:1px solid #30363d;color:#c9d1d9;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:14px">← Dashboard</button>
       <h3 style="margin:0;font-size:18px">Task Queue</h3>
-      <button id="btn-add-task" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:16px">+ Add Task</button>
+      <div style="display:flex;gap:6px">
+        <button id="btn-release-orphaned" style="background:none;border:1px solid #8b949e66;color:#8b949e;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:14px" title="Reset tasks whose assigned agent no longer exists back to pending">Release orphaned</button>
+        <button id="btn-add-task" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:16px">+ Add Task</button>
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0 10px;border-bottom:1px solid #30363d;margin-bottom:8px;font-size:13px;color:#8b949e">
       <span>Default agent (roleless tasks):</span>
@@ -1409,6 +1412,25 @@ function renderQueueView(tasks, agents, activeFilter) {
 
   // Back button
   document.getElementById('btn-queue-back').addEventListener('click', () => showView('agents'));
+
+  // Release orphaned tasks button
+  document.getElementById('btn-release-orphaned')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-release-orphaned');
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/queue/release-orphaned', { method: 'POST' });
+      const { released } = await res.json();
+      if (released > 0) {
+        await fetchAndRenderQueue(queueFilter);
+      } else {
+        btn.textContent = 'No orphaned tasks';
+        setTimeout(() => { if (btn) { btn.textContent = 'Release orphaned'; btn.disabled = false; } }, 2000);
+        return;
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
 
   // Heartbeat trigger button
   document.getElementById('btn-hb-trigger')?.addEventListener('click', async () => {
