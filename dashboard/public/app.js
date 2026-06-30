@@ -1946,6 +1946,38 @@ document.getElementById('keys-modal').addEventListener('click', e => {
     document.getElementById('keys-modal').classList.add('hidden');
 });
 
+async function upsertApiKey(name, label, env_var, key_value) {
+  const patch = await fetch(`/api-keys/${encodeURIComponent(name)}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key_value }),
+  });
+  if (patch.ok) return;
+  await fetch('/api-keys', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, label, env_var, key_value }),
+  });
+}
+
+document.getElementById('azure-save-btn').addEventListener('click', async () => {
+  const key        = document.getElementById('azure-key').value.trim();
+  const endpoint   = document.getElementById('azure-endpoint').value.trim();
+  const deployment = document.getElementById('azure-deployment').value.trim();
+  const apiVersion = document.getElementById('azure-api-version').value.trim();
+
+  const fields = [
+    { name: 'azure-key',         label: 'Azure OpenAI Key',         env_var: 'AZURE_OPENAI_KEY',         key_value: key },
+    { name: 'azure-endpoint',    label: 'Azure OpenAI Endpoint',    env_var: 'AZURE_OPENAI_ENDPOINT',    key_value: endpoint },
+    { name: 'azure-deployment',  label: 'Azure OpenAI Deployment',  env_var: 'AZURE_OPENAI_DEPLOYMENT',  key_value: deployment },
+    { name: 'azure-api-version', label: 'Azure OpenAI API Version', env_var: 'AZURE_OPENAI_API_VERSION', key_value: apiVersion },
+  ].filter(f => f.key_value);
+
+  if (!fields.length) return;
+  await Promise.all(fields.map(f => upsertApiKey(f.name, f.label, f.env_var, f.key_value)));
+  ['azure-key', 'azure-endpoint', 'azure-deployment', 'azure-api-version']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  renderKeysList();
+});
+
 document.getElementById('keys-add-btn').addEventListener('click', async () => {
   const name      = document.getElementById('keys-add-name').value.trim();
   const label     = document.getElementById('keys-add-label').value.trim();

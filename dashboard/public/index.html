@@ -322,6 +322,33 @@
         <button id="keys-modal-close" style="background:none;border:none;color:#8b949e;font-size:21px;cursor:pointer">✕</button>
       </div>
       <div id="keys-list" style="margin-bottom:20px;min-height:32px"></div>
+      <h4 style="color:#58a6ff;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Azure AI Foundry</h4>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:12px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          <div>
+            <label style="display:block;font-size:12px;color:#8b949e;margin-bottom:3px">API Key</label>
+            <input id="azure-key" type="password" placeholder="••••••••" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:14px;font-family:inherit">
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:#8b949e;margin-bottom:3px">Endpoint</label>
+            <input id="azure-endpoint" type="text" placeholder="https://my-resource.openai.azure.com" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:14px;font-family:inherit">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+          <div>
+            <label style="display:block;font-size:12px;color:#8b949e;margin-bottom:3px">Deployment name</label>
+            <input id="azure-deployment" type="text" placeholder="gpt-4o" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:14px;font-family:inherit">
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:#8b949e;margin-bottom:3px">API version</label>
+            <input id="azure-api-version" type="text" placeholder="2024-12-01-preview" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:14px;font-family:inherit">
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+          <button id="azure-save-btn" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 16px;cursor:pointer;font-size:14px">Save Azure Config</button>
+        </div>
+      </div>
+
       <h4 style="color:#58a6ff;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Add Provider</h4>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
         <input id="keys-add-name" type="text" placeholder="Name slug (e.g. moonshot)" style="background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 8px;font-size:16px;font-family:inherit">
