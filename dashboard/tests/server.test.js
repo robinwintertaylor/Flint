@@ -393,3 +393,25 @@ test('POST /api/memory/session returns 503 when Supabase not configured', async 
   const r = await req('POST', '/api/memory/session');
   assert.equal(r.status, 503);
 });
+
+test('GET /heartbeat/log returns array', async () => {
+  const r = await req('GET', '/heartbeat/log');
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.ok(Array.isArray(body), 'heartbeat/log must return array');
+});
+
+test('GET /heartbeat/status returns shape', async () => {
+  const r = await req('GET', '/heartbeat/status');
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.ok('enabled' in body, 'enabled field missing');
+  assert.ok('intervalMinutes' in body, 'intervalMinutes field missing');
+  assert.ok('lastRun' in body, 'lastRun field missing');
+});
+
+test('POST /heartbeat/trigger is reachable (test mode skips LLM)', async () => {
+  // In test mode the route must exist and not throw 404
+  const r = await req('POST', '/heartbeat/trigger');
+  assert.ok(r.status === 200 || r.status === 500, `unexpected status ${r.status}`);
+});

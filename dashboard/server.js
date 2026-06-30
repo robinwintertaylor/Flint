@@ -30,6 +30,7 @@ import { listDocs, getDoc, createDoc, deleteDoc } from './project_docs.js';
 import { listSpecialists, getSpecialist, createSpecialist, updateSpecialist, deleteSpecialist } from './specialists.js';
 import { loadSpecialist } from '../agents/specialists/selector.js';
 import { getSetting, setSetting } from './settings.js';
+import { getHeartbeatLog, runHeartbeatCycle, startHeartbeat } from './heartbeat.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -753,6 +754,33 @@ export function createApp() {
     res.json({ ok: true });
   });
 
+  // --- Heartbeat routes ---
+
+  app.get('/heartbeat/log', (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit || '20', 10), 100);
+    res.json(getHeartbeatLog(limit));
+  });
+
+  app.get('/heartbeat/status', (_req, res) => {
+    const [lastRun = null] = getHeartbeatLog(1);
+    res.json({
+      lastRun,
+      enabled:         getSetting('heartbeat_enabled') !== 'false',
+      intervalMinutes: parseInt(getSetting('heartbeat_interval_minutes') || '5', 10),
+      model:           getSetting('heartbeat_model') || 'router-default',
+      provider:        getSetting('heartbeat_provider') || 'router-default',
+    });
+  });
+
+  app.post('/heartbeat/trigger', async (_req, res) => {
+    try {
+      const result = await runHeartbeatCycle();
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // --- Memory sync (Supabase) ---
 
   app.get('/api/memory', async (_req, res) => {
@@ -977,5 +1005,6 @@ if (_isMain) {
   const server = createApp();
   server.listen(PORT, () => {
     console.log(`Flint Dashboard → http://localhost:${PORT}`);
+    startHeartbeat();
   });
 }
