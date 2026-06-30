@@ -1,0 +1,13 @@
+{
+  "name": "database-expert",
+  "label": "Database Expert",
+  "description": "Analyses database schemas, queries, and configurations. Specialises in PostgreSQL, pgvector, Supabase, and SQL optimisation.",
+  "domains": ["postgresql", "supabase", "pgvector", "sql", "database-design"],
+  "skills": [],
+  "preferred_tier": 2,
+  "preferred_provider": "anthropic",
+  "created_by": "robin",
+  "created_at": "2026-06-30T00:00:00.000Z",
+  "use_count": 0,
+  "last_used": null
+}
