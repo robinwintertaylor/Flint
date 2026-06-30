@@ -75,6 +75,16 @@ export function getAgent(name) {
   return registry.get(name);
 }
 
+export function updateAgentMeta(name, fields) {
+  const agent = registry.get(name);
+  if (!agent) return false;
+  if (fields.model   !== undefined) agent.model   = fields.model   ?? '';
+  if (fields.runtime !== undefined) agent.runtime = fields.runtime ?? 'claude';
+  if (fields.role    !== undefined) agent.role    = fields.role    ?? null;
+  save();
+  return true;
+}
+
 export function setAgentStatus(name, status) {
   const agent = registry.get(name);
   if (!agent) return;

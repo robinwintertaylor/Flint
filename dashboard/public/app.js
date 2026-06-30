@@ -40,6 +40,12 @@ function connect() {
         updateAgentCost(msg.agent, msg.today);
         break;
 
+      case 'agent_updated': {
+        const modelLabel = document.getElementById(`model-label-${escHtml(msg.agent)}`);
+        if (modelLabel) modelLabel.textContent = msg.model || 'default';
+        break;
+      }
+
       case 'agent_removed': {
         const panel = document.getElementById(`panel-${escHtml(msg.agent)}`);
         if (panel) panel.remove();
@@ -115,7 +121,7 @@ function connect() {
   ws.addEventListener('close', () => setTimeout(connect, 2000));
 }
 
-function ensurePanel({ name, mode, status, isolate, runtime, role }) {
+function ensurePanel({ name, mode, status, isolate, runtime, role, model }) {
   if (document.getElementById(`panel-${name}`)) return;
 
   const runtimeBadge = (runtime && runtime !== 'claude')
@@ -141,6 +147,8 @@ function ensurePanel({ name, mode, status, isolate, runtime, role }) {
       </div>
       <div style="display:flex;align-items:center;gap:6px" id="header-right-${name}">
         <span class="panel-cost" id="cost-${name}">$0.00 today</span>
+        <span style="font-size:11px;color:#8b949e" id="model-label-${escHtml(name)}">${escHtml(model || 'default')}</span>
+        <button class="btn-edit-model" data-agent="${name}" title="Change model/runtime">⚙</button>
         <button class="btn-clear-tasks" data-agent="${name}">Clear tasks</button>
         <button class="btn-kill" data-agent="${name}">Kill</button>
       </div>
@@ -189,6 +197,22 @@ function ensurePanel({ name, mode, status, isolate, runtime, role }) {
   // Kill button
   panel.querySelector('.btn-kill').addEventListener('click', () => {
     ws.send(JSON.stringify({ type: 'kill', agent: name }));
+  });
+
+  // Edit model/runtime button
+  panel.querySelector('.btn-edit-model').addEventListener('click', async () => {
+    const current = await fetch(`/agents/${encodeURIComponent(name)}`).then(r => r.json()).catch(() => ({}));
+    const newModel   = prompt(`Model for "${name}":`, current.model || '');
+    if (newModel === null) return;
+    const newRuntime = prompt(`Runtime for "${name}" (claude / openrouter / mammouth / ollama / vibe):`, current.runtime || 'claude');
+    if (newRuntime === null) return;
+    await fetch(`/agents/${encodeURIComponent(name)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: newModel.trim(), runtime: newRuntime.trim() }),
+    });
+    const label = document.getElementById(`model-label-${name}`);
+    if (label) label.textContent = newModel.trim() || 'default';
   });
 
   // Clear tasks button

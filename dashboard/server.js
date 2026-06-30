@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 
 import { initDb, getTodayCost, getMonthCost, closeDb, upsertAgentLog, setAgentWorktree, getAgentWorktree, setAgentPR, clearAgentPR, getAgentPR, listOpenPRAgents, clearAgentWorktree, listWorkspaces, addWorkspace, removeWorkspace } from './db.js';
-import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, removeAgent, broadcastToAgent, addGlobalWsClient, removeGlobalWsClient } from './agents.js';
+import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, removeAgent, broadcastToAgent, addGlobalWsClient, removeGlobalWsClient, updateAgentMeta } from './agents.js';
 import { listSuggestions, updateSuggestion } from './suggestions.js';
 import { listWorktrees, createWorktree, discardWorktree } from './worktrees.js';
 import { spawnAgent, writeToAgent, observeLogFile } from './terminal.js';
@@ -294,6 +294,16 @@ export function createApp() {
 
   app.post('/agents/attach', (_req, res) => {
     res.status(501).json({ error: 'Attach by PID not supported on Windows — use observe mode with attach.ps1 instead' });
+  });
+
+  app.patch('/agents/:name', (req, res) => {
+    const agent = getAgent(req.params.name);
+    if (!agent) return res.status(404).json({ error: 'not found' });
+    const { model, runtime } = req.body ?? {};
+    updateAgentMeta(req.params.name, { model, runtime });
+    const updated = getAgent(req.params.name);
+    broadcastGlobal({ type: 'agent_updated', agent: updated.name, model: updated.model, runtime: updated.runtime });
+    res.json({ ok: true, model: updated.model, runtime: updated.runtime });
   });
 
   app.delete('/agents/:name', (req, res) => {
