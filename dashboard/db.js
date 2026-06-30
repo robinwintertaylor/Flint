@@ -133,6 +133,12 @@ export function initDb(dbPath = DEFAULT_DB) {
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS heartbeat_log (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      note         TEXT NOT NULL,
+      actions_json TEXT NOT NULL DEFAULT '[]',
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
