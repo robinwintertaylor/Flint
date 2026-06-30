@@ -1,9 +1,42 @@
 import { listQueueTasks, assignQueueTask as _assignQueueTask, notifyAgent } from './queue.js';
-import { listAgents, getAgent } from './agents.js';
+import { listAgents, getAgent, registerAgent } from './agents.js';
 import { getSetting } from './settings.js';
 import { spawnAgent as _spawnAgent } from './terminal.js';
+import { getSpecialist } from './specialists.js';
+import { loadSpecialist } from '../agents/specialists/selector.js';
 
 const warnedRoles = new Set();
+
+// role -> agentName for agents we auto-provisioned; persists across poll cycles
+// so we don't spin up duplicates if the agent hasn't appeared in the registry yet.
+const provisionedRoles = new Map();
+
+// Try to find (or create) an agent for a given role.
+// Returns { agentName, spawnOptions } or null if no specialist exists for the role.
+function provisionAgentForRole(role) {
+  // Reuse a prior provisioned agent if it's still registered
+  const prev = provisionedRoles.get(role);
+  if (prev && getAgent(prev)) return { agentName: prev, spawnOptions: {} };
+
+  const spec = getSpecialist(role);
+  if (!spec) return null;
+
+  // Pick a unique name
+  const base = `${role}-auto`;
+  let agentName = base;
+  let n = 2;
+  while (getAgent(agentName)) agentName = `${base}-${n++}`;
+
+  const workdir = getSetting('default_workdir') || process.cwd();
+  const loaded  = loadSpecialist(spec.name);
+
+  registerAgent(agentName, 'spawn', workdir, null, '', 'claude', role);
+  provisionedRoles.set(role, agentName);
+  console.log(`[auto-pickup] provisioned "${agentName}" (specialist: ${spec.name}) for role "${role}"`);
+
+  // Return spawn options so the main loop can pass the specialist when it spawns
+  return { agentName, spawnOptions: { specialist: loaded }, workdir };
+}
 
 export async function autoAssignPendingTasks({
   spawnFn  = _spawnAgent,
@@ -14,21 +47,35 @@ export async function autoAssignPendingTasks({
 
   const agents = listAgents();
 
+  // agentName -> { tasks, spawnOptions, workdir } for freshly provisioned agents
+  const freshProvisions = new Map();
   const assignedByAgent = new Map();
 
   for (const task of pending) {
     let targetName;
+    let spawnOptions = {};
+    let provisionedWorkdir;
 
     if (task.role) {
       const match = agents.find(a => a.role === task.role);
       if (!match) {
-        if (!warnedRoles.has(task.role)) {
-          console.log(`[auto-pickup] no agent with role "${task.role}" — task #${task.id} stays pending`);
-          warnedRoles.add(task.role);
+        // No existing agent — try to auto-provision one from a matching specialist
+        const result = provisionAgentForRole(task.role);
+        if (!result) {
+          if (!warnedRoles.has(task.role)) {
+            console.log(`[auto-pickup] no agent or specialist for role "${task.role}" — task #${task.id} stays pending`);
+            warnedRoles.add(task.role);
+          }
+          continue;
         }
-        continue;
+        warnedRoles.delete(task.role);
+        targetName         = result.agentName;
+        spawnOptions       = result.spawnOptions;
+        provisionedWorkdir = result.workdir;
+        freshProvisions.set(targetName, { spawnOptions, workdir: provisionedWorkdir });
+      } else {
+        targetName = match.name;
       }
-      targetName = match.name;
     } else {
       targetName = getSetting('default_agent');
       if (!targetName) continue;
@@ -50,7 +97,14 @@ export async function autoAssignPendingTasks({
 
     if (agent.status === 'stopped') {
       try {
-        spawnFn(targetName, agent.workdir, agent.model || null, {});
+        const fp = freshProvisions.get(targetName);
+        if (fp) {
+          // Freshly provisioned — spawn once with specialist; don't spawn again below
+          spawnFn(targetName, fp.workdir, null, fp.spawnOptions);
+          freshProvisions.delete(targetName); // prevent double-spawn if multiple tasks go to same agent
+        } else {
+          spawnFn(targetName, agent.workdir, agent.model || null, {});
+        }
       } catch (err) {
         console.log(`[auto-pickup] spawn failed for "${targetName}": ${err.message}`);
       }
