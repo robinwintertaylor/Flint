@@ -253,6 +253,7 @@ Write-Host "   Optional LLM providers:" -ForegroundColor Gray
 
 Prompt-Key "OpenAI API key"       'openai'      'OpenAI'       'OPENAI_API_KEY'
 Prompt-Key "OpenRouter API key"   'openrouter'  'OpenRouter'   'OPENROUTER_API_KEY'
+Prompt-Key "Mammouth AI API key"  'mammouth'    'Mammouth AI'  'MAMMOUTH_API_KEY'
 Prompt-Key "Google AI API key"    'google'      'Google AI'    'GOOGLE_API_KEY'
 
 # Azure — three values
@@ -271,6 +272,21 @@ if ($azureKey -and $azureKey.Trim() -ne '') {
 
 Prompt-Key "Ollama base URL (e.g. http://localhost:11434)"   'ollama-url'    'Ollama Base URL'    'OLLAMA_BASE_URL'
 Prompt-Key "LM Studio base URL (e.g. http://localhost:1234)" 'lmstudio-url'  'LM Studio Base URL' 'LMSTUDIO_BASE_URL'
+
+Write-Host ""
+Write-Host "   Optional integrations:" -ForegroundColor Gray
+
+# Supabase — URL + key pair
+$supabaseUrl = Read-Host "   Supabase project URL (e.g. https://xyz.supabase.co — Enter to skip)"
+if ($supabaseUrl -and $supabaseUrl.Trim() -ne '') {
+  Post-ApiKey 'supabase-url'  'Supabase URL'      'SUPABASE_URL'      $supabaseUrl.Trim()
+  $supabaseKey = Read-Host "   Supabase anon key"
+  if ($supabaseKey -and $supabaseKey.Trim() -ne '') {
+    Post-ApiKey 'supabase-key' 'Supabase Anon Key' 'SUPABASE_ANON_KEY' $supabaseKey.Trim()
+  }
+}
+
+Prompt-Key "Telegram Bot token" 'telegram-bot' 'Telegram Bot Token' 'TELEGRAM_BOT_TOKEN'
 
 # ── 7. Verify + open ───────────────────────────────────────────────────────────
 
