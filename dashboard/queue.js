@@ -43,13 +43,13 @@ export function createQueueTask({ title, description = '', project_id, assigned_
   const task = getQueueTask(r.lastInsertRowid);
   if (assigned_to) {
     appendTask(assigned_to, formatTaskForInjection(task));
-    writeToAgent(assigned_to, `\nFlint queue task assigned:\n\n${formatTaskForInjection(task)}\n\nPlease action this now. When done, open ${taskPath(assigned_to)} and change "- [ ]" to "- [x]" for this task.\n`);
+    notifyAgent(assigned_to, [task]);
   }
   broadcastGlobal({ type: 'queue_task_added', task });
   return task;
 }
 
-export function assignQueueTask(id, agentName) {
+export function assignQueueTask(id, agentName, { skipNotify = false } = {}) {
   const db = getDb();
   const task = getQueueTask(id);
   if (!task) throw new Error(`Task ${id} not found`);
@@ -76,9 +76,19 @@ export function assignQueueTask(id, agentName) {
   } catch { /* orchestrations table not yet present — skip */ }
 
   appendTask(agentName, formatTaskForInjection(updated));
-  writeToAgent(agentName, `\nFlint queue task assigned:\n\n${formatTaskForInjection(updated)}\n\nPlease action this now. When done, open ${taskPath(agentName)} and change "- [ ]" to "- [x]" for this task.\n`);
+  if (!skipNotify) {
+    notifyAgent(agentName, [updated]);
+  }
   broadcastGlobal({ type: 'queue_task_assigned', task: updated });
   return updated;
+}
+
+export function notifyAgent(agentName, tasks) {
+  const taskList = tasks.map(t => `- ${formatTaskForInjection(t)}`).join('\n\n');
+  const plural = tasks.length > 1 ? `${tasks.length} tasks have` : 'A task has';
+  writeToAgent(agentName,
+    `\n${plural} been assigned to you. Use your tools (Bash, Edit, etc.) to complete them — do not just describe what to do, execute it.\n\n${taskList}\n\nWhen each task is done, use the Edit tool to change "- [ ]" to "- [x]" for that task in ${taskPath(agentName)}.\r`
+  );
 }
 
 export function updateQueueTask(id, fields) {

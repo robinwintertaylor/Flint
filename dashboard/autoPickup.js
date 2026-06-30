@@ -1,4 +1,4 @@
-import { listQueueTasks, assignQueueTask as _assignQueueTask } from './queue.js';
+import { listQueueTasks, assignQueueTask as _assignQueueTask, notifyAgent } from './queue.js';
 import { listAgents, getAgent } from './agents.js';
 import { getSetting } from './settings.js';
 import { spawnAgent as _spawnAgent } from './terminal.js';
@@ -13,6 +13,8 @@ export async function autoAssignPendingTasks({
   if (pending.length === 0) return;
 
   const agents = listAgents();
+
+  const assignedByAgent = new Map();
 
   for (const task of pending) {
     let targetName;
@@ -35,12 +37,16 @@ export async function autoAssignPendingTasks({
     const agent = getAgent(targetName);
     if (!agent) continue;
 
+    let assigned;
     try {
-      assignFn(task.id, targetName);
+      assigned = assignFn(task.id, targetName, { skipNotify: true });
     } catch (err) {
       console.log(`[auto-pickup] could not assign task #${task.id} to "${targetName}": ${err.message}`);
       continue;
     }
+
+    if (!assignedByAgent.has(targetName)) assignedByAgent.set(targetName, []);
+    assignedByAgent.get(targetName).push(assigned);
 
     if (agent.status === 'stopped') {
       try {
@@ -49,5 +55,10 @@ export async function autoAssignPendingTasks({
         console.log(`[auto-pickup] spawn failed for "${targetName}": ${err.message}`);
       }
     }
+  }
+
+  // Send one consolidated notification per agent so messages don't overlap
+  for (const [agentName, tasks] of assignedByAgent) {
+    notifyAgent(agentName, tasks);
   }
 }
