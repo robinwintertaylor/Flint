@@ -184,6 +184,7 @@ function runtimeForProvider(provider) {
   if (provider === 'openrouter') return 'openrouter';
   if (provider === 'ollama')     return 'ollama';
   if (provider === 'lmstudio')   return 'lmstudio';
+  if (provider === 'mammouth')   return 'mammouth';
   return 'claude';
 }
 
@@ -223,7 +224,7 @@ function executeActions(actions) {
 
           const workdir  = getSetting('default_workdir') || process.cwd();
           const runtime  = runtimeForProvider(spec.preferred_provider);
-          const model    = runtime === 'openrouter' ? 'openai/gpt-4o-mini' : '';
+          const model    = runtime === 'openrouter' ? 'openai/gpt-4o-mini' : runtime === 'mammouth' ? 'gpt-5.4-mini' : '';
           const loaded   = loadSpecialist(spec.name);
 
           registerAgent(agentName, 'spawn', workdir, null, model, runtime, spec.name);

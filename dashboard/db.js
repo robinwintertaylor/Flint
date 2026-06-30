@@ -155,6 +155,7 @@ export function initDb(dbPath = DEFAULT_DB) {
     ['telegram',    'Telegram',      'TELEGRAM_BOT_TOKEN'],
     ['moonshot',    'Moonshot Kimi', 'MOONSHOT_API_KEY'],
     ['openrouter',  'OpenRouter',    'OPENROUTER_API_KEY'],
+    ['mammouth',    'Mammouth AI',   'MAMMOUTH_API_KEY'],
   ].forEach(([n, l, e]) => _seedKey.run(n, l, e));
   return _db;
 }

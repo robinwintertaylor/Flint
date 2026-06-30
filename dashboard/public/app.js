@@ -387,44 +387,47 @@ async function filterModelDropdownForRuntime(runtime) {
   const select = document.getElementById('modal-model');
   if (!select) return;
 
-  if (runtime === 'openrouter') {
-    // Remove any existing openrouter optgroup and rebuild from live API
+  if (runtime === 'openrouter' || runtime === 'mammouth') {
+    const apiPath   = runtime === 'mammouth' ? '/api/mammouth/models' : '/api/openrouter/models';
+    const groupLabel = runtime;
+    const fallback  = runtime === 'mammouth' ? 'gpt-5.4-mini' : 'openai/gpt-4o-mini';
+
     select.querySelectorAll('optgroup').forEach(g => { g.style.display = 'none'; });
-    let orGroup = select.querySelector('optgroup[label="openrouter"]');
-    if (orGroup) orGroup.remove();
+    let provGroup = select.querySelector(`optgroup[label="${groupLabel}"]`);
+    if (provGroup) provGroup.remove();
 
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = 'Loading OpenRouter models…';
-    placeholder.id = 'or-loading';
+    placeholder.textContent = `Loading ${runtime === 'mammouth' ? 'Mammouth' : 'OpenRouter'} models…`;
+    placeholder.id = 'provider-loading';
     select.appendChild(placeholder);
     select.value = '';
 
     try {
-      const res = await fetch('/api/openrouter/models');
+      const res = await fetch(apiPath);
       const models = res.ok ? await res.json() : [];
-      const loading = document.getElementById('or-loading');
+      const loading = document.getElementById('provider-loading');
       if (loading) loading.remove();
 
-      orGroup = document.createElement('optgroup');
-      orGroup.label = 'openrouter';
-      for (const m of (models.length ? models : [{ id: 'mistralai/mistral-nemo', name: 'Mistral Nemo (default)' }])) {
+      provGroup = document.createElement('optgroup');
+      provGroup.label = groupLabel;
+      for (const m of (models.length ? models : [{ id: fallback, name: fallback }])) {
         const opt = document.createElement('option');
         opt.value = m.id;
         opt.textContent = m.name || m.id;
-        orGroup.appendChild(opt);
+        provGroup.appendChild(opt);
       }
-      select.appendChild(orGroup);
-      const first = orGroup.querySelector('option');
+      select.appendChild(provGroup);
+      const first = provGroup.querySelector('option');
       if (first) select.value = first.value;
     } catch {
-      const loading = document.getElementById('or-loading');
-      if (loading) { loading.textContent = 'mistralai/mistral-nemo'; loading.value = 'mistralai/mistral-nemo'; select.value = 'mistralai/mistral-nemo'; }
+      const loading = document.getElementById('provider-loading');
+      if (loading) { loading.textContent = fallback; loading.value = fallback; select.value = fallback; }
     }
   } else {
-    // Hide openrouter group, show all others
+    // Hide provider groups, show all others
     for (const group of select.querySelectorAll('optgroup')) {
-      group.style.display = group.label === 'openrouter' ? 'none' : '';
+      group.style.display = (group.label === 'openrouter' || group.label === 'mammouth') ? 'none' : '';
     }
     const first = select.querySelector('optgroup:not([style*="none"]) option');
     if (first) select.value = first.value;

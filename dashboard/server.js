@@ -373,6 +373,35 @@ export function createApp() {
     }
   });
 
+  app.get('/api/mammouth/models', (_req, res) => {
+    res.json([
+      { id: 'gpt-5.5',                           name: 'GPT-5.5' },
+      { id: 'gpt-5.4',                           name: 'GPT-5.4' },
+      { id: 'gpt-5.4-mini',                      name: 'GPT-5.4 Mini' },
+      { id: 'gpt-5.4-nano',                      name: 'GPT-5.4 Nano' },
+      { id: 'gpt-5.3-chat',                      name: 'GPT-5.3 Chat' },
+      { id: 'gpt-5.1',                           name: 'GPT-5.1' },
+      { id: 'mistral-medium-3.1',                name: 'Mistral Medium 3.1' },
+      { id: 'mistral-small-2603',                name: 'Mistral Small 2603' },
+      { id: 'grok-4.3',                          name: 'Grok 4.3' },
+      { id: 'gemini-3.1-flash-image-preview',    name: 'Gemini 3.1 Flash Image Preview' },
+      { id: 'gemini-3.1-flash-lite-preview',     name: 'Gemini 3.1 Flash Lite Preview' },
+      { id: 'gemini-3-flash-preview',            name: 'Gemini 3 Flash Preview' },
+      { id: 'gemini-3.1-pro-preview',            name: 'Gemini 3.1 Pro Preview' },
+      { id: 'glm-5.1',                           name: 'GLM-5.1' },
+      { id: 'deepseek-v4-flash',                 name: 'DeepSeek V4 Flash' },
+      { id: 'deepseek-v4-pro',                   name: 'DeepSeek V4 Pro' },
+      { id: 'kimi-k2.6',                         name: 'Kimi K2.6' },
+      { id: 'llama-4-maverick',                  name: 'Llama 4 Maverick' },
+      { id: 'llama-4-scout',                     name: 'Llama 4 Scout' },
+      { id: 'sonar-pro',                         name: 'Sonar Pro' },
+      { id: 'sonar-deep-research',               name: 'Sonar Deep Research' },
+      { id: 'claude-haiku-4-5',                  name: 'Claude Haiku 4.5' },
+      { id: 'claude-opus-4.7',                   name: 'Claude Opus 4.7' },
+      { id: 'claude-sonnet-4-6',                 name: 'Claude Sonnet 4.6' },
+    ]);
+  });
+
   app.get('/router/config', async (_req, res) => {
     try {
       const r = await fetch('http://localhost:3001/llm/config');

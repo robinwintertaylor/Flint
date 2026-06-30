@@ -78,8 +78,9 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
   const isVibe       = agent.runtime === 'vibe';
   const isOllama     = agent.runtime === 'ollama';
   const isOpenRouter = agent.runtime === 'openrouter';
+  const isMammouth   = agent.runtime === 'mammouth';
 
-  if (!isOllama && !isOpenRouter) {
+  if (!isOllama && !isOpenRouter && !isMammouth) {
     const AUTONOMOUS_BLOCK =
       '## Operating Mode: Autonomous\n' +
       'You are running as an autonomous agent orchestrated by Flint. No human is monitoring this session.\n' +
@@ -95,7 +96,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
   }
 
   // Use specialist's preferred model if no explicit model was requested
-  if (!model && specialist && !isVibe && !isOllama && !isOpenRouter) {
+  if (!model && specialist && !isVibe && !isOllama && !isOpenRouter && !isMammouth) {
     try {
       const { model: resolved } = resolveSpecialistRoute(
         specialist.preferred_tier ?? 2,
@@ -117,13 +118,16 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
   } else if (isOpenRouter) {
     bin  = NODE_BIN;
     args = [join(FLINT_ROOT, 'router', 'openrouter-agent.js'), model || 'openai/gpt-4o-mini', name];
+  } else if (isMammouth) {
+    bin  = NODE_BIN;
+    args = [join(FLINT_ROOT, 'router', 'mammouth-agent.js'), model || 'gpt-5.4-mini', name];
   } else {
     bin  = CLAUDE_BIN;
     args = ['--dangerously-skip-permissions'];
     if (model) args.push('--model', model);
   }
 
-  if (!isVibe && !isOllama && !isOpenRouter) {
+  if (!isVibe && !isOllama && !isOpenRouter && !isMammouth) {
     try { injectMcpConfig(name, workdir); } catch {}
   }
 
@@ -139,7 +143,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
   setAgentStatus(name, 'running');
   notify(`🟢 Agent \`${name}\` started`);
 
-  let lastModel = isOllama ? (agent.model || 'llama3') : isVibe ? 'mistral' : isOpenRouter ? (model || 'mistralai/mistral-nemo') : 'claude';
+  let lastModel = isOllama ? (agent.model || 'llama3') : isVibe ? 'mistral' : isOpenRouter ? (model || 'openai/gpt-4o-mini') : isMammouth ? (model || 'gpt-5.4-mini') : 'claude';
   let lastCost = 0;
   const outputBuffer = [];
   let suggBuffer = '';
