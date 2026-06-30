@@ -757,7 +757,8 @@ export function createApp() {
   // --- Heartbeat routes ---
 
   app.get('/heartbeat/log', (req, res) => {
-    const limit = Math.min(parseInt(req.query.limit || '20', 10), 100);
+    const n = parseInt(req.query.limit || '20', 10);
+    const limit = Math.min(Number.isFinite(n) ? n : 20, 100);
     res.json(getHeartbeatLog(limit));
   });
 

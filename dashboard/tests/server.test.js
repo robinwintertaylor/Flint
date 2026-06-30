@@ -282,11 +282,11 @@ test('POST /orchestrations with missing workdir returns 400', async () => {
 
 // --- API Key routes ---
 
-test('GET /api-keys returns 5 seeded rows with no key_value field', async () => {
+test('GET /api-keys returns 6 seeded rows with no key_value field', async () => {
   const r = await req('GET', '/api-keys');
   assert.equal(r.status, 200);
   const body = await r.json();
-  assert.equal(body.length, 5);
+  assert.equal(body.length, 6);
   assert.ok(body.some(k => k.name === 'anthropic'));
   assert.ok(body.every(k => !('key_value' in k)), 'raw key must never be exposed');
   assert.ok(body.every(k => 'masked' in k), 'every row must have masked field');
@@ -410,8 +410,8 @@ test('GET /heartbeat/status returns shape', async () => {
   assert.ok('lastRun' in body, 'lastRun field missing');
 });
 
-test('POST /heartbeat/trigger is reachable (test mode skips LLM)', async () => {
-  // In test mode the route must exist and not throw 404
+test('POST /heartbeat/trigger is reachable', async () => {
+  // LLM call fails (router not running in tests) — 500 is acceptable
   const r = await req('POST', '/heartbeat/trigger');
   assert.ok(r.status === 200 || r.status === 500, `unexpected status ${r.status}`);
 });

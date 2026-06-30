@@ -423,6 +423,7 @@ document.getElementById('modal-spawn').addEventListener('click', () => {
   document.getElementById('modal-workdir').value = '';
   document.getElementById('modal-isolate').checked = false;
   document.getElementById('modal-runtime').value = 'claude';
+  filterModelDropdownForRuntime('claude');
   document.getElementById('modal-specialist').value = '';
   document.getElementById('modal-role').value = '';
   document.getElementById('modal-model-group').style.display = '';
@@ -1299,7 +1300,7 @@ async function fetchHeartbeatLog() {
     }
     container.innerHTML = entries.map(e => {
       const actions = JSON.parse(e.actions_json || '[]');
-      const actionsHtml = actions.length ? `<div class="hb-actions">Actions: ${actions.map(a => a.type + (a.title ? ': ' + escHtml(a.title) : '')).join(', ')}</div>` : '';
+      const actionsHtml = actions.length ? `<div class="hb-actions">Actions: ${actions.map(a => escHtml(a.type) + (a.title ? ': ' + escHtml(a.title) : '')).join(', ')}</div>` : '';
       return `<div class="hb-entry">
         <div class="hb-note">${escHtml(e.note)}</div>
         ${actionsHtml}
