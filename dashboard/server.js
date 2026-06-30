@@ -31,6 +31,7 @@ import { listSpecialists, getSpecialist, createSpecialist, updateSpecialist, del
 import { loadSpecialist } from '../agents/specialists/selector.js';
 import { getSetting, setSetting } from './settings.js';
 import { getHeartbeatLog, runHeartbeatCycle, startHeartbeat } from './heartbeat.js';
+import { flintChat } from './chat.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -868,6 +869,21 @@ export function createApp() {
   app.post('/heartbeat/trigger', async (_req, res) => {
     try {
       const result = await runHeartbeatCycle();
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- Chat ---
+
+  app.post('/api/chat', async (req, res) => {
+    const { messages } = req.body ?? {};
+    if (!Array.isArray(messages) || !messages.length) {
+      return res.status(400).json({ error: 'messages array required' });
+    }
+    try {
+      const result = await flintChat(messages);
       res.json(result);
     } catch (err) {
       res.status(500).json({ error: err.message });

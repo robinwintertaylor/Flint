@@ -248,14 +248,17 @@ function updateStatus(name, status) {
   const existingRemove = headerRight.querySelector('.btn-remove');
 
   if (status === 'stopped' && existingKill && !existingRemove) {
-    // Replace Kill with Restart + Remove
-    const cost = headerRight.querySelector('.panel-cost')?.outerHTML ?? `<span class="panel-cost" id="cost-${name}">$0.00 today</span>`;
-    headerRight.innerHTML = `
-      ${cost}
-      <button class="btn-restart" id="restart-${name}">Restart</button>
-      <button class="btn-remove" id="remove-${name}">Remove</button>
-    `;
-    document.getElementById(`restart-${name}`)?.addEventListener('click', () => {
+    // Swap Kill → Restart + Remove without touching other header elements
+    const restart = document.createElement('button');
+    restart.className = 'btn-restart';
+    restart.id = `restart-${name}`;
+    restart.textContent = 'Restart';
+    const remove = document.createElement('button');
+    remove.className = 'btn-remove';
+    remove.id = `remove-${name}`;
+    remove.textContent = 'Remove';
+    existingKill.replaceWith(restart, remove);
+    restart.addEventListener('click', () => {
       fetch(`/agents/${encodeURIComponent(name)}`)
         .then(r => r.json())
         .then(agent => {
@@ -266,7 +269,7 @@ function updateStatus(name, status) {
         })
         .catch(err => console.error('Restart failed:', err));
     });
-    document.getElementById(`remove-${name}`)?.addEventListener('click', () => {
+    remove.addEventListener('click', () => {
       fetch(`/agents/${encodeURIComponent(name)}`, { method: 'DELETE' }).catch(() => {});
     });
   } else if (status === 'running' && existingRemove) {
@@ -2183,3 +2186,99 @@ function showSpecialistModal({ name, label, description, domains, preferred_tier
     fetchAndRenderSpecialists();
   });
 }
+
+// ─── Flint Chat ────────────────────────────────────────────────────────────
+
+(function initChat() {
+  const toggle  = document.getElementById('chat-toggle');
+  const panel   = document.getElementById('chat-panel');
+  const closeBtn = document.getElementById('chat-close');
+  const input   = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('chat-send');
+  const msgList = document.getElementById('chat-messages');
+
+  // Conversation history (sent to server each time)
+  const history = [];
+
+  let open = false;
+  toggle.addEventListener('click', () => {
+    open = !open;
+    panel.classList.toggle('hidden', !open);
+    if (open) { input.focus(); scrollToBottom(); }
+  });
+  closeBtn.addEventListener('click', () => {
+    open = false;
+    panel.classList.add('hidden');
+  });
+
+  function scrollToBottom() {
+    msgList.scrollTop = msgList.scrollHeight;
+  }
+
+  function addBubble(role, text) {
+    const div = document.createElement('div');
+    div.className = `chat-bubble ${role}`;
+    div.textContent = text;
+    msgList.appendChild(div);
+    scrollToBottom();
+    return div;
+  }
+
+  async function sendMessage() {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    input.style.height = '';
+    sendBtn.disabled = true;
+
+    addBubble('user', text);
+    history.push({ role: 'user', content: text });
+
+    const thinking = addBubble('thinking', 'Thinking…');
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history }),
+      });
+      const data = await res.json();
+      thinking.remove();
+
+      if (!res.ok) {
+        addBubble('assistant', `Error: ${data.error ?? 'Something went wrong'}`);
+        history.pop();
+        return;
+      }
+
+      const reply = data.reply ?? '(no reply)';
+      history.push({ role: 'assistant', content: reply });
+      addBubble('assistant', reply);
+    } catch (err) {
+      thinking.remove();
+      addBubble('assistant', `Network error: ${err.message}`);
+      history.pop();
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // Auto-grow textarea
+  input.addEventListener('input', () => {
+    input.style.height = '';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  });
+
+  // Opening greeting
+  addBubble('assistant', 'Hi Robin — I\'m Flint. What can I do for you?');
+})();
