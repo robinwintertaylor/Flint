@@ -116,7 +116,7 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
     args = [];
   } else if (isOpenRouter) {
     bin  = NODE_BIN;
-    args = [join(FLINT_ROOT, 'router', 'openrouter-agent.js'), model || 'mistralai/mistral-nemo'];
+    args = [join(FLINT_ROOT, 'router', 'openrouter-agent.js'), model || 'openai/gpt-4o-mini', name];
   } else {
     bin  = CLAUDE_BIN;
     args = ['--dangerously-skip-permissions'];
