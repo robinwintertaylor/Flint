@@ -1091,8 +1091,29 @@ const _isMain = (process.argv[1] && resolve(process.argv[1]).toLowerCase() === f
   process.env.PM2_HOME !== undefined;
 if (_isMain) {
   const server = createApp();
-  server.listen(PORT, () => {
+  let _sessionId = null;
+  server.listen(PORT, async () => {
     console.log(`Flint Dashboard → http://localhost:${PORT}`);
     startHeartbeat();
+    if (isSupabaseEnabled()) {
+      try {
+        _sessionId = await logSessionStart();
+        console.log(`[supabase] session started: ${_sessionId}`);
+      } catch (err) {
+        console.warn('[supabase] logSessionStart failed:', err.message);
+      }
+    }
   });
+
+  const _shutdown = async (signal) => {
+    console.log(`[server] ${signal} — shutting down`);
+    if (_sessionId && isSupabaseEnabled()) {
+      try { await logSessionEnd(_sessionId, { summary: `Server shutdown (${signal})`, agentNames: listAgents().map(a => a.name) }); }
+      catch {}
+    }
+    closeDb();
+    process.exit(0);
+  };
+  process.once('SIGTERM', () => _shutdown('SIGTERM'));
+  process.once('SIGINT',  () => _shutdown('SIGINT'));
 }
