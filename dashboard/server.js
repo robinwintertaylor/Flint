@@ -200,14 +200,20 @@ export function createApp() {
   // --- Task queue routes ---
 
   app.get('/queue/config', (_req, res) => {
-    res.json({ defaultAgent: getSetting('default_agent') });
+    res.json({
+      defaultAgent:   getSetting('default_agent')   ?? '',
+      defaultWorkdir: getSetting('default_workdir') ?? '',
+    });
   });
 
   app.patch('/queue/config', (req, res) => {
-    const { defaultAgent } = req.body ?? {};
-    if (defaultAgent === undefined) return res.status(400).json({ error: 'defaultAgent required' });
-    setSetting('default_agent', defaultAgent ?? '');
-    res.json({ defaultAgent: getSetting('default_agent') });
+    const { defaultAgent, defaultWorkdir } = req.body ?? {};
+    if (defaultAgent   !== undefined) setSetting('default_agent',   defaultAgent   ?? '');
+    if (defaultWorkdir !== undefined) setSetting('default_workdir', defaultWorkdir ?? '');
+    res.json({
+      defaultAgent:   getSetting('default_agent')   ?? '',
+      defaultWorkdir: getSetting('default_workdir') ?? '',
+    });
   });
 
   app.get('/queue/tasks', (req, res) => {

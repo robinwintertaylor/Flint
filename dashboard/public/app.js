@@ -1314,8 +1314,10 @@ async function fetchAndRenderQueue(statusFilter = queueFilter) {
   fetch('/queue/config')
     .then(r => r.json())
     .then(cfg => {
-      const input = document.getElementById('queue-default-agent');
-      if (input) input.value = cfg.defaultAgent ?? '';
+      const agentEl   = document.getElementById('queue-default-agent');
+      const workdirEl = document.getElementById('queue-default-workdir');
+      if (agentEl)   agentEl.value   = cfg.defaultAgent   ?? '';
+      if (workdirEl) workdirEl.value = cfg.defaultWorkdir ?? '';
     })
     .catch(() => {});
 }
@@ -1439,10 +1441,17 @@ function renderQueueView(tasks, agents, activeFilter) {
         <button id="btn-add-task" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:16px">+ Add Task</button>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0 10px;border-bottom:1px solid #30363d;margin-bottom:8px;font-size:13px;color:#8b949e">
-      <span>Default agent (roleless tasks):</span>
-      <input id="queue-default-agent" type="text" placeholder="agent name or leave blank to skip"
-        style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:3px 8px;border-radius:4px;font-size:13px;width:220px">
+    <div style="display:flex;align-items:center;gap:12px;padding:6px 0 10px;border-bottom:1px solid #30363d;margin-bottom:8px;font-size:13px;color:#8b949e;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:6px">
+        <span style="white-space:nowrap">Agent workdir:</span>
+        <input id="queue-default-workdir" type="text" placeholder="C:\\path\\where\\agents\\work"
+          style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:3px 8px;border-radius:4px;font-size:13px;width:280px">
+      </label>
+      <label style="display:flex;align-items:center;gap:6px" title="Fallback agent for tasks with no role — Flint orchestrates everything else">
+        <span style="white-space:nowrap">Fallback agent:</span>
+        <input id="queue-default-agent" type="text" placeholder="leave blank — orchestrator handles it"
+          style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:3px 8px;border-radius:4px;font-size:13px;width:220px">
+      </label>
       <button id="btn-save-default-agent" style="background:#21262d;border:1px solid #30363d;color:#c9d1d9;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:13px">Save</button>
     </div>
     <div class="queue-filters">
@@ -1590,14 +1599,21 @@ function renderQueueView(tasks, agents, activeFilter) {
   // Add Task button
   document.getElementById('btn-add-task').addEventListener('click', () => openAddTaskModal(agents));
 
-  // Save default agent config
+  // Save queue config (workdir + fallback agent)
   document.getElementById('btn-save-default-agent')?.addEventListener('click', () => {
-    const val = document.getElementById('queue-default-agent')?.value.trim() ?? '';
+    const btn = document.getElementById('btn-save-default-agent');
+    const body = {
+      defaultAgent:   document.getElementById('queue-default-agent')?.value.trim()   ?? '',
+      defaultWorkdir: document.getElementById('queue-default-workdir')?.value.trim() ?? '',
+    };
+    if (btn) btn.disabled = true;
     fetch('/queue/config', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ defaultAgent: val }),
-    }).catch(() => {});
+      body: JSON.stringify(body),
+    }).then(() => {
+      if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1500); }
+    }).catch(() => { if (btn) btn.disabled = false; });
   });
 }
 
