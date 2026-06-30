@@ -1343,9 +1343,10 @@ async function fetchHeartbeatLog() {
 
 async function fetchHeartbeatStatus() {
   try {
-    const [status, routerModels] = await Promise.all([
+    const [status, routerModels, orModels] = await Promise.all([
       fetch('/heartbeat/status').then(r => r.json()).catch(() => ({})),
       fetch('/router/models').then(r => r.json()).catch(() => ({})),
+      fetch('/api/openrouter/models').then(r => r.ok ? r.json() : []).catch(() => []),
     ]);
 
     const enabledEl  = document.getElementById('hb-enabled');
@@ -1356,21 +1357,44 @@ async function fetchHeartbeatStatus() {
     enabledEl.checked  = status.enabled !== false;
     if (intervalEl) intervalEl.value = status.intervalMinutes ?? 5;
 
-    // Rebuild model dropdown: Router default + one optgroup per provider
+    // Rebuild model dropdown: Router default + one optgroup per provider.
+    // For openrouter, use the live top-30 list instead of the tier config (which only has a few).
     modelEl.innerHTML = '<option value="router-default">Router default</option>';
     if (routerModels && !routerModels.error) {
       for (const [provider, models] of Object.entries(routerModels)) {
         if (!Array.isArray(models) || models.length === 0) continue;
         const grp = document.createElement('optgroup');
         grp.label = provider;
-        for (const m of models) {
-          const opt = document.createElement('option');
-          opt.value = m;
-          opt.textContent = m;
-          grp.appendChild(opt);
+        if (provider === 'openrouter' && orModels.length > 0) {
+          // Replace tier-config stubs with live OpenRouter model list
+          for (const m of orModels) {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.name || m.id;
+            grp.appendChild(opt);
+          }
+        } else {
+          for (const m of models) {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            grp.appendChild(opt);
+          }
         }
         modelEl.appendChild(grp);
       }
+    }
+    // If openrouter wasn't in router models at all but we have live models, add the group
+    if (orModels.length > 0 && !routerModels.openrouter) {
+      const grp = document.createElement('optgroup');
+      grp.label = 'openrouter';
+      for (const m of orModels) {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name || m.id;
+        grp.appendChild(opt);
+      }
+      modelEl.appendChild(grp);
     }
 
     // Set current selection — try exact model match, fall back to router-default
@@ -1378,7 +1402,7 @@ async function fetchHeartbeatStatus() {
     if ([...modelEl.options].some(o => o.value === currentModel)) {
       modelEl.value = currentModel;
     } else {
-      // Model not in dropdown (e.g. a custom string) — add it
+      // Model not in dropdown (e.g. a custom string saved previously) — add it
       const opt = document.createElement('option');
       opt.value = currentModel;
       opt.textContent = currentModel;
