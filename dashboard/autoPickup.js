@@ -11,8 +11,16 @@ const warnedRoles = new Set();
 // so we don't spin up duplicates if the agent hasn't appeared in the registry yet.
 const provisionedRoles = new Map();
 
+function runtimeForProvider(provider) {
+  if (!provider || provider === 'anthropic') return 'claude';
+  if (provider === 'openrouter') return 'openrouter';
+  if (provider === 'ollama')     return 'ollama';
+  if (provider === 'lmstudio')   return 'lmstudio';
+  return 'claude';
+}
+
 // Try to find (or create) an agent for a given role.
-// Returns { agentName, spawnOptions } or null if no specialist exists for the role.
+// Returns { agentName, spawnOptions, workdir } or null if no specialist exists for the role.
 function provisionAgentForRole(role) {
   // Reuse a prior provisioned agent if it's still registered
   const prev = provisionedRoles.get(role);
@@ -28,13 +36,14 @@ function provisionAgentForRole(role) {
   while (getAgent(agentName)) agentName = `${base}-${n++}`;
 
   const workdir = getSetting('default_workdir') || process.cwd();
+  const runtime = runtimeForProvider(spec.preferred_provider);
+  const model   = runtime === 'openrouter' ? 'mistralai/mistral-nemo' : '';
   const loaded  = loadSpecialist(spec.name);
 
-  registerAgent(agentName, 'spawn', workdir, null, '', 'claude', role);
+  registerAgent(agentName, 'spawn', workdir, null, model, runtime, role);
   provisionedRoles.set(role, agentName);
-  console.log(`[auto-pickup] provisioned "${agentName}" (specialist: ${spec.name}) for role "${role}"`);
+  console.log(`[auto-pickup] provisioned "${agentName}" (${runtime}, specialist: ${spec.name}) for role "${role}"`);
 
-  // Return spawn options so the main loop can pass the specialist when it spawns
   return { agentName, spawnOptions: { specialist: loaded }, workdir };
 }
 
