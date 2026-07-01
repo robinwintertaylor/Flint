@@ -67,6 +67,42 @@ export async function autoAssignPendingTasks({
     let spawnOptions = {};
     let provisionedWorkdir;
 
+    // If already pre-assigned to a specific agent/specialist name, honour it
+    if (task.assigned_to) {
+      let agent = getAgent(task.assigned_to);
+
+      if (!agent) {
+        // Not a panel agent yet — try to find a matching specialist and spawn it
+        const spec = getSpecialist(task.assigned_to);
+        if (!spec) {
+          console.log(`[auto-pickup] task #${task.id} assigned to "${task.assigned_to}" but no agent or specialist found — skipping`);
+          continue;
+        }
+        const workdir = getSetting('default_workdir') || process.cwd();
+        const runtime = runtimeForProvider(spec.preferred_provider);
+        const model   = runtime === 'openrouter' ? 'openai/gpt-4o-mini' : runtime === 'mammouth' ? 'gpt-5.4-mini' : '';
+        const loaded  = loadSpecialist(spec.name);
+        registerAgent(task.assigned_to, 'spawn', workdir, null, model, runtime, task.assigned_to);
+        agent = getAgent(task.assigned_to);
+        console.log(`[auto-pickup] spawning specialist "${task.assigned_to}" for pre-assigned task #${task.id}`);
+        try { spawnFn(task.assigned_to, workdir, model || null, { specialist: loaded }); } catch (err) {
+          console.log(`[auto-pickup] spawn failed for "${task.assigned_to}": ${err.message}`);
+          continue;
+        }
+      } else if (agent.status === 'stopped') {
+        try { spawnFn(task.assigned_to, agent.workdir, agent.model || null, {}); } catch {}
+      }
+
+      try {
+        const assigned = assignFn(task.id, task.assigned_to, { skipNotify: true });
+        if (!assignedByAgent.has(task.assigned_to)) assignedByAgent.set(task.assigned_to, []);
+        assignedByAgent.get(task.assigned_to).push(assigned);
+      } catch (err) {
+        console.log(`[auto-pickup] could not assign task #${task.id} to "${task.assigned_to}": ${err.message}`);
+      }
+      continue;
+    }
+
     if (task.role) {
       const match = agents.find(a => a.role === task.role);
       if (!match) {
