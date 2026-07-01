@@ -6,7 +6,9 @@
     "code-review",
     "security",
     "javascript",
-    "node"
+    "node",
+    "best-practices",
+    "quality-assurance"
   ],
   "skills": [],
   "preferred_tier": 2,

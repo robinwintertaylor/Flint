@@ -1,0 +1,13 @@
+{
+  "name": "planning-expert",
+  "label": "Planning Expert",
+  "description": "Transforms ideas and requirements into detailed implementation plans with timelines, dependencies, and resource allocation",
+  "domains": ["project-planning", "implementation-strategy", "resource-allocation", "timeline-management", "risk-assessment"],
+  "skills": [],
+  "preferred_tier": 2,
+  "preferred_provider": "openrouter",
+  "created_by": "flint",
+  "created_at": "2026-07-01T00:00:00.000Z",
+  "use_count": 0,
+  "last_used": null
+}

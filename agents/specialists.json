@@ -7,7 +7,9 @@
       "code-review",
       "security",
       "javascript",
-      "node"
+      "node",
+      "best-practices",
+      "quality-assurance"
     ],
     "use_count": 0,
     "last_used": null
@@ -24,7 +26,7 @@
     "name": "mcp-server-installer",
     "label": "MCP installer",
     "description": "Specializes in installing and building MCP servers so other agents can use them and their tools.",
-    "domains": [],
+    "domains": ["mcp", "server-management", "installation", "infrastructure"],
     "use_count": 0,
     "last_used": null
   },
@@ -41,6 +43,30 @@
     "label": "Builder",
     "description": "Researches and creates new agent roles, specialist souls, and system capabilities as required",
     "domains": ["agent-design", "system-architecture", "prompt-engineering", "specialist-creation"],
+    "use_count": 0,
+    "last_used": null
+  },
+  {
+    "name": "brainstorming-expert",
+    "label": "Brainstorming Expert",
+    "description": "Conducts research, generates diverse ideas, and proposes ranked solutions through structured creative problem-solving",
+    "domains": ["ideation", "creative-problem-solving", "research", "innovation", "strategy"],
+    "use_count": 0,
+    "last_used": null
+  },
+  {
+    "name": "planning-expert",
+    "label": "Planning Expert",
+    "description": "Transforms ideas and requirements into detailed implementation plans with timelines, dependencies, and resource allocation",
+    "domains": ["project-planning", "implementation-strategy", "resource-allocation", "timeline-management", "risk-assessment"],
+    "use_count": 0,
+    "last_used": null
+  },
+  {
+    "name": "testing-expert",
+    "label": "Testing Expert",
+    "description": "Expert in end-to-end testing, unit/integration test design, debugging, and ensuring software correctness and performance",
+    "domains": ["testing", "e2e-testing", "unit-testing", "integration-testing", "debugging", "quality-assurance"],
     "use_count": 0,
     "last_used": null
   }
