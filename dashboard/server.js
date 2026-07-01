@@ -315,6 +315,19 @@ export function createApp() {
     res.json({ ok: removeAgent(req.params.name) });
   });
 
+  // Direct message relay — any agent or external caller can send a message to a named agent's terminal
+  app.post('/agents/:name/message', (req, res) => {
+    const agent = getAgent(req.params.name);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    const { message, from } = req.body ?? {};
+    if (!message) return res.status(400).json({ error: 'message required' });
+    const tag = from ? `[Message from ${from}]` : '[Message]';
+    const coloured = `\n\x1b[36m${tag}: ${message}\x1b[0m\n`;
+    writeToAgent(req.params.name, coloured);
+    broadcastToAgent(req.params.name, { type: 'output', agent: req.params.name, data: coloured });
+    res.json({ ok: true });
+  });
+
   app.get('/tasks/:agent', (req, res) => {
     res.json({ content: readTasks(req.params.agent) });
   });

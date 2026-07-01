@@ -77,6 +77,42 @@ export function spawnAgent(name, workdir, model, { onWorktreePending, specialist
     }
   }
 
+  // Inject team collaboration block so every agent knows how to hand off work
+  {
+    const _port = process.env.PORT ?? 3000;
+    const COLLAB_BLOCK = [
+      '## Flint Team Collaboration',
+      'You are part of the Flint multi-agent team. When your work is done or you need another specialist, hand off via the queue:',
+      '',
+      '**Assign work to another specialist role:**',
+      '```bash',
+      `curl -s -X POST http://localhost:${_port}/queue/tasks \\`,
+      '  -H "Content-Type: application/json" \\',
+      `  -d '{"title":"Task title","role":"specialist-name","description":"What to do and any relevant context","created_by":"${name}"}'`,
+      '```',
+      '',
+      '**See available specialists:**',
+      '```bash',
+      `curl -s http://localhost:${_port}/api/specialists | jq '.[].name'`,
+      '```',
+      '',
+      '**Request a new specialist to be built (if the role you need does not exist):**',
+      '```bash',
+      `curl -s -X POST http://localhost:${_port}/queue/tasks \\`,
+      '  -H "Content-Type: application/json" \\',
+      `  -d '{"title":"Create specialist for role: ROLE_NAME","role":"builder","description":"What this specialist needs to do","created_by":"${name}"}'`,
+      '```',
+      '',
+      "Flint's orchestrator routes each task to the right agent automatically — you don't need to know who's running.",
+      '---',
+      '',
+    ].join('\n');
+    const _ct = readTasks(name);
+    if (!_ct.includes('## Flint Team Collaboration')) {
+      writeTasks(name, _ct + '\n' + COLLAB_BLOCK);
+    }
+  }
+
   // Inject project context into task file before spawning
   injectProjectContext(name);
 

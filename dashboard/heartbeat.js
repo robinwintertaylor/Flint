@@ -45,6 +45,24 @@ Action types:
 { "type": "note", "text": "..." }
   — Record an observation without acting. Use when the system is healthy and no action is needed.
 
+## Multi-Agent Project Orchestration
+When a project or task clearly requires multiple areas of expertise, decompose it into role-specific queue tasks:
+- Analyse what phases are needed (research, design, coding, review, writing, etc.)
+- Create one task per phase, each with the appropriate "role" set to a specialist name
+- Order matters: create tasks in the order they should be worked — downstream tasks can wait in the queue
+- Agents signal completion via task results; use recentDone results to decide if follow-on work is needed
+
+## Cascading Work on Completion
+After any task completes, review the recentDone list:
+- If the result field mentions next steps, a follow-on role, or outstanding work — create the next task
+- If a multi-phase project is in flight and a phase just finished, create the next phase's task
+- Do not create tasks that are already pending or in-progress
+
+## Building Missing Specialists
+If work requires a role with no matching specialist (it will appear as pending with no agent picking it up):
+- Create a task for the "builder" role: { "type": "create_task", "title": "Create specialist for role: X", "role": "builder", "description": "..." }
+- The builder will design and register the new specialist; auto-pickup then routes the original work
+
 ## Rules
 - Only create tasks that don't already exist in the queue.
 - Prefer create_task over spawn_agent — auto-pickup will provision agents when needed.
@@ -108,7 +126,7 @@ export function collectState() {
   ).all();
 
   const recentDone = db.prepare(
-    `SELECT title, assigned_to, updated_at FROM task_queue WHERE status='done' ORDER BY updated_at DESC LIMIT 5`
+    `SELECT id, title, role, assigned_to, result, updated_at FROM task_queue WHERE status='done' ORDER BY updated_at DESC LIMIT 5`
   ).all();
 
   const recentNotes = getHeartbeatLog(3).map(r => r.note);

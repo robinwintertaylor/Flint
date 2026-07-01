@@ -1,4 +1,4 @@
-import { listQueueTasks, assignQueueTask as _assignQueueTask, notifyAgent } from './queue.js';
+import { listQueueTasks, assignQueueTask as _assignQueueTask, notifyAgent, createQueueTask } from './queue.js';
 import { listAgents, getAgent, registerAgent } from './agents.js';
 import { getSetting } from './settings.js';
 import { spawnAgent as _spawnAgent } from './terminal.js';
@@ -6,6 +6,7 @@ import { getSpecialist } from './specialists.js';
 import { loadSpecialist } from '../agents/specialists/selector.js';
 
 const warnedRoles = new Set();
+const builderQueuedRoles = new Set();
 
 // role -> agentName for agents we auto-provisioned; persists across poll cycles
 // so we don't spin up duplicates if the agent hasn't appeared in the registry yet.
@@ -73,8 +74,24 @@ export async function autoAssignPendingTasks({
         const result = provisionAgentForRole(task.role);
         if (!result) {
           if (!warnedRoles.has(task.role)) {
-            console.log(`[auto-pickup] no agent or specialist for role "${task.role}" — task #${task.id} stays pending`);
+            console.log(`[auto-pickup] no specialist for role "${task.role}" — task #${task.id} pending; queuing builder task`);
             warnedRoles.add(task.role);
+          }
+          // Queue a builder task to create the missing specialist (once per role per session)
+          if (!builderQueuedRoles.has(task.role)) {
+            const alreadyQueued = listQueueTasks({ role: 'builder' })
+              .filter(t => t.status === 'pending' || t.status === 'in_progress')
+              .some(t => t.title.includes(`role: ${task.role}`));
+            if (!alreadyQueued) {
+              createQueueTask({
+                title: `Create specialist for role: ${task.role}`,
+                description: `A queued task (id: ${task.id}, title: "${task.title}") requires role "${task.role}" but no specialist exists.\n\nPlease:\n1. Create \`agents/specialists/${task.role}/soul.md\` with the specialist's identity and approach\n2. Create \`agents/specialists/${task.role}/config.json\` with name, label, description, domains, preferred_provider, preferred_tier\n3. Add an entry to \`agents/specialists.json\`\n4. Register via: curl -s -X POST http://localhost:${process.env.PORT ?? 3000}/api/specialists -H "Content-Type: application/json" -d @agents/specialists/${task.role}/config.json`,
+                role: 'builder',
+                created_by: 'auto-pickup',
+              });
+              console.log(`[auto-pickup] queued builder task to create missing specialist "${task.role}"`);
+            }
+            builderQueuedRoles.add(task.role);
           }
           continue;
         }
