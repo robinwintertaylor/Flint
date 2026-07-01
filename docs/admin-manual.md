@@ -236,6 +236,134 @@ pm2 start flint-dashboard   # schema is rebuilt automatically
 
 ---
 
+## Supabase Setup (Optional — Cloud Memory)
+
+Supabase provides vector memory storage and semantic search across agent sessions. It is entirely optional — Flint operates normally without it.
+
+### 1. Create a Supabase project
+
+1. Sign up at [supabase.com](https://supabase.com) and create a new project.
+2. Enable the `pgvector` extension: **Database → Extensions → search "vector" → Enable**.
+3. Note your **Project URL** and **anon public key** from **Project Settings → API**.
+
+### 2. Run the required SQL migrations
+
+Open the **SQL Editor** in your Supabase project and run each block below:
+
+**Create tables:**
+```sql
+create table if not exists memories (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null,
+  type        text,
+  description text,
+  body        text,
+  embedding   vector(1536),
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now(),
+  constraint memories_name_key unique (name)
+);
+
+create table if not exists sessions (
+  id          uuid primary key default gen_random_uuid(),
+  started_at  timestamptz default now(),
+  ended_at    timestamptz,
+  summary     text,
+  learnings   text,
+  agent_names text[]
+);
+```
+
+**Create the vector search function (required for semantic search):**
+```sql
+create or replace function search_memories(
+  query_embedding vector(1536),
+  match_type      text    default null,
+  match_count     int     default 10,
+  match_threshold float   default 0.7
+)
+returns table (
+  id          uuid,
+  name        text,
+  type        text,
+  description text,
+  body        text,
+  similarity  float
+)
+language plpgsql as $$
+begin
+  return query
+  select
+    m.id, m.name, m.type, m.description, m.body,
+    1 - (m.embedding <=> query_embedding) as similarity
+  from memories m
+  where
+    (match_type is null or m.type = match_type)
+    and 1 - (m.embedding <=> query_embedding) >= match_threshold
+  order by m.embedding <=> query_embedding
+  limit match_count;
+end;
+$$;
+```
+
+**Add indexes for performance:**
+```sql
+create index if not exists memories_type_idx on memories (type);
+create index if not exists memories_hnsw_idx on memories
+  using hnsw (embedding vector_cosine_ops)
+  with (m = 16, ef_construction = 64);
+```
+
+**Enable Row-Level Security (recommended):**
+```sql
+alter table memories enable row level security;
+alter table sessions enable row level security;
+
+create policy "service_role_all_memories" on memories
+  for all using (auth.role() = 'service_role');
+create policy "service_role_all_sessions" on sessions
+  for all using (auth.role() = 'service_role');
+
+-- Allow anon key to read memories (needed by the dashboard):
+create policy "anon_read_memories" on memories
+  for select using (auth.role() = 'anon');
+```
+
+### 3. Add keys to Flint
+
+In the **API Keys** tab, add:
+
+| Key name | Env var | Value |
+|----------|---------|-------|
+| Supabase URL | `SUPABASE_URL` | `https://xyz.supabase.co` |
+| Supabase Anon Key | `SUPABASE_ANON_KEY` | your anon/public key |
+
+Then restart: `pm2 restart flint-dashboard`
+
+### 4. Verify
+
+```powershell
+Invoke-RestMethod http://localhost:3000/api/memory
+```
+
+Returns `{ "memories": [] }` if Supabase is connected. Returns `503` if keys are missing or invalid.
+
+### API routes
+
+| Method | Route | Purpose |
+|--------|-------|---------|
+| `GET` | `/api/memory` | List all memories |
+| `POST` | `/api/memory` | Save/update a memory (upsert by name) |
+| `POST` | `/api/memory/search` | Semantic vector search |
+| `PATCH` | `/api/memory/:name` | Update a memory's body/description |
+| `DELETE` | `/api/memory/:name` | Delete a memory |
+
+### Embeddings
+
+Embeddings are generated using `text-embedding-3-small` (1536 dimensions). The system tries providers in order: **OpenAI → OpenRouter → Mammouth**. If none is available, semantic search falls back to full-text (`ilike`) matching.
+
+---
+
 ## Heartbeat Orchestrator
 
 The heartbeat runs an LLM call on a configurable interval to autonomously manage agents.

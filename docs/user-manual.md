@@ -153,6 +153,33 @@ Keys take effect after `pm2 restart flint-router`.
 
 ---
 
+## Cloud Memory (Supabase — Optional)
+
+If your admin has configured Supabase, Flint gains a persistent vector memory store that survives restarts and can be shared across multiple Flint installations.
+
+**Saving a memory:**
+```bash
+curl -X POST http://localhost:3000/api/memory \
+  -H "Content-Type: application/json" \
+  -d '{"name":"project-x-notes","type":"project","description":"Notes on Project X","body":"..."}'
+```
+
+**Searching memories semantically:**
+```bash
+curl -X POST http://localhost:3000/api/memory/search \
+  -H "Content-Type: application/json" \
+  -d '{"query":"authentication approach","type":"project","count":5}'
+```
+
+**Listing all memories:**
+```bash
+curl http://localhost:3000/api/memory
+```
+
+Memory types are free-form strings (e.g. `project`, `agent`, `feedback`, `reference`) — use whatever makes sense for your workflow. If Supabase is not configured these endpoints return `503`.
+
+---
+
 ## Skills Library
 
 Skills are Markdown instruction files that agents (or you) can invoke.

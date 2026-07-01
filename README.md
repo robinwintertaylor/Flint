@@ -142,6 +142,28 @@ Store LLM provider API keys in the local database through the UI. Keys are injec
 
 Save working directory shortcuts (name + path) so you can pick them quickly when spawning agents.
 
+### Supabase Memory (Optional)
+
+Flint can sync agent memories to a Supabase project for vector search and cross-deployment memory sharing. This is **optional** — Flint runs fine without it.
+
+**Setup:**
+1. Create a free project at [supabase.com](https://supabase.com)
+2. Enable the `pgvector` extension in your project: **Database → Extensions → vector**
+3. Run the required SQL in the Supabase SQL editor (see `docs/admin-manual.md` — Supabase Setup)
+4. Add two keys via the **API Keys** tab:
+   - `SUPABASE_URL` — your project URL (e.g. `https://xyz.supabase.co`)
+   - `SUPABASE_ANON_KEY` — your project's anon/public key
+5. Restart the dashboard: `pm2 restart flint-dashboard`
+
+**What it does once configured:**
+- `POST /api/memory` — save a memory (name, type, description, body) with an auto-generated embedding
+- `POST /api/memory/search` — semantic vector search across all memories
+- `GET /api/memory` — list all memories
+- `PATCH /api/memory/:name` — update a memory
+- `DELETE /api/memory/:name` — delete a memory
+
+Embeddings are generated using `text-embedding-3-small` via OpenAI, OpenRouter, or Mammouth (whichever key is present). If no embedding key is available, search falls back to full-text (`ilike`) matching.
+
 ### Local LLMs
 
 - **Ollama** — status check and generation via the Ollama HTTP API (default: `http://localhost:11434`)
