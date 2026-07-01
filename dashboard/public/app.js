@@ -1713,15 +1713,19 @@ function renderQueueView(tasks, agents, activeFilter) {
     });
   });
 
-  // Assign buttons — open add-task modal pre-filled
+  // Assign buttons — open add-task modal pre-filled (re-fetch agents fresh so new ones appear)
   view.querySelectorAll('.btn-assign-task').forEach(btn => {
-    btn.addEventListener('click', () => {
-      openAddTaskModal(agents, Number(btn.dataset.id));
+    btn.addEventListener('click', async () => {
+      const freshAgents = await fetch('/agents').then(r => r.json()).catch(() => agents);
+      openAddTaskModal(freshAgents, Number(btn.dataset.id));
     });
   });
 
   // Add Task button
-  document.getElementById('btn-add-task').addEventListener('click', () => openAddTaskModal(agents));
+  document.getElementById('btn-add-task').addEventListener('click', async () => {
+    const freshAgents = await fetch('/agents').then(r => r.json()).catch(() => agents);
+    openAddTaskModal(freshAgents);
+  });
 
   // Save queue config (workdir + fallback agent)
   document.getElementById('btn-save-default-agent')?.addEventListener('click', () => {
@@ -1741,15 +1745,38 @@ function renderQueueView(tasks, agents, activeFilter) {
   });
 }
 
-function openAddTaskModal(agents, preAssignTaskId = null) {
+async function openAddTaskModal(agents, preAssignTaskId = null) {
   const modal = document.getElementById('add-task-modal');
   const agentSel = document.getElementById('add-task-agent');
   agentSel.innerHTML = '<option value="">Leave unassigned</option>';
-  agents.forEach(a => {
-    const opt = document.createElement('option');
-    opt.value = a.name; opt.textContent = a.name;
-    agentSel.appendChild(opt);
-  });
+
+  if (agents.length) {
+    const grp = document.createElement('optgroup');
+    grp.label = 'Active agents';
+    agents.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.name; opt.textContent = `${a.name} (${a.status})`;
+      grp.appendChild(opt);
+    });
+    agentSel.appendChild(grp);
+  }
+
+  try {
+    const specialists = await fetch('/api/specialists').then(r => r.json());
+    if (specialists.length) {
+      const grp = document.createElement('optgroup');
+      grp.label = 'Specialists';
+      specialists.forEach(s => {
+        const isSpawned = agents.some(a => a.name === s.name);
+        if (!isSpawned) {
+          const opt = document.createElement('option');
+          opt.value = s.name; opt.textContent = `${s.label || s.name}`;
+          grp.appendChild(opt);
+        }
+      });
+      if (grp.children.length) agentSel.appendChild(grp);
+    }
+  } catch { /* specialists unavailable */ }
   modal.dataset.preAssignId = preAssignTaskId ?? '';
   // When assigning, clear stale form fields and update heading
   if (preAssignTaskId) {
