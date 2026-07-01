@@ -17,7 +17,7 @@ import { isForgejoReachable, pushBranch, createPR, getPRStatus } from './forgejo
 import { detectProvider, isGitHubReachable, pushToGitHub, createGitHubPR, getGitHubPRStatus } from './github.js';
 import { info, error as logError } from './logger.js';
 import { listMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from './mcp.js';
-import { listQueueTasks, getQueueTask, createQueueTask, assignQueueTask, updateQueueTask, completeQueueTask, cancelQueueTask, startQueuePoller, releaseOrphanedTasks } from './queue.js';
+import { listQueueTasks, getQueueTask, createQueueTask, assignQueueTask, updateQueueTask, completeQueueTask, cancelQueueTask, deleteQueueTask, startQueuePoller, releaseOrphanedTasks } from './queue.js';
 import { createOrchestration, getOrchestration, listOrchestrations, appendScratchpad, readScratchpad } from './orchestrator.js';
 import { listApiKeys, getApiKeyValue, createApiKey, updateApiKey, deleteApiKey, buildApiKeyEnv } from './apikeys.js';
 import { initSupabase, isSupabaseEnabled, upsertMemory, searchMemories, logSessionStart, logSessionEnd, pullMemories } from './supabase.js';
@@ -263,10 +263,16 @@ export function createApp() {
   });
 
   app.delete('/queue/tasks/:id', (req, res) => {
-    const task = getQueueTask(Number(req.params.id));
+    const id = Number(req.params.id);
+    const task = getQueueTask(id);
     if (!task) return res.status(404).json({ error: 'task not found' });
-    cancelQueueTask(Number(req.params.id));
-    res.json({ ok: true });
+    if (['cancelled', 'done', 'failed'].includes(task.status)) {
+      deleteQueueTask(id);
+      res.json({ ok: true, deleted: true });
+    } else {
+      cancelQueueTask(id);
+      res.json({ ok: true, deleted: false });
+    }
   });
 
   app.post('/queue/release-orphaned', (_req, res) => {

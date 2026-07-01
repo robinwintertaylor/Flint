@@ -121,6 +121,10 @@ export function cancelQueueTask(id) {
   if (task) notify(`❌ Queue task #${id} cancelled: "${task.title}"`);
 }
 
+export function deleteQueueTask(id) {
+  getDb().prepare(`DELETE FROM task_queue WHERE id = ?`).run(id);
+}
+
 export async function checkQueueTasks() {
   const inProgress = getDb().prepare(
     `SELECT * FROM task_queue WHERE status = 'in_progress' AND assigned_to IS NOT NULL`

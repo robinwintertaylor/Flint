@@ -265,15 +265,28 @@ function updateStatus(name, status) {
     remove.textContent = 'Remove';
     existingKill.replaceWith(restart, remove);
     restart.addEventListener('click', () => {
+      restart.textContent = 'Restarting…';
+      restart.disabled = true;
       fetch(`/agents/${encodeURIComponent(name)}`)
         .then(r => r.json())
         .then(agent => {
+          if (!agent.workdir) {
+            alert(`Cannot restart "${name}": no working directory stored. Spawn a new agent instead.`);
+            restart.textContent = 'Restart';
+            restart.disabled = false;
+            return;
+          }
           ws.send(JSON.stringify({
             type: 'spawn', agent: agent.name, workdir: agent.workdir, runtime: agent.runtime ?? 'claude',
+            role: agent.role ?? null,
             ...(agent.model && agent.runtime !== 'vibe' ? { model: agent.model } : {}),
           }));
         })
-        .catch(err => console.error('Restart failed:', err));
+        .catch(err => {
+          console.error('Restart failed:', err);
+          restart.textContent = 'Restart';
+          restart.disabled = false;
+        });
     });
     remove.addEventListener('click', () => {
       fetch(`/agents/${encodeURIComponent(name)}`, { method: 'DELETE' }).catch(() => {});
@@ -1578,6 +1591,7 @@ function renderQueueView(tasks, agents, activeFilter) {
               <td style="white-space:nowrap">
                 ${!t.assigned_to && t.status === 'pending' ? `<button class="btn-assign-task" data-id="${escHtml(String(t.id))}" style="font-size:13px;padding:2px 7px;border-radius:4px;border:1px solid #388bfd;background:none;color:#388bfd;cursor:pointer">Assign</button>` : ''}
                 ${['pending','in_progress'].includes(t.status) ? `<button class="btn-cancel-task" data-id="${escHtml(String(t.id))}" style="font-size:13px;padding:2px 7px;border-radius:4px;border:1px solid #f8514966;background:none;color:#f85149;cursor:pointer;margin-left:4px">Cancel</button>` : ''}
+                ${['cancelled','done','failed'].includes(t.status) ? `<button class="btn-delete-task" data-id="${escHtml(String(t.id))}" style="font-size:13px;padding:2px 7px;border-radius:4px;border:1px solid #6e768166;background:none;color:#8b949e;cursor:pointer;margin-left:4px">Delete</button>` : ''}
               </td>
             </tr>
             <tr class="queue-expand" id="expand-${escHtml(String(t.id))}"><td colspan="7">
@@ -1685,6 +1699,14 @@ function renderQueueView(tasks, agents, activeFilter) {
 
   // Cancel buttons
   view.querySelectorAll('.btn-cancel-task').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`/queue/tasks/${btn.dataset.id}`, { method: 'DELETE' });
+      fetchAndRenderQueue(queueFilter);
+    });
+  });
+
+  // Delete buttons (for cancelled/done/failed tasks — permanently removes from DB)
+  view.querySelectorAll('.btn-delete-task').forEach(btn => {
     btn.addEventListener('click', async () => {
       await fetch(`/queue/tasks/${btn.dataset.id}`, { method: 'DELETE' });
       fetchAndRenderQueue(queueFilter);
