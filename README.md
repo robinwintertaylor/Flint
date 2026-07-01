@@ -59,7 +59,7 @@ docker compose up -d
 Wait ~10 seconds, then bootstrap (first time only):
 
 ```powershell
-# Default admin username is "admin" — pass -AdminUser to override
+# Default admin username is "flintadmin" — pass -AdminUser to use your own name
 .\scripts\forgejo-init.ps1
 # or: .\scripts\forgejo-init.ps1 -AdminUser yourname -AdminPassword yourpassword
 ```

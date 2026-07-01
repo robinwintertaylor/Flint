@@ -79,7 +79,7 @@ Wait ~10 seconds, then bootstrap (run once only):
 # or: .\scripts\forgejo-init.ps1 -AdminUser yourname -AdminPassword yourpassword
 ```
 
-This creates the admin user (default `admin`), generates an API token at `forgejo.token`, creates the `flint` repo, adds the `forgejo` remote, and pushes `master`.
+This creates the admin user (default `flintadmin` — `admin` is reserved by Forgejo), generates an API token at `forgejo.token`, creates the `flint` repo, adds the `forgejo` remote, and pushes `master`.
 
 **Change the default password** at `http://localhost:3030/user/settings/account` (default: `changeme123`).
 
@@ -441,11 +441,11 @@ The **builder** specialist lives at `agents/specialists/builder/` and is the eng
 ### First-time bootstrap
 
 ```powershell
-.\scripts\forgejo-init.ps1                                          # creates "admin" user
+.\scripts\forgejo-init.ps1                                             # creates "flintadmin" user
 .\scripts\forgejo-init.ps1 -AdminUser yourname -AdminPassword s3cr3t  # custom username
 ```
 
-Creates the admin user (default `admin`, password `changeme123`), generates an API token, creates the `flint` repo.
+Creates the admin user (default `flintadmin`, password `changeme123` — note: `admin` is a reserved username in Forgejo), generates an API token, creates the `flint` repo.
 
 ### Token regeneration
 

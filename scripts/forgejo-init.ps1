@@ -19,7 +19,7 @@
     .\scripts\forgejo-init.ps1 -AdminUser alice -AdminPassword s3cr3t
 #>
 param(
-    [string]$AdminUser     = 'admin',
+    [string]$AdminUser     = 'flintadmin',
     [string]$AdminPassword = 'changeme123',
     [string]$AdminEmail    = ''
 )
