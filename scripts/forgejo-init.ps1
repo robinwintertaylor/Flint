@@ -4,7 +4,27 @@
     Run once after: docker compose up -d
     Creates admin user, generates API token, creates repo, pushes master, adds git remote.
     Safe to re-run: deletes and recreates the token if it already exists.
+
+.PARAMETER AdminUser
+    Username for the Forgejo admin account. Default: admin
+
+.PARAMETER AdminPassword
+    Password for the admin account. Default: changeme123  (change after first login)
+
+.PARAMETER AdminEmail
+    Email for the admin account. Default: <AdminUser>@flint.local
+
+.EXAMPLE
+    .\scripts\forgejo-init.ps1
+    .\scripts\forgejo-init.ps1 -AdminUser alice -AdminPassword s3cr3t
 #>
+param(
+    [string]$AdminUser     = 'admin',
+    [string]$AdminPassword = 'changeme123',
+    [string]$AdminEmail    = ''
+)
+
+if (-not $AdminEmail) { $AdminEmail = "${AdminUser}@flint.local" }
 
 $ErrorActionPreference = 'Stop'
 $FlintRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
@@ -26,12 +46,12 @@ Write-Host " ready."
 # 2. Create admin user (ignore if already exists)
 try {
     docker exec -u git flint-forgejo forgejo admin user create `
-        --username robin `
-        --password changeme123 `
-        --email robin@flint.local `
+        --username $AdminUser `
+        --password $AdminPassword `
+        --email    $AdminEmail `
         --admin 2>&1 | Out-Null
 } catch {}
-Write-Host "Admin user: robin / changeme123"
+Write-Host "Admin user: $AdminUser / $AdminPassword"
 
 # 3. Get or generate API token
 $tokenPath = Join-Path $FlintRoot 'forgejo.token'
@@ -47,7 +67,6 @@ if (Test-Path $tokenPath) {
         Write-Host "Using existing valid token from forgejo.token"
     } catch {
         Write-Host "Stored token is invalid, will regenerate..."
-        # Delete the named token via API using the (now-invalid) token — may succeed or fail
         try {
             $tList = Invoke-RestMethod -Uri 'http://localhost:3030/api/v1/user/tokens' `
                 -Headers @{ Authorization = "token $candidate" } -ErrorAction Stop
@@ -63,10 +82,9 @@ if (Test-Path $tokenPath) {
 
 # Generate a fresh token only when we don't have a valid one
 if (-not $token) {
-    # Use a timestamped name to avoid conflicts with any existing token of the same name
-    $tokenName = "flint-$(Get-Date -Format 'yyyyMMddHHmmss')"
+    $tokenName  = "flint-$(Get-Date -Format 'yyyyMMddHHmmss')"
     $tokenOutput = @(docker exec -u git flint-forgejo forgejo admin user generate-access-token `
-        --username robin --token-name $tokenName --raw `
+        --username $AdminUser --token-name $tokenName --raw `
         --scopes 'write:repository,write:issue,write:user,read:misc' 2>&1)
     foreach ($line in $tokenOutput) {
         $l = $line.Trim()
@@ -78,7 +96,7 @@ if (-not $token) {
     Write-Host "New token saved to: $tokenPath"
 }
 
-# 4b. Validate the new token works
+# 4. Validate the token
 try {
     $me = Invoke-RestMethod -Uri 'http://localhost:3030/api/v1/user' `
         -Headers @{ Authorization = "token $token" } -ErrorAction Stop
@@ -102,7 +120,7 @@ try {
         Write-Host "Repo creation error: $($_.Exception.Message) | $errBody"
         Write-Host "Attempting to verify repo exists..."
         try {
-            Invoke-RestMethod -Uri 'http://localhost:3030/api/v1/repos/robin/flint' `
+            Invoke-RestMethod -Uri "http://localhost:3030/api/v1/repos/${AdminUser}/flint" `
                 -Headers @{ Authorization = "token $token" } -ErrorAction Stop | Out-Null
             Write-Host "Repo confirmed to exist."
         } catch {
@@ -114,9 +132,10 @@ try {
 # 6. Add forgejo remote and push master
 Set-Location $FlintRoot
 try { git remote remove forgejo 2>&1 | Out-Null } catch {}
-git remote add forgejo "http://robin:${token}@localhost:3030/robin/flint.git"
+git remote add forgejo "http://${AdminUser}:${token}@localhost:3030/${AdminUser}/flint.git"
 git push forgejo master
 Write-Host ""
 Write-Host "Forgejo bootstrap complete"
-Write-Host "  Web UI: http://localhost:3030"
-Write-Host "  Login:  robin / changeme123"
+Write-Host "  Web UI:   http://localhost:3030"
+Write-Host "  Login:    $AdminUser / $AdminPassword"
+Write-Host "  IMPORTANT: Change your password at http://localhost:3030/user/settings/account"

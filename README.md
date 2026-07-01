@@ -45,11 +45,13 @@ docker compose up -d
 Wait ~10 seconds, then bootstrap (first time only):
 
 ```powershell
+# Default admin username is "admin" — pass -AdminUser to override
 .\scripts\forgejo-init.ps1
+# or: .\scripts\forgejo-init.ps1 -AdminUser yourname -AdminPassword yourpassword
 ```
 
-This creates the `robin` admin user, saves an API token to `forgejo.token`, creates the `flint` repo, adds the `forgejo` git remote, and pushes `master`.
-Forgejo login: `robin / changeme123` — **change this password** at `http://localhost:3030/user/settings/account`.
+This creates the admin user (default `admin`), saves an API token to `forgejo.token`, creates the `flint` repo, adds the `forgejo` git remote, and pushes `master`.
+Forgejo login: `admin / changeme123` — **change this password** at `http://localhost:3030/user/settings/account`.
 
 ### 3. Start the full stack
 

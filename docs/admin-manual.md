@@ -46,10 +46,12 @@ docker compose up -d
 Wait ~10 seconds, then bootstrap (run once only):
 
 ```powershell
+# Default admin username is "admin" — pass -AdminUser to use your own name
 .\scripts\forgejo-init.ps1
+# or: .\scripts\forgejo-init.ps1 -AdminUser yourname -AdminPassword yourpassword
 ```
 
-This creates the `robin` admin user, generates an API token at `forgejo.token`, creates the `flint` repo, adds the `forgejo` remote, and pushes `master`.
+This creates the admin user (default `admin`), generates an API token at `forgejo.token`, creates the `flint` repo, adds the `forgejo` remote, and pushes `master`.
 
 **Change the default password** at `http://localhost:3030/user/settings/account` (default: `changeme123`).
 
@@ -283,15 +285,16 @@ The **builder** specialist lives at `agents/specialists/builder/` and is the eng
 ### First-time bootstrap
 
 ```powershell
-.\scripts\forgejo-init.ps1
+.\scripts\forgejo-init.ps1                                          # creates "admin" user
+.\scripts\forgejo-init.ps1 -AdminUser yourname -AdminPassword s3cr3t  # custom username
 ```
 
-Creates admin user `robin` (password `changeme123`), generates an API token, creates the `flint` repo.
+Creates the admin user (default `admin`, password `changeme123`), generates an API token, creates the `flint` repo.
 
 ### Token regeneration
 
 If `forgejo.token` is lost:
-1. Log in at `http://localhost:3030` as `robin`
+1. Log in at `http://localhost:3030` with your admin username
 2. Go to **Settings → Applications → Generate new token**
 3. Paste the token into `forgejo.token` at the Flint root
 
@@ -305,7 +308,7 @@ docker compose start forgejo
 
 ### Accessing Forgejo directly
 
-`http://localhost:3030` — admin login: `robin` / `changeme123` (change this).
+`http://localhost:3030` — log in with the admin username you set during bootstrap (default: `admin` / `changeme123` — change this).
 
 ---
 
