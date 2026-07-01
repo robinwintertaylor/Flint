@@ -2294,15 +2294,29 @@ function showSpecialistModal({ name, label, description, domains, preferred_tier
 // ─── Flint Chat ────────────────────────────────────────────────────────────
 
 (function initChat() {
-  const toggle  = document.getElementById('chat-toggle');
-  const panel   = document.getElementById('chat-panel');
+  const toggle   = document.getElementById('chat-toggle');
+  const panel    = document.getElementById('chat-panel');
   const closeBtn = document.getElementById('chat-close');
-  const input   = document.getElementById('chat-input');
-  const sendBtn = document.getElementById('chat-send');
-  const msgList = document.getElementById('chat-messages');
+  const input    = document.getElementById('chat-input');
+  const sendBtn  = document.getElementById('chat-send');
+  const msgList  = document.getElementById('chat-messages');
 
-  // Conversation history (sent to server each time)
-  const history = [];
+  const STORAGE_KEY = 'flint_chat_history';
+  const MAX_STORED  = 100; // keep last 100 messages in localStorage
+
+  // Load persisted history or start fresh
+  let history = [];
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) history = JSON.parse(saved);
+  } catch {}
+
+  function saveHistory() {
+    try {
+      const trimmed = history.slice(-MAX_STORED);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    } catch {}
+  }
 
   let open = false;
   toggle.addEventListener('click', () => {
@@ -2326,6 +2340,13 @@ function showSpecialistModal({ name, label, description, domains, preferred_tier
     msgList.appendChild(div);
     scrollToBottom();
     return div;
+  }
+
+  // Render any previously saved messages
+  if (history.length) {
+    for (const msg of history) addBubble(msg.role, msg.content);
+  } else {
+    addBubble('assistant', 'Hi — I\'m Flint. What can I do for you?');
   }
 
   async function sendMessage() {
@@ -2358,6 +2379,7 @@ function showSpecialistModal({ name, label, description, domains, preferred_tier
       const reply = data.reply ?? '(no reply)';
       history.push({ role: 'assistant', content: reply });
       addBubble('assistant', reply);
+      saveHistory();
     } catch (err) {
       thinking.remove();
       addBubble('assistant', `Network error: ${err.message}`);
@@ -2382,7 +2404,4 @@ function showSpecialistModal({ name, label, description, domains, preferred_tier
     input.style.height = '';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
   });
-
-  // Opening greeting
-  addBubble('assistant', 'Hi Robin — I\'m Flint. What can I do for you?');
 })();
