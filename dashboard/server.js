@@ -393,7 +393,6 @@ export function createApp() {
       const models = (data.data || [])
         .filter(m => m.id && !m.id.startsWith(':'))
         .sort((a, b) => score(b) - score(a))
-        .slice(0, 30)
         .map(m => ({ id: m.id, name: m.name || m.id }));
       res.json(models);
     } catch (err) {
