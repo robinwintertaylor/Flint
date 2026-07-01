@@ -19,10 +19,13 @@ Flint is a personal agentic operating system for running multiple Claude Code ag
 ## Prerequisites
 
 - **PowerShell** — run all commands below in **PowerShell** (not cmd.exe)
-- **Node.js 20 LTS** — `winget install OpenJS.NodeJS.LTS` *(v20 or v22; avoid v24 — no prebuilt binaries yet)*
-- **Windows Build Tools** — required for native modules (`better-sqlite3`, `node-pty`):
+- **Node.js LTS** — `winget install OpenJS.NodeJS.LTS` *(v20, v22, or v24 all work)*
+- **Windows Build Tools** — required for `node-pty` (native module). Run both commands:
   ```powershell
-  winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet --wait"
+  # Step 1 — install base toolset
+  winget install Microsoft.VisualStudio.2022.BuildTools --silent --accept-package-agreements --accept-source-agreements
+  # Step 2 — add the C++ workload and Windows SDK (winget alone does not install these)
+  & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet --norestart
   ```
 - **Git** — `winget install Git.Git`
 - **Docker Desktop** — for Forgejo ([download](https://www.docker.com/products/docker-desktop/))

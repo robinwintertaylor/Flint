@@ -147,12 +147,24 @@ if (-not $SkipPrereqs) {
   }
   Write-Ok "Node.js $(node --version)"
 
-  # Windows Build Tools (required for better-sqlite3 and node-pty native compilation)
-  Write-Host "   Installing Windows Build Tools (C++ + Windows SDK)..." -ForegroundColor Yellow
+  # Windows Build Tools (required for node-pty native compilation)
+  Write-Host "   Installing VS2022 Build Tools base package..." -ForegroundColor Yellow
   winget install --id Microsoft.VisualStudio.2022.BuildTools --silent `
-    --accept-package-agreements --accept-source-agreements `
-    --override "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet --wait"
-  Write-Ok "Windows Build Tools installed (or already present)"
+    --accept-package-agreements --accept-source-agreements
+  # winget installs the VS shell only; use the VS Installer to add the C++ workload and SDK
+  $vsInstallerExe = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe"
+  $vs2022Path     = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
+  if ((Test-Path $vsInstallerExe) -and (Test-Path $vs2022Path)) {
+    Write-Host "   Adding C++ workload and Windows 11 SDK to VS2022 Build Tools..." -ForegroundColor Yellow
+    & $vsInstallerExe modify `
+      --installPath $vs2022Path `
+      --add Microsoft.VisualStudio.Workload.VCTools `
+      --add Microsoft.VisualStudio.Component.Windows11SDK.22621 `
+      --quiet --norestart
+  } else {
+    Write-Warn "VS Installer not found at expected path — node-pty may fail to compile. Run the step manually per the admin manual."
+  }
+  Write-Ok "Windows Build Tools ready"
 
   # Git
   if (-not (Test-Command 'git')) {

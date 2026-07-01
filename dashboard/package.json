@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
-    "better-sqlite3": "^11.0.0",
+    "better-sqlite3": "^12.11.1",
     "express": "^4.19.2",
     "node-pty": "^1.0.0",
     "node-telegram-bot-api": "1.1.2",

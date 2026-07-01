@@ -9,7 +9,7 @@
 | Requirement | Minimum | Notes |
 |-------------|---------|-------|
 | OS | Windows 10/11 | Windows 11 Pro recommended |
-| Node.js | 20 LTS | `winget install OpenJS.NodeJS.LTS` — use v20 or v22; avoid v24 (no prebuilt binaries for native modules yet) |
+| Node.js | 20 LTS | `winget install OpenJS.NodeJS.LTS` — v20, v22, or v24 all work |
 | Windows Build Tools | VS 2022 Build Tools + Windows 11 SDK | Required for `better-sqlite3` and `node-pty` — see Installation step 0 |
 | RAM | 8 GB | 16 GB recommended for 5+ simultaneous agents |
 | Disk | 2 GB free | SQLite DB + agent logs + git worktrees |
@@ -24,15 +24,24 @@
 
 ### 0. Install Windows Build Tools (first-time only)
 
-Open PowerShell **as Administrator** and run:
+Open PowerShell **as Administrator** and run both commands in order:
 
 ```powershell
-winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet --wait"
+# Step 1 — install the base VS2022 Build Tools package
+winget install Microsoft.VisualStudio.2022.BuildTools --silent --accept-package-agreements --accept-source-agreements
+
+# Step 2 — add the C++ workload and Windows 11 SDK
+# (winget alone installs only the shell; the modify step adds what node-gyp needs)
+& "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify `
+  --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" `
+  --add Microsoft.VisualStudio.Workload.VCTools `
+  --add Microsoft.VisualStudio.Component.Windows11SDK.22621 `
+  --quiet --norestart
 ```
 
-This installs the C++ build toolchain and Windows SDK needed to compile `better-sqlite3` and `node-pty`. Without it, `npm install` will fail on a fresh machine.
+This installs the C++ build toolchain and Windows SDK needed to compile `node-pty`. Without it, `npm install` will fail on a fresh machine.
 
-> **Already have Visual Studio?** Make sure the **Desktop development with C++** workload and a Windows 11 SDK component are installed via the Visual Studio Installer.
+> **Already have Visual Studio?** In the Visual Studio Installer, modify your installation and ensure the **Desktop development with C++** workload and a Windows 11 SDK component are checked.
 
 ### 1. Clone and install
 
