@@ -71,8 +71,21 @@ export async function autoAssignPendingTasks({
     if (task.assigned_to) {
       let agent = getAgent(task.assigned_to);
 
+      // Helper: load specialist soul; fall back to a minimal soul from DB description
+      // if filesystem files don't exist (e.g. created via API without files written)
+      const loadSoul = (specName) => {
+        const fromDisk = loadSpecialist(specName);
+        if (fromDisk) return fromDisk;
+        const spec = getSpecialist(specName);
+        if (!spec) return null;
+        return {
+          ...spec,
+          soul: `# ${spec.label}\n\nI am a specialist in ${spec.description || spec.label}.\n\n## My approach:\n- Complete assigned tasks thoroughly and accurately\n- Stay focused on my area of expertise\n- Report progress and findings clearly\n`,
+        };
+      };
+
       if (!agent) {
-        // Not a panel agent yet — try to find a matching specialist and spawn it
+        // Not a panel agent yet — find the specialist and spawn it
         const spec = getSpecialist(task.assigned_to);
         if (!spec) {
           console.log(`[auto-pickup] task #${task.id} assigned to "${task.assigned_to}" but no agent or specialist found — skipping`);
@@ -81,7 +94,7 @@ export async function autoAssignPendingTasks({
         const workdir = getSetting('default_workdir') || process.cwd();
         const runtime = runtimeForProvider(spec.preferred_provider);
         const model   = runtime === 'openrouter' ? 'openai/gpt-4o-mini' : runtime === 'mammouth' ? 'gpt-5.4-mini' : '';
-        const loaded  = loadSpecialist(spec.name);
+        const loaded  = loadSoul(spec.name);
         registerAgent(task.assigned_to, 'spawn', workdir, null, model, runtime, task.assigned_to);
         agent = getAgent(task.assigned_to);
         console.log(`[auto-pickup] spawning specialist "${task.assigned_to}" for pre-assigned task #${task.id}`);
@@ -90,7 +103,9 @@ export async function autoAssignPendingTasks({
           continue;
         }
       } else if (agent.status === 'stopped') {
-        try { spawnFn(task.assigned_to, agent.workdir, agent.model || null, {}); } catch {}
+        // Re-spawn with specialist soul so it doesn't run as a generic agent
+        const loaded = loadSoul(task.assigned_to);
+        try { spawnFn(task.assigned_to, agent.workdir, agent.model || null, { specialist: loaded }); } catch {}
       }
 
       try {

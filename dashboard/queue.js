@@ -135,11 +135,12 @@ export async function checkQueueTasks() {
     if (!agent || agent.status === 'stopped') {
       const staleMs = Date.now() - new Date(task.updated_at).getTime();
       if (staleMs > 5 * 60 * 1000) {
+        // Keep assigned_to so auto-pickup retries with the correct specialist
         getDb().prepare(
-          `UPDATE task_queue SET status = 'pending', assigned_to = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+          `UPDATE task_queue SET status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
         ).run(task.id);
         broadcastGlobal({ type: 'queue_tasks_released', count: 1 });
-        console.log(`[queue] task #${task.id} auto-released — agent "${task.assigned_to}" stopped`);
+        console.log(`[queue] task #${task.id} reset to pending — agent "${task.assigned_to}" stopped`);
         continue;
       }
     }
@@ -169,7 +170,7 @@ export function releaseOrphanedTasks() {
   if (stuck.length === 0) return 0;
   const ids = stuck.map(t => t.id);
   db.prepare(
-    `UPDATE task_queue SET status = 'pending', assigned_to = NULL, updated_at = CURRENT_TIMESTAMP WHERE id IN (${ids.map(() => '?').join(',')})`
+    `UPDATE task_queue SET status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE id IN (${ids.map(() => '?').join(',')})`
   ).run(...ids);
   broadcastGlobal({ type: 'queue_tasks_released', count: ids.length });
   return ids.length;
