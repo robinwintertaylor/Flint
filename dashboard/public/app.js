@@ -233,6 +233,12 @@ function ensurePanel({ name, mode, status, isolate, runtime, role, model }) {
     }
   }, 5000);
 
+  // Click header (not a button) to expand / collapse panel
+  panel.querySelector('.panel-header').addEventListener('click', e => {
+    if (e.target.closest('button')) return;
+    togglePanelExpanded(name);
+  });
+
   updateAgentCount();
 }
 
@@ -291,6 +297,61 @@ function updateAgentCost(name, today) {
 function updateAgentCount() {
   document.getElementById('agent-count').textContent =
     `${document.querySelectorAll('.panel').length} agents`;
+  updateGridLayout();
+}
+
+function updateGridLayout() {
+  const panelsEl = document.getElementById('panels');
+  if (!panelsEl || panelsEl.style.display === 'none') return;
+
+  const header  = document.getElementById('header');
+  const toolbar = document.getElementById('toolbar');
+  const availH  = window.innerHeight
+    - (header  ? header.offsetHeight  : 108)
+    - (toolbar ? toolbar.offsetHeight : 36)
+    - 2;
+  panelsEl.style.height = availH + 'px';
+
+  const count = panelsEl.querySelectorAll('.panel').length;
+  if (count === 0) return;
+
+  let cols;
+  if      (count === 1) cols = 1;
+  else if (count <= 4)  cols = 2;
+  else if (count <= 9)  cols = 3;
+  else                  cols = 4;
+  const rows = Math.ceil(count / cols);
+
+  panelsEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  panelsEl.style.gridTemplateRows    = `repeat(${rows}, 1fr)`;
+
+  requestAnimationFrame(() => {
+    Object.values(terminals).forEach(({ fitAddon }) => {
+      try { fitAddon.fit(); } catch {}
+    });
+  });
+}
+
+function togglePanelExpanded(name) {
+  const panel = document.getElementById(`panel-${name}`);
+  if (!panel) return;
+  const wasExpanded = panel.classList.contains('panel-expanded');
+
+  document.querySelectorAll('.panel-expanded').forEach(p => {
+    p.classList.remove('panel-expanded');
+    p.style.removeProperty('inset');
+  });
+
+  if (!wasExpanded) {
+    const header  = document.getElementById('header');
+    const toolbar = document.getElementById('toolbar');
+    const top = (header  ? header.offsetHeight  : 108)
+              + (toolbar ? toolbar.offsetHeight  : 36) + 4;
+    panel.classList.add('panel-expanded');
+    panel.style.inset = `${top}px 8px 8px 8px`;
+  }
+
+  setTimeout(() => { try { terminals[name]?.fitAddon.fit(); } catch {} }, 50);
 }
 
 function renderTasks(agentName, content) {
@@ -497,7 +558,18 @@ document.getElementById('btn-refresh').addEventListener('click', () => {
 
 // Resize terminals when window resizes
 window.addEventListener('resize', () => {
-  Object.values(terminals).forEach(({ fitAddon }) => fitAddon.fit());
+  updateGridLayout();
+});
+
+// Escape key collapses any expanded panel
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  document.querySelectorAll('.panel-expanded').forEach(p => {
+    const n = p.id.replace('panel-', '');
+    p.classList.remove('panel-expanded');
+    p.style.removeProperty('inset');
+    setTimeout(() => { try { terminals[n]?.fitAddon.fit(); } catch {} }, 50);
+  });
 });
 
 async function populateModelDropdown() {

@@ -27,17 +27,25 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 }
 #toolbar button:hover { background: #388bfd22; border-color: #58a6ff; color: #58a6ff; }
 
-/* Panels grid */
-#panels { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; }
-@media (max-width: 1079px) { #panels { grid-template-columns: 1fr; } }
+/* Panels grid — columns/rows and height are set dynamically by updateGridLayout() */
+#panels { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 6px; overflow: hidden; }
 
 /* Panel */
 .panel { background: #161b22; border: 1px solid #30363d; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; }
 
+/* Expanded panel — floats over the grid as a full-screen overlay */
+.panel-expanded {
+  position: fixed !important;
+  z-index: 500;
+  border: 2px solid #58a6ff !important;
+  box-shadow: 0 0 0 4px rgba(88,166,255,0.12);
+  border-radius: 6px;
+}
+
 .panel-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 6px 10px; background: #21262d; border-bottom: 1px solid #30363d;
-  min-height: 34px;
+  min-height: 34px; cursor: pointer; user-select: none;
 }
 .panel-name { font-weight: bold; color: #58a6ff; }
 .badge {
@@ -82,8 +90,8 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 .btn-restart:hover { background: #3fb95022; }
 
 /* Panel body */
-.panel-body { display: flex; flex: 1; min-height: 0; }
-.terminal-wrap { flex: 1; padding: 4px; min-width: 0; height: 400px; overflow: hidden; }
+.panel-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.terminal-wrap { flex: 1; padding: 4px; min-width: 0; min-height: 0; overflow: hidden; }
 .terminal-wrap .xterm { height: 100%; }
 
 /* Task sidebar */
