@@ -9,7 +9,8 @@
 | Requirement | Minimum | Notes |
 |-------------|---------|-------|
 | OS | Windows 10/11 | Windows 11 Pro recommended |
-| Node.js | 20 LTS | `winget install OpenJS.NodeJS.LTS` |
+| Node.js | 20 LTS | `winget install OpenJS.NodeJS.LTS` — use v20 or v22; avoid v24 (no prebuilt binaries for native modules yet) |
+| Windows Build Tools | VS 2022 Build Tools + Windows 11 SDK | Required for `better-sqlite3` and `node-pty` — see Installation step 0 |
 | RAM | 8 GB | 16 GB recommended for 5+ simultaneous agents |
 | Disk | 2 GB free | SQLite DB + agent logs + git worktrees |
 | Git | Any recent | `winget install Git.Git` |
@@ -21,14 +22,32 @@
 
 ## Installation
 
+### 0. Install Windows Build Tools (first-time only)
+
+Open PowerShell **as Administrator** and run:
+
+```powershell
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet --wait"
+```
+
+This installs the C++ build toolchain and Windows SDK needed to compile `better-sqlite3` and `node-pty`. Without it, `npm install` will fail on a fresh machine.
+
+> **Already have Visual Studio?** Make sure the **Desktop development with C++** workload and a Windows 11 SDK component are installed via the Visual Studio Installer.
+
 ### 1. Clone and install
+
+Run all commands in **PowerShell** (not cmd.exe).
 
 ```powershell
 git clone <your-repo-url> C:\Flint
 cd C:\Flint
 
-cd dashboard; npm install; cd ..
-cd router;    npm install; cd ..
+cd dashboard
+npm install
+cd ..
+cd router
+npm install
+cd ..
 ```
 
 ### 2. Install the CLI globally
@@ -444,8 +463,12 @@ docker compose start forgejo
 
 ```powershell
 git pull origin main        # or your remote name
-cd dashboard; npm install; cd ..
-cd router;    npm install; cd ..
+cd dashboard
+npm install
+cd ..
+cd router
+npm install
+cd ..
 pm2 restart all
 ```
 

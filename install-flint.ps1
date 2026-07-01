@@ -147,6 +147,13 @@ if (-not $SkipPrereqs) {
   }
   Write-Ok "Node.js $(node --version)"
 
+  # Windows Build Tools (required for better-sqlite3 and node-pty native compilation)
+  Write-Host "   Installing Windows Build Tools (C++ + Windows SDK)..." -ForegroundColor Yellow
+  winget install --id Microsoft.VisualStudio.2022.BuildTools --silent `
+    --accept-package-agreements --accept-source-agreements `
+    --override "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet --wait"
+  Write-Ok "Windows Build Tools installed (or already present)"
+
   # Git
   if (-not (Test-Command 'git')) {
     Write-Host "   Installing Git via winget..." -ForegroundColor Yellow
