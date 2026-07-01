@@ -76,8 +76,9 @@ pm2 start ecosystem.config.cjs
 ### 4. Set up boot persistence
 
 ```powershell
-pm2 startup   # run the command it prints (registers a Windows Task Scheduler entry)
-pm2 save      # saves process list so it auto-restarts on reboot
+npm install -g pm2-windows-startup   # one-time: installs the Windows startup helper
+pm2-windows-startup install          # registers PM2 in Windows Task Scheduler
+pm2 save                             # saves the current process list
 ```
 
 ### 5. Add your API keys

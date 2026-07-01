@@ -136,11 +136,11 @@ try {
     }
 }
 
-# 6. Add forgejo remote and push master
+# 6. Add forgejo remote and push current branch as master
 Set-Location $FlintRoot
 try { git remote remove forgejo 2>&1 | Out-Null } catch {}
 git remote add forgejo "http://${AdminUser}:${token}@localhost:3030/${AdminUser}/flint.git"
-git push forgejo master
+git push forgejo HEAD:master
 Write-Host ""
 Write-Host "Forgejo bootstrap complete"
 Write-Host "  Web UI:   http://localhost:3030"

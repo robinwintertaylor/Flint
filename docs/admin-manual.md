@@ -105,9 +105,12 @@ pm2 start ecosystem.config.cjs
 ### 6. Persist across reboots
 
 ```powershell
-pm2 startup   # follow the printed instruction — registers a Task Scheduler entry
-pm2 save      # saves the current process list
+npm install -g pm2-windows-startup   # one-time: installs the Windows startup helper
+pm2-windows-startup install          # registers PM2 in Windows Task Scheduler
+pm2 save                             # saves the current process list
 ```
+
+> `pm2 startup` (the built-in command) targets Linux init systems and fails on Windows with "Init system not found". Use `pm2-windows-startup` instead.
 
 ### 7. Add API keys
 
