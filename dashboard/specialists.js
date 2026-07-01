@@ -2,7 +2,7 @@ import { getDb } from './db.js';
 
 export function listSpecialists() {
   return getDb()
-    .prepare('SELECT name, label, description, domains, skills, preferred_tier, preferred_provider, created_by, created_at, use_count, last_used FROM specialists ORDER BY use_count DESC, label')
+    .prepare('SELECT name, label, description, domains, skills, preferred_tier, preferred_provider, preferred_model, created_by, created_at, use_count, last_used FROM specialists ORDER BY use_count DESC, label')
     .all()
     .map(parseRow);
 }
@@ -19,19 +19,20 @@ export function createSpecialist({
   skills       = [],
   preferred_tier     = 2,
   preferred_provider = null,
+  preferred_model    = null,
   created_by   = 'robin',
 }) {
   validateName(name);
   const now = new Date().toISOString();
   getDb().prepare(
     `INSERT INTO specialists
-       (name, label, description, domains, skills, preferred_tier, preferred_provider, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(name, label, description, JSON.stringify(domains), JSON.stringify(skills), preferred_tier, preferred_provider, created_by, now);
+       (name, label, description, domains, skills, preferred_tier, preferred_provider, preferred_model, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(name, label, description, JSON.stringify(domains), JSON.stringify(skills), preferred_tier, preferred_provider, preferred_model, created_by, now);
 }
 
 export function updateSpecialist(name, fields) {
-  const allowed = ['label', 'description', 'domains', 'skills', 'preferred_tier', 'preferred_provider'];
+  const allowed = ['label', 'description', 'domains', 'skills', 'preferred_tier', 'preferred_provider', 'preferred_model'];
   const sets = [], vals = [];
   for (const key of allowed) {
     if (!(key in fields)) continue;

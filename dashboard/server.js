@@ -729,10 +729,10 @@ export function createApp() {
   });
 
   app.post('/api/specialists', (req, res) => {
-    const { name, label, description, domains, skills, preferred_tier, preferred_provider, created_by, soul } = req.body ?? {};
+    const { name, label, description, domains, skills, preferred_tier, preferred_provider, preferred_model, created_by, soul } = req.body ?? {};
     if (!name || !label) return res.status(400).json({ error: 'name and label required' });
     try {
-      createSpecialist({ name, label, description, domains, skills, preferred_tier, preferred_provider, created_by });
+      createSpecialist({ name, label, description, domains, skills, preferred_tier, preferred_provider, preferred_model, created_by });
       if (soul !== undefined) {
         const dir = join(FLINT_ROOT, 'agents', 'specialists', name);
         mkdirSync(dir, { recursive: true });

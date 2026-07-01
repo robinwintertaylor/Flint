@@ -202,17 +202,7 @@ function ensurePanel({ name, mode, status, isolate, runtime, role, model }) {
   // Edit model/runtime button
   panel.querySelector('.btn-edit-model').addEventListener('click', async () => {
     const current = await fetch(`/agents/${encodeURIComponent(name)}`).then(r => r.json()).catch(() => ({}));
-    const newModel   = prompt(`Model for "${name}":`, current.model || '');
-    if (newModel === null) return;
-    const newRuntime = prompt(`Runtime for "${name}" (claude / openrouter / mammouth / ollama / vibe):`, current.runtime || 'claude');
-    if (newRuntime === null) return;
-    await fetch(`/agents/${encodeURIComponent(name)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: newModel.trim(), runtime: newRuntime.trim() }),
-    });
-    const label = document.getElementById(`model-label-${escHtml(name)}`);
-    if (label) label.textContent = newModel.trim() || 'default';
+    showAgentModelModal(name, current.runtime || 'claude', current.model || '');
   });
 
   // Clear tasks button
@@ -2234,7 +2224,7 @@ let _editingSpecialistName = null;
 
 function openNewSpecialistModal() {
   _editingSpecialistName = null;
-  showSpecialistModal({ name: '', label: '', description: '', domains: '', preferred_tier: 2, preferred_provider: '', soul: '' });
+  showSpecialistModal({ name: '', label: '', description: '', domains: '', preferred_tier: 2, preferred_provider: '', preferred_model: '', soul: '' });
 }
 
 async function openEditSpecialistModal(name) {
@@ -2248,11 +2238,101 @@ async function openEditSpecialistModal(name) {
     domains: (s.domains ?? []).join(', '),
     preferred_tier: s.preferred_tier ?? 2,
     preferred_provider: s.preferred_provider ?? '',
+    preferred_model: s.preferred_model ?? '',
     soul: s.soul ?? '',
   });
 }
 
-function showSpecialistModal({ name, label, description, domains, preferred_tier, preferred_provider, soul }) {
+async function showAgentModelModal(agentName, currentRuntime, currentModel) {
+  const existing = document.getElementById('agent-model-modal-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'agent-model-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:1000';
+
+  const inputStyle = 'background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:14px;width:100%;box-sizing:border-box';
+  overlay.innerHTML = `
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:24px;width:420px;display:flex;flex-direction:column;gap:14px">
+      <h3 style="margin:0;color:#e6edf3">Change Model — ${escHtml(agentName)}</h3>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Runtime
+        <select id="amm-runtime" style="${inputStyle}">
+          <option value="claude" ${currentRuntime === 'claude' ? 'selected' : ''}>Claude (Anthropic)</option>
+          <option value="openrouter" ${currentRuntime === 'openrouter' ? 'selected' : ''}>OpenRouter</option>
+          <option value="mammouth" ${currentRuntime === 'mammouth' ? 'selected' : ''}>Mammouth</option>
+          <option value="ollama" ${currentRuntime === 'ollama' ? 'selected' : ''}>Ollama</option>
+          <option value="lmstudio" ${currentRuntime === 'lmstudio' ? 'selected' : ''}>LM Studio</option>
+          <option value="vibe" ${currentRuntime === 'vibe' ? 'selected' : ''}>Vibe (no model)</option>
+        </select>
+      </label>
+      <label id="amm-model-label" style="display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Model
+        <select id="amm-model-sel" style="${inputStyle}"><option value="">Loading…</option></select>
+        <input id="amm-model-txt" type="text" value="${escHtml(currentModel)}" placeholder="model id (optional)" style="${inputStyle};display:none">
+      </label>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button id="amm-cancel" style="background:none;border:1px solid #30363d;color:#8b949e;border-radius:4px;padding:6px 16px;cursor:pointer">Cancel</button>
+        <button id="amm-save" style="background:#1f6feb;color:#fff;border:none;border-radius:4px;padding:6px 16px;cursor:pointer">Save</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const runtimeSel = document.getElementById('amm-runtime');
+  const modelSel   = document.getElementById('amm-model-sel');
+  const modelTxt   = document.getElementById('amm-model-txt');
+  const modelLabel = document.getElementById('amm-model-label');
+
+  async function loadAmmModels(runtime) {
+    if (runtime === 'vibe') {
+      modelLabel.style.display = 'none';
+      return;
+    }
+    modelLabel.style.display = '';
+    if (runtime === 'openrouter' || runtime === 'mammouth') {
+      modelTxt.style.display = 'none';
+      modelSel.style.display = '';
+      const apiPath = runtime === 'mammouth' ? '/api/mammouth/models' : '/api/openrouter/models';
+      const fallback = runtime === 'mammouth' ? 'gpt-5.4-mini' : 'openai/gpt-4o-mini';
+      modelSel.innerHTML = '<option value="">Loading…</option>';
+      try {
+        const res = await fetch(apiPath);
+        const models = res.ok ? await res.json() : [];
+        const list = models.length ? models : [{ id: fallback, name: fallback }];
+        modelSel.innerHTML = '<option value="">— use default —</option>' +
+          list.map(m => `<option value="${escHtml(m.id)}"${m.id === currentModel ? ' selected' : ''}>${escHtml(m.name || m.id)}</option>`).join('');
+        if (currentModel && runtime === runtimeSel.value) modelSel.value = currentModel;
+      } catch {
+        modelSel.innerHTML = `<option value="${escHtml(fallback)}">${escHtml(fallback)}</option>`;
+      }
+    } else {
+      modelSel.style.display = 'none';
+      modelTxt.style.display = '';
+      if (runtime !== currentRuntime) modelTxt.value = '';
+    }
+  }
+
+  runtimeSel.addEventListener('change', () => loadAmmModels(runtimeSel.value));
+  await loadAmmModels(currentRuntime);
+
+  document.getElementById('amm-cancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  document.getElementById('amm-save').addEventListener('click', async () => {
+    const runtime = runtimeSel.value;
+    const model = runtime === 'vibe' ? '' :
+      (modelSel.style.display !== 'none' ? modelSel.value : modelTxt.value.trim());
+    await fetch(`/agents/${encodeURIComponent(agentName)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, runtime }),
+    });
+    const lbl = document.getElementById(`model-label-${escHtml(agentName)}`);
+    if (lbl) lbl.textContent = model || 'default';
+    overlay.remove();
+  });
+}
+
+function showSpecialistModal({ name, label, description, domains, preferred_tier, preferred_provider, preferred_model, soul }) {
   const existing = document.getElementById('specialist-modal-overlay');
   if (existing) existing.remove();
 
@@ -2284,8 +2364,20 @@ function showSpecialistModal({ name, label, description, domains, preferred_tier
           </select>
         </label>
         <label style="flex:1;display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Preferred Provider
-          <input id="sp-provider" type="text" value="${escHtml(preferred_provider)}" placeholder="anthropic" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:14px">
+          <select id="sp-provider" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:14px">
+            <option value="" ${!preferred_provider ? 'selected' : ''}>anthropic (default)</option>
+            <option value="openrouter" ${preferred_provider === 'openrouter' ? 'selected' : ''}>OpenRouter</option>
+            <option value="mammouth" ${preferred_provider === 'mammouth' ? 'selected' : ''}>Mammouth</option>
+            <option value="ollama" ${preferred_provider === 'ollama' ? 'selected' : ''}>Ollama</option>
+            <option value="lmstudio" ${preferred_provider === 'lmstudio' ? 'selected' : ''}>LM Studio</option>
+          </select>
         </label>
+      </div>
+      <div id="sp-model-group" style="display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Preferred Model
+        <select id="sp-model" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:14px">
+          <option value="">— use provider default —</option>
+        </select>
+        <input id="sp-model-text" type="text" value="${escHtml(preferred_model || '')}" placeholder="model id (optional)" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:14px;display:none">
       </div>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:14px;color:#8b949e">Soul (identity — first-person markdown)
         <textarea id="sp-soul" rows="8" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:13px;font-family:monospace;resize:vertical">${escHtml(soul)}</textarea>
@@ -2302,13 +2394,52 @@ function showSpecialistModal({ name, label, description, domains, preferred_tier
   document.getElementById('sp-cancel').addEventListener('click', () => overlay.remove());
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
+  // Provider → model live-picker
+  const spProvider = document.getElementById('sp-provider');
+  const spModelSel = document.getElementById('sp-model');
+  const spModelTxt = document.getElementById('sp-model-text');
+  const _savedModel = preferred_model || '';
+
+  async function loadSpModelOptions(provider) {
+    if (provider === 'openrouter' || provider === 'mammouth') {
+      spModelTxt.style.display = 'none';
+      spModelSel.style.display = '';
+      const apiPath = provider === 'mammouth' ? '/api/mammouth/models' : '/api/openrouter/models';
+      const fallback = provider === 'mammouth' ? 'gpt-5.4-mini' : 'openai/gpt-4o-mini';
+      spModelSel.innerHTML = '<option value="">Loading…</option>';
+      try {
+        const res = await fetch(apiPath);
+        const models = res.ok ? await res.json() : [];
+        const list = models.length ? models : [{ id: fallback, name: fallback }];
+        spModelSel.innerHTML = '<option value="">— use provider default —</option>' +
+          list.map(m => `<option value="${escHtml(m.id)}"${m.id === _savedModel ? ' selected' : ''}>${escHtml(m.name || m.id)}</option>`).join('');
+        if (!_savedModel) spModelSel.value = '';
+      } catch {
+        spModelSel.innerHTML = `<option value="${escHtml(fallback)}">${escHtml(fallback)}</option>`;
+        spModelSel.value = fallback;
+      }
+    } else if (provider === 'ollama' || provider === 'lmstudio') {
+      spModelSel.style.display = 'none';
+      spModelTxt.style.display = '';
+    } else {
+      spModelSel.style.display = 'none';
+      spModelTxt.style.display = 'none';
+    }
+  }
+
+  spProvider.addEventListener('change', () => loadSpModelOptions(spProvider.value));
+  loadSpModelOptions(preferred_provider || '');
+
   document.getElementById('sp-save').addEventListener('click', async () => {
     const nameVal     = document.getElementById('sp-name').value.trim();
     const labelVal    = document.getElementById('sp-label').value.trim();
     const descVal     = document.getElementById('sp-description').value.trim();
     const domainsVal  = document.getElementById('sp-domains').value.split(',').map(d => d.trim()).filter(Boolean);
     const tierVal     = Number(document.getElementById('sp-tier').value);
-    const providerVal = document.getElementById('sp-provider').value.trim() || null;
+    const providerVal = spProvider.value || null;
+    const modelVal    = spModelSel.style.display !== 'none'
+      ? (spModelSel.value || null)
+      : (spModelTxt.style.display !== 'none' ? (spModelTxt.value.trim() || null) : null);
     const soulVal     = document.getElementById('sp-soul').value;
 
     if (!nameVal || !labelVal) {
@@ -2316,12 +2447,12 @@ function showSpecialistModal({ name, label, description, domains, preferred_tier
       return;
     }
 
-    const body = { name: nameVal, label: labelVal, description: descVal, domains: domainsVal, preferred_tier: tierVal, preferred_provider: providerVal, soul: soulVal };
+    const body = { name: nameVal, label: labelVal, description: descVal, domains: domainsVal, preferred_tier: tierVal, preferred_provider: providerVal, preferred_model: modelVal, soul: soulVal };
 
     if (_editingSpecialistName) {
       await fetch(`/api/specialists/${encodeURIComponent(_editingSpecialistName)}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: labelVal, description: descVal, domains: domainsVal, preferred_tier: tierVal, preferred_provider: providerVal, soul: soulVal }),
+        body: JSON.stringify({ label: labelVal, description: descVal, domains: domainsVal, preferred_tier: tierVal, preferred_provider: providerVal, preferred_model: modelVal, soul: soulVal }),
       });
     } else {
       const r = await fetch('/api/specialists', {

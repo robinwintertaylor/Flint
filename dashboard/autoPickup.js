@@ -21,6 +21,14 @@ function runtimeForProvider(provider) {
   return 'claude';
 }
 
+function modelForSpec(spec) {
+  if (spec.preferred_model) return spec.preferred_model;
+  const runtime = runtimeForProvider(spec.preferred_provider);
+  if (runtime === 'openrouter') return 'openai/gpt-4o-mini';
+  if (runtime === 'mammouth')   return 'gpt-5.4-mini';
+  return '';
+}
+
 // Try to find (or create) an agent for a given role.
 // Returns { agentName, spawnOptions, workdir } or null if no specialist exists for the role.
 function provisionAgentForRole(role) {
@@ -39,7 +47,7 @@ function provisionAgentForRole(role) {
 
   const workdir = getSetting('default_workdir') || process.cwd();
   const runtime = runtimeForProvider(spec.preferred_provider);
-  const model   = runtime === 'openrouter' ? 'openai/gpt-4o-mini' : runtime === 'mammouth' ? 'gpt-5.4-mini' : '';
+  const model   = modelForSpec(spec);
   const loaded  = loadSpecialist(spec.name);
 
   registerAgent(agentName, 'spawn', workdir, null, model, runtime, role);
@@ -93,7 +101,7 @@ export async function autoAssignPendingTasks({
         }
         const workdir = getSetting('default_workdir') || process.cwd();
         const runtime = runtimeForProvider(spec.preferred_provider);
-        const model   = runtime === 'openrouter' ? 'openai/gpt-4o-mini' : runtime === 'mammouth' ? 'gpt-5.4-mini' : '';
+        const model   = modelForSpec(spec);
         const loaded  = loadSoul(spec.name);
         registerAgent(task.assigned_to, 'spawn', workdir, null, model, runtime, task.assigned_to);
         agent = getAgent(task.assigned_to);
