@@ -6,16 +6,18 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Consolas', 'Courier Ne
 #header {
   position: sticky; top: 0; z-index: 100;
   display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 24px; background: #161b22;
+  padding: 0 24px; background: #161b22;
   border-bottom: 1px solid #30363d; height: 108px;
 }
-.header-brand { display: flex; align-items: center; gap: 15px; margin-right: 24px; }
-.header-logo { width: 78px; height: 78px; border-radius: 50%; object-fit: cover; background: #fff; padding: 3px; }
-.header-brand-text { display: flex; flex-direction: column; }
+.header-left { flex: 1; display: flex; align-items: center; }
+.header-brand { display: flex; align-items: center; gap: 15px; }
+.header-logo { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; object-position: 50% 55%; background: #fff; padding: 3px; margin-top: 6px; }
+.header-brand-text { display: flex; flex-direction: column; justify-content: center; }
 .logo { font-weight: bold; color: #58a6ff; font-size: 30px; line-height: 1.2; }
 .header-subtitle { color: #8b949e; font-size: 17px; }
+.header-center { display: flex; align-items: center; gap: 12px; }
 #agent-count { color: #8b949e; font-size: 21px; }
-.header-right { display: flex; gap: 20px; font-size: 21px; color: #3fb950; }
+.header-right { flex: 1; display: flex; gap: 20px; font-size: 21px; color: #3fb950; justify-content: flex-end; }
 
 /* Toolbar */
 #toolbar { padding: 8px 12px; display: flex; gap: 8px; border-bottom: 1px solid #21262d; }
