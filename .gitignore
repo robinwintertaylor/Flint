@@ -1,8 +1,13 @@
 .env
 *.sqlite
+*.db
 node_modules/
 forgejo.token
 .worktrees/
 agents.json
 tasks/
 logs/*.log
+Work/
+dashboard/test-output.txt
+memory/
+.superpowers/

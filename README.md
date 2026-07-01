@@ -94,6 +94,10 @@ Spawn a Claude Code agent by entering a name, working directory, and optionally:
 
 Each agent gets a live terminal panel streaming its output.
 
+**Elastic panels** — The agent grid automatically shrinks panels to fit all running agents on one screen with no scrolling. Column count adjusts: 1 agent → 1 col, 2–4 → 2 col, 5–9 → 3 col, 10+ → 4 col. Click any panel's title bar to expand it to a full-screen overlay; click again or press **Escape** to collapse.
+
+**Inter-agent handoff** — Every spawned agent's task file contains curl commands for posting new tasks to other specialist roles. Agents hand off work by calling `POST /queue/tasks` — Flint's orchestrator routes each task to the right agent automatically.
+
 ### Task Queue
 
 Create tasks with a title, priority, and optional role. Tasks are automatically assigned to agents:
@@ -106,6 +110,8 @@ Create tasks with a title, priority, and optional role. Tasks are automatically 
 
 Create multi-agent orchestrations with a goal and notes. Each orchestration has a shared scratchpad agents can read from and write to. The orchestrator provides routing hints via the model router.
 
+**Heartbeat orchestrator** — An LLM-based orchestrator runs on a configurable interval (default 5 min). It reviews system state (running agents, queue, projects) and autonomously: creates tasks, spawns agents for pending work, stops idle agents, and cascades follow-on tasks when prior phases complete. Configure via **Settings** → Heartbeat.
+
 ### Projects
 
 Group agents into projects, track per-project LLM costs, add notes, and upload documents (PDF, text) for agents to reference. Each project shows a cost breakdown and linked agents.
@@ -113,6 +119,8 @@ Group agents into projects, track per-project LLM costs, add notes, and upload d
 ### Specialists
 
 Define reusable agent personas with a soul file, config, and domain tags. Assign a specialist at spawn time — the agent inherits the persona's system prompt and model. Track usage counts per specialist.
+
+**Builder specialist** — A built-in `builder` role that creates new specialists on demand. When a queued task requires a role that has no specialist, auto-pickup automatically asks the builder to design and register one; the original task is then re-routed.
 
 ### Skills Library
 
@@ -125,6 +133,8 @@ Configure Model Context Protocol servers (command, args, environment variables).
 ### API Keys
 
 Store LLM provider API keys in the local database through the UI. Keys are injected into the router's environment at startup. Supported providers: `anthropic`, `openai`, `google`, `azure`, `openrouter`. Keys are never written to disk in plaintext.
+
+**Azure AI Foundry** — Use the quick-add section in the API Keys tab to enter your Azure endpoint, API key, deployment name, and API version as a single unit. These map to the `AZURE_OPENAI_*` env vars the router expects.
 
 ### Workspaces
 
@@ -211,7 +221,8 @@ C:\Flint\
 │   ├── terminal.js         node-pty agent spawn + output streaming
 │   ├── agents.js           Agent registry (in-memory + agents.json)
 │   ├── queue.js            Task queue CRUD + 10s poller
-│   ├── autoPickup.js       Role-based auto-assignment of pending tasks
+│   ├── autoPickup.js       Role-based auto-assignment; triggers builder when role missing
+│   ├── heartbeat.js        LLM-based autonomous orchestrator (runs on interval)
 │   ├── settings.js         Key-value settings (getSetting/setSetting)
 │   ├── worktrees.js        Git worktree create/discard
 │   ├── forgejo.js          Forgejo API client (push branch, open PR, poll)
