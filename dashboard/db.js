@@ -156,6 +156,8 @@ export function initDb(dbPath = DEFAULT_DB) {
     ['moonshot',    'Moonshot Kimi', 'MOONSHOT_API_KEY'],
     ['openrouter',  'OpenRouter',    'OPENROUTER_API_KEY'],
     ['mammouth',    'Mammouth AI',   'MAMMOUTH_API_KEY'],
+    ['lmstudio',    'LM Studio URL', 'LMSTUDIO_URL'],
+    ['ollama',      'Ollama URL',    'OLLAMA_URL'],
   ].forEach(([n, l, e]) => _seedKey.run(n, l, e));
   return _db;
 }

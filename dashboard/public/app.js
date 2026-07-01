@@ -2066,7 +2066,7 @@ document.getElementById('keys-add-btn').addEventListener('click', async () => {
     renderKeysList();
   } else {
     const err = await r.json().catch(() => ({}));
-    alert(err.error || 'Failed to add provider');
+    alert(err.error || 'Failed to save — check that Name is lowercase with no spaces (e.g. my-provider)');
   }
 });
 
