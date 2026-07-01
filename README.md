@@ -1,3 +1,5 @@
+![Flint — Your Friendly AI Agent OS](images/Flint%20Banner-Splash-Hero%20page%201.jpg)
+
 # Flint — Personal AI Agent OS
 
 Flint is a personal agentic operating system for running multiple Claude Code agents simultaneously. It provides a live browser dashboard, a multi-provider LLM router, a task queue with automatic role-based assignment, an orchestrator for multi-agent workflows, project management, cost tracking, Forgejo PR review, Telegram notifications, and local LLM support (Ollama, LM Studio) — all running on your Windows machine.
