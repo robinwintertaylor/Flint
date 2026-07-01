@@ -9,6 +9,7 @@ services:
     environment:
       - USER_UID=1000
       - USER_GID=1000
+      - FORGEJO__security__INSTALL_LOCK=true
     restart: unless-stopped
 
 volumes:

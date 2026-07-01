@@ -44,13 +44,20 @@ if (-not $ready) { Write-Error "Forgejo not ready after 60s - is Docker running?
 Write-Host " ready."
 
 # 2. Create admin user (ignore if already exists)
-try {
-    docker exec -u git flint-forgejo forgejo admin user create `
-        --username $AdminUser `
-        --password $AdminPassword `
-        --email    $AdminEmail `
-        --admin 2>&1 | Out-Null
-} catch {}
+$createOut = docker exec -u git flint-forgejo forgejo admin user create `
+    --username $AdminUser `
+    --password $AdminPassword `
+    --email    $AdminEmail `
+    --admin 2>&1
+if ($LASTEXITCODE -ne 0) {
+    $msg = "$createOut"
+    if ($msg -match 'already exists') {
+        Write-Host "Admin user already exists, continuing..."
+    } else {
+        Write-Error "Failed to create admin user. Output: $msg`nEnsure FORGEJO__security__INSTALL_LOCK=true is set in docker-compose.yml and Forgejo was restarted."
+        exit 1
+    }
+}
 Write-Host "Admin user: $AdminUser / $AdminPassword"
 
 # 3. Get or generate API token
