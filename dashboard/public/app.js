@@ -119,6 +119,14 @@ function connect() {
       case 'project_launched':
         fetchProjects();
         break;
+
+      case 'model_audit_ready':
+        if (currentView === 'audit') fetchAndRenderAudit();
+        else updateAuditBadge(1);
+        break;
+      case 'model_audit_applied':
+        if (currentView === 'audit') fetchAndRenderAudit();
+        break;
     }
   });
 
@@ -632,6 +640,7 @@ function showView(view) {
   const queueView       = document.getElementById('queue-view');
   const skillsView      = document.getElementById('skills-view');
   const specialistsView = document.getElementById('specialists-view');
+  const auditView       = document.getElementById('audit-view');
 
   if (view === 'projects') {
     panels.style.display = 'none';
@@ -640,6 +649,7 @@ function showView(view) {
     queueView.classList.add('hidden');
     skillsView.classList.add('hidden');
     specialistsView.classList.add('hidden');
+    auditView.classList.add('hidden');
     if (projBar) projBar.style.display = 'flex';
     fetchProjects();
   } else if (view === 'queue') {
@@ -649,6 +659,7 @@ function showView(view) {
     queueView.classList.remove('hidden');
     skillsView.classList.add('hidden');
     specialistsView.classList.add('hidden');
+    auditView.classList.add('hidden');
     if (projBar) projBar.style.display = 'none';
     fetchAndRenderQueue();
   } else if (view === 'skills') {
@@ -658,6 +669,7 @@ function showView(view) {
     queueView.classList.add('hidden');
     skillsView.classList.remove('hidden');
     specialistsView.classList.add('hidden');
+    auditView.classList.add('hidden');
     if (projBar) projBar.style.display = 'none';
     fetchAndRenderSkills();
   } else if (view === 'specialists') {
@@ -667,8 +679,19 @@ function showView(view) {
     queueView.classList.add('hidden');
     skillsView.classList.add('hidden');
     specialistsView.classList.remove('hidden');
+    auditView.classList.add('hidden');
     if (projBar) projBar.style.display = 'none';
     fetchAndRenderSpecialists();
+  } else if (view === 'audit') {
+    panels.style.display = 'none';
+    toolbar.style.display = 'none';
+    projView.classList.add('hidden');
+    queueView.classList.add('hidden');
+    skillsView.classList.add('hidden');
+    specialistsView.classList.add('hidden');
+    auditView.classList.remove('hidden');
+    if (projBar) projBar.style.display = 'none';
+    fetchAndRenderAudit();
   } else {
     panels.style.display = '';
     toolbar.style.display = '';
@@ -676,6 +699,7 @@ function showView(view) {
     queueView.classList.add('hidden');
     skillsView.classList.add('hidden');
     specialistsView.classList.add('hidden');
+    auditView.classList.add('hidden');
     if (projBar) projBar.style.display = 'none';
   }
 }
@@ -1343,6 +1367,7 @@ document.getElementById('btn-queue').addEventListener('click', () => showView('q
 // ============================================================
 
 document.getElementById('btn-skills').addEventListener('click', () => showView('skills'));
+document.getElementById('btn-audit').addEventListener('click', () => showView('audit'));
 
 async function fetchAndRenderSkills() {
   const skills = await fetch('/api/skills').then(r => r.json()).catch(() => []);
@@ -2351,6 +2376,160 @@ async function openEditSpecialistModal(name) {
     preferred_model: s.preferred_model ?? '',
     soul: s.soul ?? '',
   });
+}
+
+// ============================================================
+// Model Audit tab
+// ============================================================
+
+async function fetchAndRenderAudit() {
+  const view = document.getElementById('audit-view');
+  view.innerHTML = '<div style="color:#8b949e;padding:24px">Loading…</div>';
+  try {
+    const reports = await fetch('/model-audit/reports').then(r => r.json());
+    renderAuditView(reports);
+  } catch (err) {
+    view.innerHTML = `<div style="color:#f85149">Failed to load audit reports: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderAuditView(reports) {
+  const view = document.getElementById('audit-view');
+  const latest = reports[0] ?? null;
+
+  let statusHtml = '';
+  if (!latest) {
+    statusHtml = '<div style="color:#8b949e;padding:16px 0">No audits run yet. Click Run Now to start.</div>';
+  } else if (latest.status === 'running') {
+    statusHtml = '<div style="color:#58a6ff;padding:16px 0">⏳ Audit in progress…</div>';
+  } else if (latest.status === 'no_change') {
+    statusHtml = `<div style="color:#3fb950;padding:16px 0">✅ No change required</div><p style="color:#8b949e">${escHtml(latest.summary || '')}</p>`;
+  } else if (latest.status === 'failed') {
+    statusHtml = `<div style="color:#f85149;padding:16px 0">⚠️ Audit failed</div><p style="color:#8b949e">${escHtml(latest.summary || '')}</p>`;
+  } else if (latest.status === 'applied') {
+    statusHtml = `<div style="color:#3fb950;padding:16px 0">✅ Changes applied — ${escHtml(latest.completed_at || '')}</div>`;
+  } else if (latest.status === 'dismissed') {
+    statusHtml = '<div style="color:#8b949e;padding:16px 0">Report dismissed.</div>';
+  }
+
+  view.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="margin:0;color:#e6edf3">🔍 Model Audit</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${latest ? `<span style="color:#8b949e;font-size:13px">Last run: ${escHtml(latest.started_at?.slice(0,16) || '')}</span>` : ''}
+        <button id="btn-audit-run" style="background:#238636;border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px">▶ Run Now</button>
+        <button id="btn-audit-back" style="background:none;border:1px solid #30363d;color:#c9d1d9;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:14px">← Dashboard</button>
+      </div>
+    </div>
+    ${statusHtml}
+    <div id="audit-items-container"></div>
+    ${latest?.status === 'pending_review' ? `
+      <div style="margin-top:16px;text-align:right">
+        <button id="btn-audit-apply" style="background:#238636;border:none;color:#fff;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:14px" disabled>Apply Approved (0)</button>
+      </div>` : ''}
+  `;
+
+  document.getElementById('btn-audit-back').addEventListener('click', () => showView('agents'));
+  document.getElementById('btn-audit-run').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-audit-run');
+    btn.textContent = '⏳ Starting…';
+    btn.disabled = true;
+    try {
+      await fetch('/model-audit/trigger', { method: 'POST' });
+      fetchAndRenderAudit();
+    } catch (err) {
+      alert('Failed to start audit: ' + err.message);
+      btn.textContent = '▶ Run Now';
+      btn.disabled = false;
+    }
+  });
+
+  if (latest?.status === 'pending_review') {
+    loadAuditItems(latest.id);
+  }
+}
+
+async function loadAuditItems(reportId) {
+  const { items } = await fetch(`/model-audit/reports/${reportId}`).then(r => r.json());
+  const container = document.getElementById('audit-items-container');
+  if (!container) return;
+
+  if (!items.length) {
+    container.innerHTML = '<div style="color:#8b949e">No recommendations.</div>';
+    return;
+  }
+
+  container.innerHTML = items.map(item => `
+    <div class="audit-item" id="audit-item-${item.id}" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div>
+          <div style="font-weight:600;color:#e6edf3;margin-bottom:4px">${escHtml(item.label)}</div>
+          <div style="font-size:13px;color:#8b949e;margin-bottom:6px">
+            <span style="color:#f85149">${escHtml(item.current_value)}</span>
+            <span style="color:#8b949e"> → </span>
+            <span style="color:#3fb950">${escHtml(item.recommended_value)}</span>
+          </div>
+          <div style="font-size:13px;color:#c9d1d9;margin-bottom:6px">${escHtml(item.rationale)}</div>
+          ${item.evidence?.length ? `<div style="font-size:12px">${item.evidence.map((u, i) => `<a href="${escHtml(u)}" target="_blank" rel="noopener" style="color:#58a6ff;margin-right:8px">source ${i+1}</a>`).join('')}</div>` : ''}
+          <details style="margin-top:8px">
+            <summary style="color:#8b949e;font-size:12px;cursor:pointer">▼ Show diff</summary>
+            <pre style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;font-size:12px;color:#e6edf3;margin-top:6px;overflow-x:auto">${escHtml(`${item.target}:\n  "${item.current_value}" → "${item.recommended_value}"`)}</pre>
+          </details>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn-item-approve" data-item-id="${item.id}" data-approved="${item.status === 'approved' ? '1' : '0'}" style="background:${item.status==='approved'?'#238636':'#21262d'};border:1px solid #30363d;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✓ Approve</button>
+          <button class="btn-item-reject" data-item-id="${item.id}" data-rejected="${item.status === 'rejected' ? '1' : '0'}" style="background:${item.status==='rejected'?'#da3633':'#21262d'};border:1px solid #30363d;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✗ Reject</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.btn-item-approve').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const itemId = btn.dataset.itemId;
+      const newStatus = btn.dataset.approved === '1' ? 'pending' : 'approved';
+      await fetch(`/model-audit/items/${itemId}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus }) });
+      loadAuditItems(reportId);
+    });
+  });
+
+  container.querySelectorAll('.btn-item-reject').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const itemId = btn.dataset.itemId;
+      const newStatus = btn.dataset.rejected === '1' ? 'pending' : 'rejected';
+      await fetch(`/model-audit/items/${itemId}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus }) });
+      loadAuditItems(reportId);
+    });
+  });
+
+  const approvedCount = items.filter(i => i.status === 'approved').length;
+  const applyBtn = document.getElementById('btn-audit-apply');
+  if (applyBtn) {
+    applyBtn.textContent = `Apply Approved (${approvedCount})`;
+    applyBtn.disabled = approvedCount === 0;
+    applyBtn.onclick = async () => {
+      if (!confirm(`Apply ${approvedCount} model change(s)? The server will restart.`)) return;
+      applyBtn.disabled = true;
+      applyBtn.textContent = 'Applying…';
+      const r = await fetch(`/model-audit/reports/${reportId}/apply`, { method: 'POST' });
+      const data = await r.json();
+      if (!r.ok) { alert(data.error ?? 'Apply failed'); applyBtn.disabled = false; return; }
+      fetchAndRenderAudit();
+    };
+  }
+
+  updateAuditBadge(items.filter(i => i.status === 'pending').length);
+}
+
+function updateAuditBadge(count) {
+  const badge = document.getElementById('audit-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = 'inline';
+  } else {
+    badge.style.display = 'none';
+  }
 }
 
 async function showAgentModelModal(agentName, currentRuntime, currentModel) {
