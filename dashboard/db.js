@@ -147,6 +147,8 @@ export function initDb(dbPath = DEFAULT_DB) {
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN pr_status TEXT'); } catch {}
   try { _db.exec('ALTER TABLE specialists ADD COLUMN preferred_model TEXT'); } catch {}
   try { _db.exec('ALTER TABLE projects ADD COLUMN workspace_id INTEGER REFERENCES workspaces(id)'); } catch {}
+  try { _db.exec('ALTER TABLE projects ADD COLUMN goal TEXT'); } catch {}
+  try { _db.exec('ALTER TABLE projects ADD COLUMN active_orchestration_id INTEGER REFERENCES orchestrations(id)'); } catch {}
   const _seedKey = _db.prepare(
     `INSERT OR IGNORE INTO api_keys (name, label, env_var) VALUES (?, ?, ?)`
   );
