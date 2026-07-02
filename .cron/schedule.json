@@ -15,6 +15,13 @@
       "taskType": "research",
       "prompt": "Summarise this week's key AI developments relevant to Robin's work",
       "description": "Monday morning research — calls router API directly"
+    },
+    {
+      "name": "Weekly Model Audit",
+      "cron": "0 9 * * 0",
+      "type": "api",
+      "url": "http://localhost:3000/model-audit/trigger",
+      "description": "Sunday 09:00 — audit model assignments and surface recommendations"
     }
   ]
 }

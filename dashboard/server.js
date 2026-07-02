@@ -22,7 +22,7 @@ import { listQueueTasks, getQueueTask, createQueueTask, assignQueueTask, updateQ
 import { createOrchestration, getOrchestration, listOrchestrations, appendScratchpad, readScratchpad } from './orchestrator.js';
 import { listApiKeys, getApiKeyValue, createApiKey, updateApiKey, deleteApiKey, buildApiKeyEnv } from './apikeys.js';
 import { initSupabase, isSupabaseEnabled, upsertMemory, searchMemories, logSessionStart, logSessionEnd, pullMemories } from './supabase.js';
-import { initTelegram } from './telegram.js';
+import { initTelegram, notify } from './telegram.js';
 import { isOllamaReachable, listModels, generate } from './ollama.js';
 import { isLmStudioReachable, listModels as listLmStudioModels, generate as lmStudioGenerate } from './lmstudio.js';
 import { listSkills, getSkill, createSkill, updateSkill, deleteSkill, upsertSkill } from './skills.js';
@@ -31,6 +31,10 @@ import { listDocs, getDoc, createDoc, deleteDoc } from './project_docs.js';
 import { listSpecialists, getSpecialist, createSpecialist, updateSpecialist, deleteSpecialist } from './specialists.js';
 import { loadSpecialist } from '../agents/specialists/selector.js';
 import { getSetting, setSetting } from './settings.js';
+import {
+  runModelAudit, listAuditReports, getAuditReport,
+  submitAuditReport, updateAuditItem, applyAuditReport, dismissAuditReport,
+} from './modelAudit.js';
 import { getHeartbeatLog, runHeartbeatCycle, startHeartbeat } from './heartbeat.js';
 import { flintChat } from './chat.js';
 
@@ -872,6 +876,70 @@ export function createApp() {
     const { text } = req.body ?? {};
     if (typeof text !== 'string') return res.status(400).json({ error: 'text required' });
     appendScratchpad(Number(req.params.id), text);
+    res.json({ ok: true });
+  });
+
+  // ── Model Audit ──────────────────────────────────────────────────────────
+  app.post('/model-audit/trigger', async (_req, res) => {
+    try {
+      const result = await runModelAudit();
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/model-audit/reports', (_req, res) => {
+    res.json(listAuditReports());
+  });
+
+  app.get('/model-audit/reports/:id', (req, res) => {
+    const result = getAuditReport(Number(req.params.id));
+    if (!result) return res.status(404).json({ error: 'report not found' });
+    res.json(result);
+  });
+
+  app.post('/model-audit/reports/:id/submit', (req, res) => {
+    const id = Number(req.params.id);
+    if (!getAuditReport(id)) return res.status(404).json({ error: 'report not found' });
+    const { status, summary, items = [] } = req.body ?? {};
+    if (!status) return res.status(400).json({ error: 'status required' });
+    submitAuditReport(id, { status, summary, items });
+    broadcastGlobal({ type: 'model_audit_ready', reportId: id, status });
+    const msg = status === 'no_change'
+      ? '🔍 Model audit complete — no changes recommended. Current models are optimal.'
+      : status === 'pending_review'
+      ? `🔍 Model audit complete — ${items.length} recommendation(s) ready for review in the Flint dashboard.`
+      : `⚠️ Model audit failed to complete. Check the Flint dashboard for details.`;
+    notify(msg);
+    res.json({ ok: true });
+  });
+
+  app.patch('/model-audit/items/:id', (req, res) => {
+    const { status } = req.body ?? {};
+    if (!['approved', 'rejected', 'pending'].includes(status)) {
+      return res.status(400).json({ error: 'status must be approved, rejected, or pending' });
+    }
+    updateAuditItem(Number(req.params.id), status);
+    res.json({ ok: true });
+  });
+
+  app.post('/model-audit/reports/:id/apply', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!getAuditReport(id)) return res.status(404).json({ error: 'report not found' });
+    try {
+      const result = applyAuditReport(id);
+      broadcastGlobal({ type: 'model_audit_applied', reportId: id });
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete('/model-audit/reports/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!getAuditReport(id)) return res.status(404).json({ error: 'report not found' });
+    dismissAuditReport(id);
     res.json({ ok: true });
   });
 

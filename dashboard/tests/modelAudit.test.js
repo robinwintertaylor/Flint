@@ -12,24 +12,41 @@ process.env.FLINT_AGENTS_FILE = TEMP_AGENTS;
 process.env.FLINT_TASKS_DIR   = TEMP_TASKS;
 process.env.FLINT_TEST_MODE   = '1';
 
-import { initDb, closeDb } from '../db.js';
+import { initDb } from '../db.js';
 import {
   createAuditReport, getAuditReport, listAuditReports,
   submitAuditReport, updateAuditItem, applyAuditReport,
   dismissAuditReport, buildAuditTaskFile,
 } from '../modelAudit.js';
+const { createApp, closeDb } = await import('../server.js');
 
-before(() => {
+let server, baseUrl;
+
+before(() => new Promise((resolve) => {
   initDb(TEMP_DB);
   mkdirSync(TEMP_TASKS, { recursive: true });
-});
+  const app = createApp();
+  server = app.listen(0, () => {
+    baseUrl = `http://localhost:${server.address().port}`;
+    resolve();
+  });
+}));
 
-after(() => {
-  closeDb();
-  rmSync(TEMP_DB,     { force: true });
-  rmSync(TEMP_AGENTS, { force: true });
-  rmSync(TEMP_TASKS,  { recursive: true, force: true });
-});
+after(() => new Promise((resolve) => {
+  server.close(() => {
+    closeDb();
+    rmSync(TEMP_DB,     { force: true });
+    rmSync(TEMP_AGENTS, { force: true });
+    rmSync(TEMP_TASKS,  { recursive: true, force: true });
+    resolve();
+  });
+}));
+
+async function req(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(`${baseUrl}${path}`, opts);
+}
 
 test('createAuditReport returns a positive integer id', () => {
   const id = createAuditReport();
@@ -129,4 +146,78 @@ test('buildAuditTaskFile contains reportId, router config, and instructions', ()
   assert.ok(content.includes('researcher'), 'specialist missing');
   assert.ok(content.includes('gpt-4o-mini'), 'cost data missing');
   assert.ok(content.includes('/model-audit/reports/42/submit'), 'submit endpoint missing');
+});
+
+// ── Route tests ──────────────────────────────────────────────────────────
+
+test('POST /model-audit/trigger returns reportId', async () => {
+  const r = await req('POST', '/model-audit/trigger');
+  const body = await r.json();
+  assert.ok(body.reportId > 0, 'reportId missing');
+});
+
+test('GET /model-audit/reports returns array', async () => {
+  const r = await req('GET', '/model-audit/reports');
+  assert.equal(r.status, 200);
+  const body = await r.json();
+  assert.ok(Array.isArray(body));
+});
+
+test('GET /model-audit/reports/:id returns 404 for unknown', async () => {
+  const r = await req('GET', '/model-audit/reports/99999');
+  assert.equal(r.status, 404);
+});
+
+test('POST /model-audit/reports/:id/submit sets pending_review', async () => {
+  const id = createAuditReport();
+  const r = await req('POST', `/model-audit/reports/${id}/submit`, {
+    status: 'pending_review',
+    summary: 'route test',
+    items: [{
+      scope: 'router', target: 'tiers.1.anthropic', label: 'Tier 1',
+      current_value: 'old', recommended_value: 'new', rationale: 'better', evidence: [],
+    }],
+  });
+  assert.equal(r.status, 200);
+  const { report } = getAuditReport(id);
+  assert.equal(report.status, 'pending_review');
+});
+
+test('PATCH /model-audit/items/:id approves item', async () => {
+  const id = createAuditReport();
+  submitAuditReport(id, {
+    status: 'pending_review', summary: 'x',
+    items: [{ scope: 'specialist', target: 'specialist:x', label: 'X', current_value: 'a', recommended_value: 'b', rationale: 'r', evidence: [] }],
+  });
+  const { items } = getAuditReport(id);
+  const r = await req('PATCH', `/model-audit/items/${items[0].id}`, { status: 'approved' });
+  assert.equal(r.status, 200);
+  const { items: updated } = getAuditReport(id);
+  assert.equal(updated[0].status, 'approved');
+});
+
+test('PATCH /model-audit/items/:id rejects invalid status', async () => {
+  const id = createAuditReport();
+  submitAuditReport(id, {
+    status: 'pending_review', summary: 'x',
+    items: [{ scope: 'router', target: 'tiers.1.openai', label: 'Y', current_value: 'a', recommended_value: 'b', rationale: 'r', evidence: [] }],
+  });
+  const { items } = getAuditReport(id);
+  const r = await req('PATCH', `/model-audit/items/${items[0].id}`, { status: 'banana' });
+  assert.equal(r.status, 400);
+});
+
+test('POST /model-audit/reports/:id/apply with no approved items returns 400', async () => {
+  const id = createAuditReport();
+  submitAuditReport(id, { status: 'pending_review', summary: 'x', items: [] });
+  const r = await req('POST', `/model-audit/reports/${id}/apply`);
+  assert.equal(r.status, 400);
+});
+
+test('DELETE /model-audit/reports/:id dismisses report', async () => {
+  const id = createAuditReport();
+  const r = await req('DELETE', `/model-audit/reports/${id}`);
+  assert.equal(r.status, 200);
+  const { report } = getAuditReport(id);
+  assert.equal(report.status, 'dismissed');
 });
