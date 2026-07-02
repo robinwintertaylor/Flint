@@ -43,17 +43,17 @@ export function getProject(id) {
   return hydrate(row);
 }
 
-export function createProject({ name, notes = '' }) {
+export function createProject({ name, notes = '', workspace_id = null }) {
   const db = getDb();
   const result = db.prepare(
-    `INSERT INTO projects (name, notes) VALUES (?, ?)`
-  ).run(name, notes);
+    `INSERT INTO projects (name, notes, workspace_id) VALUES (?, ?, ?)`
+  ).run(name, notes, workspace_id ?? null);
   return Number(result.lastInsertRowid);
 }
 
 export function updateProject(id, fields) {
   const db = getDb();
-  const allowed = ['name', 'status', 'notes', 'last_summary'];
+  const allowed = ['name', 'status', 'notes', 'last_summary', 'workspace_id'];
   const updates = Object.entries(fields).filter(([k]) => allowed.includes(k));
   if (!updates.length) return;
   // safe: k is constrained to the 'allowed' whitelist above — SQLite does not support parameterized column identifiers

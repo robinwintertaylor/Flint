@@ -630,10 +630,10 @@ export function createApp() {
   });
 
   app.post('/projects', (req, res) => {
-    const { name, notes } = req.body ?? {};
+    const { name, notes, workspace_id } = req.body ?? {};
     if (!name) return res.status(400).json({ error: 'name required' });
     try {
-      const id = createProject({ name, notes: notes ?? '' });
+      const id = createProject({ name, notes: notes ?? '', workspace_id: workspace_id ?? null });
       res.status(201).json(getProject(id));
     } catch (err) {
       if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'project name already exists' });
@@ -644,7 +644,7 @@ export function createApp() {
   app.patch('/projects/:id', (req, res) => {
     const id = Number(req.params.id);
     if (!getProject(id)) return res.status(404).json({ error: 'project not found' });
-    const { name, status, notes } = req.body ?? {};
+    const { name, status, notes, workspace_id } = req.body ?? {};
     const VALID_STATUSES = ['active', 'paused', 'done', 'archived'];
     if (status !== undefined && !VALID_STATUSES.includes(status)) {
       return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
@@ -653,6 +653,7 @@ export function createApp() {
     if (name !== undefined) fields.name = name;
     if (status !== undefined) fields.status = status;
     if (notes !== undefined) fields.notes = notes;
+    if (workspace_id !== undefined) fields.workspace_id = workspace_id ?? null;
     if (Object.keys(fields).length) updateProject(id, fields);
     res.json(getProject(id));
   });

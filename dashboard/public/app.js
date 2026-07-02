@@ -257,10 +257,17 @@ function updateStatus(name, status) {
     restart.addEventListener('click', () => {
       restart.textContent = 'Restarting…';
       restart.disabled = true;
+      const timeout = setTimeout(() => {
+        if (restart.isConnected) {
+          restart.textContent = 'Restart';
+          restart.disabled = false;
+        }
+      }, 30000);
       fetch(`/agents/${encodeURIComponent(name)}`)
         .then(r => r.json())
         .then(agent => {
           if (!agent.workdir) {
+            clearTimeout(timeout);
             alert(`Cannot restart "${name}": no working directory stored. Spawn a new agent instead.`);
             restart.textContent = 'Restart';
             restart.disabled = false;
@@ -273,6 +280,7 @@ function updateStatus(name, status) {
           }));
         })
         .catch(err => {
+          clearTimeout(timeout);
           console.error('Restart failed:', err);
           restart.textContent = 'Restart';
           restart.disabled = false;
@@ -281,14 +289,19 @@ function updateStatus(name, status) {
     remove.addEventListener('click', () => {
       fetch(`/agents/${encodeURIComponent(name)}`, { method: 'DELETE' }).catch(() => {});
     });
-  } else if (status === 'running' && existingRemove) {
-    existingRemove.textContent = 'Kill';
-    existingRemove.className = 'btn-kill';
-    existingRemove.replaceWith(existingRemove.cloneNode(true));
-    const killBtn = headerRight.querySelector('.btn-kill');
-    killBtn.addEventListener('click', () => {
-      ws.send(JSON.stringify({ type: 'kill', agent: name }));
-    });
+  } else if (status !== 'stopped') {
+    // Agent came back online — remove Restart button if present and restore Kill
+    const existingRestart = headerRight.querySelector('.btn-restart');
+    if (existingRestart) existingRestart.remove();
+    if (existingRemove) {
+      existingRemove.textContent = 'Kill';
+      existingRemove.className = 'btn-kill';
+      existingRemove.replaceWith(existingRemove.cloneNode(true));
+      const killBtn = headerRight.querySelector('.btn-kill');
+      killBtn.addEventListener('click', () => {
+        ws.send(JSON.stringify({ type: 'kill', agent: name }));
+      });
+    }
   }
 }
 
@@ -730,10 +743,21 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+async function populateWorkspaceSelect(selectId, selectedId = null) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  try {
+    const ws = await fetch('/workspaces').then(r => r.json());
+    sel.innerHTML = '<option value="">— none —</option>' +
+      ws.map(w => `<option value="${w.id}"${w.id === selectedId ? ' selected' : ''}>${escHtml(w.name)} (${escHtml(w.path)})</option>`).join('');
+  } catch { /* workspaces unavailable */ }
+}
+
 // --- New Project modal ---
-function openNewProjectModal() {
+async function openNewProjectModal() {
   document.getElementById('proj-modal-name').value = '';
   document.getElementById('proj-modal-notes').value = '';
+  await populateWorkspaceSelect('proj-modal-workspace');
   document.getElementById('proj-modal').classList.remove('hidden');
   document.getElementById('proj-modal-name').focus();
 }
@@ -746,13 +770,14 @@ document.getElementById('proj-modal').addEventListener('click', e => {
     document.getElementById('proj-modal').classList.add('hidden');
 });
 document.getElementById('proj-modal-create').addEventListener('click', async () => {
-  const name  = document.getElementById('proj-modal-name').value.trim();
-  const notes = document.getElementById('proj-modal-notes').value.trim();
+  const name         = document.getElementById('proj-modal-name').value.trim();
+  const notes        = document.getElementById('proj-modal-notes').value.trim();
+  const workspace_id = Number(document.getElementById('proj-modal-workspace').value) || null;
   if (!name) return;
   await fetch('/projects', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, notes }),
+    body: JSON.stringify({ name, notes, workspace_id }),
   });
   document.getElementById('proj-modal').classList.add('hidden');
   fetchProjects();
@@ -769,6 +794,7 @@ async function openEditProjectModal(projectId) {
   document.getElementById('edit-proj-status').value  = p.status;
   document.getElementById('edit-proj-notes').value   = p.notes || '';
   document.getElementById('edit-proj-summary').textContent = p.last_summary || '(none)';
+  await populateWorkspaceSelect('edit-proj-workspace', p.workspace_id ?? null);
 
   // Linked agents
   const agentsDiv = document.getElementById('edit-proj-agents');
@@ -812,15 +838,16 @@ document.getElementById('edit-proj-modal').addEventListener('click', e => {
     document.getElementById('edit-proj-modal').classList.add('hidden');
 });
 document.getElementById('edit-proj-save').addEventListener('click', async () => {
-  const id     = Number(document.getElementById('edit-proj-id').value);
-  const name   = document.getElementById('edit-proj-name').value.trim();
-  const status = document.getElementById('edit-proj-status').value;
-  const notes  = document.getElementById('edit-proj-notes').value;
+  const id           = Number(document.getElementById('edit-proj-id').value);
+  const name         = document.getElementById('edit-proj-name').value.trim();
+  const status       = document.getElementById('edit-proj-status').value;
+  const notes        = document.getElementById('edit-proj-notes').value;
+  const workspace_id = Number(document.getElementById('edit-proj-workspace').value) || null;
   if (!name) return;
   await fetch(`/projects/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, status, notes }),
+    body: JSON.stringify({ name, status, notes, workspace_id }),
   });
   document.getElementById('edit-proj-modal').classList.add('hidden');
   fetchProjects();

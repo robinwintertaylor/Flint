@@ -130,6 +130,11 @@
     <div class="modal-box">
       <h2>New Project</h2>
       <label>Name<input id="proj-modal-name" type="text" placeholder="My Project" autocomplete="off"></label>
+      <label>Workspace
+        <select id="proj-modal-workspace" style="width:100%;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px">
+          <option value="">— none —</option>
+        </select>
+      </label>
       <label>Notes<textarea id="proj-modal-notes" rows="4" placeholder="Project context and goals…" style="width:100%;box-sizing:border-box;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:8px;font-family:inherit;resize:vertical"></textarea></label>
       <div class="modal-actions">
         <button id="proj-modal-cancel">Cancel</button>
@@ -143,6 +148,11 @@
       <h2 id="edit-proj-title">Edit Project</h2>
       <input type="hidden" id="edit-proj-id">
       <label>Name<input id="edit-proj-name" type="text" autocomplete="off"></label>
+      <label>Workspace
+        <select id="edit-proj-workspace" style="width:100%;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px">
+          <option value="">— none —</option>
+        </select>
+      </label>
       <label>Status
         <select id="edit-proj-status">
           <option value="active">active</option>
