@@ -115,6 +115,10 @@ function connect() {
         // Panel may already exist (ensurePanel from agents list); add orch badge if so
         addOrchBadge(msg.agentName);
         break;
+
+      case 'project_launched':
+        fetchProjects();
+        break;
     }
   });
 
@@ -714,25 +718,100 @@ function renderProjects(projects) {
   for (const p of projects) {
     const card = document.createElement('div');
     card.className = 'project-card';
-    const agentStr = p.agents.length ? p.agents.join(', ') : '(no agents)';
-    const notesSnip = (p.notes || '').slice(0, 120) + ((p.notes || '').length > 120 ? '…' : '');
+    card.id = `proj-card-${p.id}`;
+    const agentStr  = p.agents.length ? p.agents.join(', ') : '(no agents)';
+    const notesSnip = (p.notes || '').slice(0, 100) + ((p.notes || '').length > 100 ? '…' : '');
+    const goalSnip  = (p.goal || '').slice(0, 120);
+    const orchId    = p.active_orchestration_id;
+    const launchBtn = p.goal
+      ? `<button class="btn-launch" data-proj-id="${p.id}" style="background:#238636;border:none;color:#fff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:13px">▶ Launch</button>`
+      : `<button disabled style="background:#21262d;border:none;color:#8b949e;padding:3px 10px;border-radius:4px;font-size:13px;cursor:default" title="Add a goal to enable launch">▶ Launch</button>`;
+    const orchChip  = orchId
+      ? `<span class="btn-orch-status badge badge-pending" data-orch-id="${orchId}" data-proj-id="${p.id}" style="cursor:pointer" title="Click to view scratchpad">⚙ …</span>`
+      : '';
     card.innerHTML = `
       <div class="project-card-header">
         <span class="project-card-name">${escHtml(p.name)}</span>
         <span class="badge badge-${escHtml(p.status)}">${escHtml(p.status)}</span>
+        ${orchChip}
       </div>
+      ${goalSnip ? `<div class="project-card-meta" style="color:#58a6ff;font-style:italic">${escHtml(goalSnip)}</div>` : ''}
       <div class="project-card-meta">Agents: ${escHtml(agentStr)}</div>
       <div class="project-card-meta">Week: $${p.costWeek.toFixed(4)} &nbsp; Month: $${p.costMonth.toFixed(4)}</div>
       ${notesSnip ? `<div class="project-card-notes">${escHtml(notesSnip)}</div>` : ''}
       <div class="project-card-footer">
+        ${launchBtn}
         <button class="btn-docs" data-proj-id="${p.id}">📄 Docs</button>
         <button class="btn-edit" data-proj-id="${p.id}">Edit</button>
       </div>
     `;
     card.querySelector('.btn-edit').addEventListener('click', () => openEditProjectModal(p.id));
     card.querySelector('.btn-docs').addEventListener('click', () => openDocsModal(p.id, p.name));
+    const launchBtnEl = card.querySelector('.btn-launch');
+    if (launchBtnEl) {
+      launchBtnEl.addEventListener('click', async () => {
+        launchBtnEl.textContent = '⏳ Launching…';
+        launchBtnEl.disabled = true;
+        try {
+          const r = await fetch(`/projects/${p.id}/launch`, { method: 'POST' });
+          const data = await r.json();
+          if (!r.ok) { alert(data.error ?? 'Launch failed'); launchBtnEl.textContent = '▶ Launch'; launchBtnEl.disabled = false; return; }
+          fetchProjects();
+        } catch (err) {
+          alert('Launch failed: ' + err.message);
+          launchBtnEl.textContent = '▶ Launch';
+          launchBtnEl.disabled = false;
+        }
+      });
+    }
+    const orchChipEl = card.querySelector('.btn-orch-status');
+    if (orchChipEl) {
+      orchChipEl.addEventListener('click', () => openScratchpadModal(orchId));
+      pollOrchestrationStatus(orchId, orchChipEl);
+    }
     view.appendChild(card);
   }
+}
+
+const _orchPollers = new Map();
+
+function pollOrchestrationStatus(orchId, chipEl) {
+  if (_orchPollers.has(orchId)) return;
+  async function tick() {
+    if (!chipEl.isConnected) { _orchPollers.delete(orchId); return; }
+    try {
+      const orch = await fetch(`/orchestrations/${orchId}`).then(r => r.json());
+      const status = orch.status ?? 'running';
+      chipEl.textContent = status === 'running' ? '⚙ running' : status === 'done' ? '✅ done' : `⚠ ${status}`;
+      chipEl.className = `btn-orch-status badge badge-${status === 'running' ? 'pending' : status === 'done' ? 'success' : 'error'}`;
+      if (status === 'running') setTimeout(tick, 15000);
+      else _orchPollers.delete(orchId);
+    } catch { setTimeout(tick, 15000); }
+  }
+  _orchPollers.set(orchId, true);
+  tick();
+}
+
+async function openScratchpadModal(orchId) {
+  let text = '';
+  try { text = await fetch(`/orchestrations/${orchId}/scratchpad`).then(r => r.text()); } catch {}
+  const existing = document.getElementById('scratchpad-modal-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'scratchpad-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:1000';
+  overlay.innerHTML = `
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:24px;width:700px;max-height:85vh;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0;color:#e6edf3">Orchestration Scratchpad #${orchId}</h3>
+        <button id="sp-close" style="background:none;border:none;color:#8b949e;font-size:18px;cursor:pointer">×</button>
+      </div>
+      <pre style="flex:1;overflow-y:auto;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:12px;font-size:13px;white-space:pre-wrap;word-break:break-word;color:#e6edf3;margin:0">${escHtml(text || '(empty)')}</pre>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('sp-close').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
 
 function escHtml(str) {
@@ -755,11 +834,12 @@ async function populateWorkspaceSelect(selectId, selectedId = null) {
 
 // --- New Project modal ---
 async function openNewProjectModal() {
+  document.getElementById('proj-modal-goal').value = '';
   document.getElementById('proj-modal-name').value = '';
   document.getElementById('proj-modal-notes').value = '';
   await populateWorkspaceSelect('proj-modal-workspace');
   document.getElementById('proj-modal').classList.remove('hidden');
-  document.getElementById('proj-modal-name').focus();
+  document.getElementById('proj-modal-goal').focus();
 }
 
 document.getElementById('proj-modal-cancel').addEventListener('click', () => {
@@ -770,14 +850,15 @@ document.getElementById('proj-modal').addEventListener('click', e => {
     document.getElementById('proj-modal').classList.add('hidden');
 });
 document.getElementById('proj-modal-create').addEventListener('click', async () => {
-  const name         = document.getElementById('proj-modal-name').value.trim();
-  const notes        = document.getElementById('proj-modal-notes').value.trim();
+  const goal        = document.getElementById('proj-modal-goal').value.trim();
+  const name        = document.getElementById('proj-modal-name').value.trim();
+  const notes       = document.getElementById('proj-modal-notes').value.trim();
   const workspace_id = Number(document.getElementById('proj-modal-workspace').value) || null;
   if (!name) return;
   await fetch('/projects', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, notes, workspace_id }),
+    body: JSON.stringify({ name, notes, workspace_id, ...(goal ? { goal } : {}) }),
   });
   document.getElementById('proj-modal').classList.add('hidden');
   fetchProjects();
@@ -791,6 +872,7 @@ async function openEditProjectModal(projectId) {
   document.getElementById('edit-proj-id').value      = p.id;
   document.getElementById('edit-proj-title').textContent = `Edit: ${p.name}`;
   document.getElementById('edit-proj-name').value    = p.name;
+  document.getElementById('edit-proj-goal').value = p.goal || '';
   document.getElementById('edit-proj-status').value  = p.status;
   document.getElementById('edit-proj-notes').value   = p.notes || '';
   document.getElementById('edit-proj-summary').textContent = p.last_summary || '(none)';
@@ -840,6 +922,7 @@ document.getElementById('edit-proj-modal').addEventListener('click', e => {
 document.getElementById('edit-proj-save').addEventListener('click', async () => {
   const id           = Number(document.getElementById('edit-proj-id').value);
   const name         = document.getElementById('edit-proj-name').value.trim();
+  const goal         = document.getElementById('edit-proj-goal').value.trim();
   const status       = document.getElementById('edit-proj-status').value;
   const notes        = document.getElementById('edit-proj-notes').value;
   const workspace_id = Number(document.getElementById('edit-proj-workspace').value) || null;
@@ -847,7 +930,7 @@ document.getElementById('edit-proj-save').addEventListener('click', async () => 
   await fetch(`/projects/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, status, notes, workspace_id }),
+    body: JSON.stringify({ name, goal: goal || null, status, notes, workspace_id }),
   });
   document.getElementById('edit-proj-modal').classList.add('hidden');
   fetchProjects();

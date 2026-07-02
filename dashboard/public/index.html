@@ -129,6 +129,9 @@
   <div id="proj-modal" class="hidden" role="dialog" aria-modal="true">
     <div class="modal-box">
       <h2>New Project</h2>
+      <label>Goal <small style="color:#8b949e;font-weight:normal">(one sentence — what are we building?)</small>
+        <input id="proj-modal-goal" type="text" placeholder="Build a competitor price-tracking tool" autocomplete="off">
+      </label>
       <label>Name<input id="proj-modal-name" type="text" placeholder="My Project" autocomplete="off"></label>
       <label>Workspace
         <select id="proj-modal-workspace" style="width:100%;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px">
@@ -148,6 +151,9 @@
       <h2 id="edit-proj-title">Edit Project</h2>
       <input type="hidden" id="edit-proj-id">
       <label>Name<input id="edit-proj-name" type="text" autocomplete="off"></label>
+      <label>Goal <small style="color:#8b949e;font-weight:normal">(one sentence — what are we building?)</small>
+        <input id="edit-proj-goal" type="text" placeholder="Build a competitor price-tracking tool" autocomplete="off">
+      </label>
       <label>Workspace
         <select id="edit-proj-workspace" style="width:100%;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px">
           <option value="">— none —</option>
