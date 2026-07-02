@@ -136,7 +136,7 @@ New routes:
 POST   /model-audit/trigger               spawn audit agent; return { reportId }
 GET    /model-audit/reports               list reports
 GET    /model-audit/reports/:id           full report + items
-POST   /model-audit/reports/:id/submit    agent submits findings; triggers Telegram nudge
+POST   /model-audit/reports/:id/submit    agent submits findings; triggers Telegram nudge + broadcasts model_audit_ready
 PATCH  /model-audit/items/:id             { status: 'approved'|'rejected' }
 POST   /model-audit/reports/:id/apply     apply approved items; pm2 restart
 DELETE /model-audit/reports/:id           dismiss report
