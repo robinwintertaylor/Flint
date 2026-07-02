@@ -1,8 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
 import { getDb } from './db.js';
 import { getSetting } from './settings.js';
 import { listSpecialists } from './specialists.js';
@@ -77,23 +76,28 @@ export function applyAuditReport(reportId) {
   if (!items.length) throw new Error('No approved items to apply');
 
   const routerPath = join(FLINT_ROOT, 'router.json');
-  let routerCfg = null;
+  const routerItems = items.filter(i => i.scope === 'router');
+  const specialistItems = items.filter(i => i.scope === 'specialist');
 
-  for (const item of items) {
-    if (item.scope === 'router') {
-      if (!routerCfg) routerCfg = JSON.parse(readFileSync(routerPath, 'utf8'));
+  // Write router.json first — if this throws, no DB changes are made
+  if (routerItems.length) {
+    const routerCfg = JSON.parse(readFileSync(routerPath, 'utf8'));
+    for (const item of routerItems) {
       setNestedKey(routerCfg, item.target, item.recommended_value);
-    } else if (item.scope === 'specialist') {
+    }
+    writeFileSync(routerPath, JSON.stringify(routerCfg, null, 2), 'utf8');
+  }
+
+  // Commit all DB changes in one transaction
+  db.transaction(() => {
+    for (const item of specialistItems) {
       const name = item.target.replace(/^specialist:/, '');
       db.prepare(`UPDATE specialists SET preferred_model = ? WHERE name = ?`).run(item.recommended_value, name);
     }
-  }
-
-  if (routerCfg) writeFileSync(routerPath, JSON.stringify(routerCfg, null, 2), 'utf8');
-
-  db.prepare(
-    `UPDATE model_audit_reports SET status = 'applied', completed_at = CURRENT_TIMESTAMP WHERE id = ?`
-  ).run(reportId);
+    db.prepare(
+      `UPDATE model_audit_reports SET status = 'applied', completed_at = CURRENT_TIMESTAMP WHERE id = ?`
+    ).run(reportId);
+  })();
 
   if (process.env.FLINT_TEST_MODE !== '1') {
     try { execSync('pm2 restart flint-dashboard', { stdio: 'ignore' }); } catch {}
