@@ -139,6 +139,26 @@ export function initDb(dbPath = DEFAULT_DB) {
       actions_json TEXT NOT NULL DEFAULT '[]',
       created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS model_audit_reports (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      status       TEXT NOT NULL DEFAULT 'running',
+      agent_name   TEXT,
+      summary      TEXT,
+      started_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at DATETIME
+    );
+    CREATE TABLE IF NOT EXISTS model_audit_items (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_id         INTEGER NOT NULL REFERENCES model_audit_reports(id),
+      scope             TEXT NOT NULL,
+      target            TEXT NOT NULL,
+      label             TEXT NOT NULL,
+      current_value     TEXT NOT NULL,
+      recommended_value TEXT NOT NULL,
+      rationale         TEXT NOT NULL,
+      evidence          TEXT,
+      status            TEXT NOT NULL DEFAULT 'pending'
+    );
   `);
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_path TEXT'); } catch {}
   try { _db.exec('ALTER TABLE agents_log ADD COLUMN worktree_branch TEXT'); } catch {}
