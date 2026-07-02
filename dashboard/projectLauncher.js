@@ -2,7 +2,6 @@ import { getProject, updateProject } from './projects.js';
 import { listWorkspaces } from './db.js';
 import { getSetting } from './settings.js';
 import { listSpecialists } from './specialists.js';
-import { listDocsWithContent } from './project_docs.js';
 import { createOrchestration } from './orchestrator.js';
 import { broadcastGlobal } from './agents.js';
 
@@ -22,7 +21,6 @@ export async function launchProject(projectId) {
   if (!workdir) workdir = process.cwd();
 
   const specialists  = listSpecialists();
-  const projectDocs  = listDocsWithContent(projectId);
 
   const { id: orchestrationId } = await createOrchestration({
     goal:          project.goal,

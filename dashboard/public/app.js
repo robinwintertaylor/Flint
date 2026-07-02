@@ -725,7 +725,7 @@ function renderProjects(projects) {
     const orchId    = p.active_orchestration_id;
     const launchBtn = p.goal
       ? `<button class="btn-launch" data-proj-id="${p.id}" style="background:#238636;border:none;color:#fff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:13px">▶ Launch</button>`
-      : `<button disabled style="background:#21262d;border:none;color:#8b949e;padding:3px 10px;border-radius:4px;font-size:13px;cursor:default" title="Add a goal to enable launch">▶ Launch</button>`;
+      : `<button disabled style="background:#21262d;border:none;color:#8b949e;padding:3px 10px;border-radius:4px;font-size:13px;cursor:default" title="Add a goal to enable launch">Add goal to launch</button>`;
     const orchChip  = orchId
       ? `<span class="btn-orch-status badge badge-pending" data-orch-id="${orchId}" data-proj-id="${p.id}" style="cursor:pointer" title="Click to view scratchpad">⚙ …</span>`
       : '';
@@ -794,7 +794,7 @@ function pollOrchestrationStatus(orchId, chipEl) {
 
 async function openScratchpadModal(orchId) {
   let text = '';
-  try { text = await fetch(`/orchestrations/${orchId}/scratchpad`).then(r => r.text()); } catch {}
+  try { const r = await fetch(`/orchestrations/${orchId}/scratchpad`); if (r.ok) text = await r.text(); } catch {}
   const existing = document.getElementById('scratchpad-modal-overlay');
   if (existing) existing.remove();
   const overlay = document.createElement('div');
