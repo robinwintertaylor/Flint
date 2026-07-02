@@ -2450,75 +2450,79 @@ function renderAuditView(reports) {
 }
 
 async function loadAuditItems(reportId) {
-  const { items } = await fetch(`/model-audit/reports/${reportId}`).then(r => r.json());
   const container = document.getElementById('audit-items-container');
   if (!container) return;
+  try {
+    const { items } = await fetch(`/model-audit/reports/${reportId}`).then(r => r.json());
 
-  if (!items.length) {
-    container.innerHTML = '<div style="color:#8b949e">No recommendations.</div>';
-    return;
-  }
+    if (!items.length) {
+      container.innerHTML = '<div style="color:#8b949e">No recommendations.</div>';
+      return;
+    }
 
-  container.innerHTML = items.map(item => `
-    <div class="audit-item" id="audit-item-${item.id}" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div>
-          <div style="font-weight:600;color:#e6edf3;margin-bottom:4px">${escHtml(item.label)}</div>
-          <div style="font-size:13px;color:#8b949e;margin-bottom:6px">
-            <span style="color:#f85149">${escHtml(item.current_value)}</span>
-            <span style="color:#8b949e"> → </span>
-            <span style="color:#3fb950">${escHtml(item.recommended_value)}</span>
+    container.innerHTML = items.map(item => `
+      <div class="audit-item" id="audit-item-${escHtml(String(item.id))}" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <div>
+            <div style="font-weight:600;color:#e6edf3;margin-bottom:4px">${escHtml(item.label)}</div>
+            <div style="font-size:13px;color:#8b949e;margin-bottom:6px">
+              <span style="color:#f85149">${escHtml(item.current_value)}</span>
+              <span style="color:#8b949e"> → </span>
+              <span style="color:#3fb950">${escHtml(item.recommended_value)}</span>
+            </div>
+            <div style="font-size:13px;color:#c9d1d9;margin-bottom:6px">${escHtml(item.rationale)}</div>
+            ${item.evidence?.length ? `<div style="font-size:12px">${item.evidence.map((u, i) => `<a href="${/^https?:\/\//i.test(u) ? escHtml(u) : '#'}" target="_blank" rel="noopener" style="color:#58a6ff;margin-right:8px">source ${i+1}</a>`).join('')}</div>` : ''}
+            <details style="margin-top:8px">
+              <summary style="color:#8b949e;font-size:12px;cursor:pointer">▼ Show diff</summary>
+              <pre style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;font-size:12px;color:#e6edf3;margin-top:6px;overflow-x:auto">${escHtml(`${item.target}:\n  "${item.current_value}" → "${item.recommended_value}"`)}</pre>
+            </details>
           </div>
-          <div style="font-size:13px;color:#c9d1d9;margin-bottom:6px">${escHtml(item.rationale)}</div>
-          ${item.evidence?.length ? `<div style="font-size:12px">${item.evidence.map((u, i) => `<a href="${escHtml(u)}" target="_blank" rel="noopener" style="color:#58a6ff;margin-right:8px">source ${i+1}</a>`).join('')}</div>` : ''}
-          <details style="margin-top:8px">
-            <summary style="color:#8b949e;font-size:12px;cursor:pointer">▼ Show diff</summary>
-            <pre style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;font-size:12px;color:#e6edf3;margin-top:6px;overflow-x:auto">${escHtml(`${item.target}:\n  "${item.current_value}" → "${item.recommended_value}"`)}</pre>
-          </details>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="btn-item-approve" data-item-id="${item.id}" data-approved="${item.status === 'approved' ? '1' : '0'}" style="background:${item.status==='approved'?'#238636':'#21262d'};border:1px solid #30363d;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✓ Approve</button>
-          <button class="btn-item-reject" data-item-id="${item.id}" data-rejected="${item.status === 'rejected' ? '1' : '0'}" style="background:${item.status==='rejected'?'#da3633':'#21262d'};border:1px solid #30363d;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✗ Reject</button>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn-item-approve" data-item-id="${escHtml(String(item.id))}" data-approved="${item.status === 'approved' ? '1' : '0'}" style="background:${item.status==='approved'?'#238636':'#21262d'};border:1px solid #30363d;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✓ Approve</button>
+            <button class="btn-item-reject" data-item-id="${escHtml(String(item.id))}" data-rejected="${item.status === 'rejected' ? '1' : '0'}" style="background:${item.status==='rejected'?'#da3633':'#21262d'};border:1px solid #30363d;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✗ Reject</button>
+          </div>
         </div>
       </div>
-    </div>
-  `).join('');
+    `).join('');
 
-  container.querySelectorAll('.btn-item-approve').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const itemId = btn.dataset.itemId;
-      const newStatus = btn.dataset.approved === '1' ? 'pending' : 'approved';
-      await fetch(`/model-audit/items/${itemId}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus }) });
-      loadAuditItems(reportId);
+    container.querySelectorAll('.btn-item-approve').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const itemId = btn.dataset.itemId;
+        const newStatus = btn.dataset.approved === '1' ? 'pending' : 'approved';
+        await fetch(`/model-audit/items/${itemId}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus }) });
+        loadAuditItems(reportId);
+      });
     });
-  });
 
-  container.querySelectorAll('.btn-item-reject').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const itemId = btn.dataset.itemId;
-      const newStatus = btn.dataset.rejected === '1' ? 'pending' : 'rejected';
-      await fetch(`/model-audit/items/${itemId}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus }) });
-      loadAuditItems(reportId);
+    container.querySelectorAll('.btn-item-reject').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const itemId = btn.dataset.itemId;
+        const newStatus = btn.dataset.rejected === '1' ? 'pending' : 'rejected';
+        await fetch(`/model-audit/items/${itemId}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus }) });
+        loadAuditItems(reportId);
+      });
     });
-  });
 
-  const approvedCount = items.filter(i => i.status === 'approved').length;
-  const applyBtn = document.getElementById('btn-audit-apply');
-  if (applyBtn) {
-    applyBtn.textContent = `Apply Approved (${approvedCount})`;
-    applyBtn.disabled = approvedCount === 0;
-    applyBtn.onclick = async () => {
-      if (!confirm(`Apply ${approvedCount} model change(s)? The server will restart.`)) return;
-      applyBtn.disabled = true;
-      applyBtn.textContent = 'Applying…';
-      const r = await fetch(`/model-audit/reports/${reportId}/apply`, { method: 'POST' });
-      const data = await r.json();
-      if (!r.ok) { alert(data.error ?? 'Apply failed'); applyBtn.disabled = false; return; }
-      fetchAndRenderAudit();
-    };
+    const approvedCount = items.filter(i => i.status === 'approved').length;
+    const applyBtn = document.getElementById('btn-audit-apply');
+    if (applyBtn) {
+      applyBtn.textContent = `Apply Approved (${approvedCount})`;
+      applyBtn.disabled = approvedCount === 0;
+      applyBtn.onclick = async () => {
+        if (!confirm(`Apply ${approvedCount} model change(s)? The server will restart.`)) return;
+        applyBtn.disabled = true;
+        applyBtn.textContent = 'Applying…';
+        const r = await fetch(`/model-audit/reports/${reportId}/apply`, { method: 'POST' });
+        const data = await r.json();
+        if (!r.ok) { alert(data.error ?? 'Apply failed'); applyBtn.disabled = false; return; }
+        fetchAndRenderAudit();
+      };
+    }
+
+    updateAuditBadge(items.filter(i => i.status === 'pending').length);
+  } catch (err) {
+    container.innerHTML = `<div style="color:#f85149;padding:8px">Failed to load recommendations: ${escHtml(err.message)}</div>`;
   }
-
-  updateAuditBadge(items.filter(i => i.status === 'pending').length);
 }
 
 function updateAuditBadge(count) {
