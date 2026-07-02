@@ -13,6 +13,7 @@ import { listWorktrees, createWorktree, discardWorktree } from './worktrees.js';
 import { spawnAgent, writeToAgent, observeLogFile } from './terminal.js';
 import { readTasks, writeTasks, appendTask } from './tasks.js';
 import { listProjects, getProject, createProject, updateProject, linkAgent, unlinkAgent } from './projects.js';
+import { launchProject } from './projectLauncher.js';
 import { isForgejoReachable, pushBranch, createPR, getPRStatus } from './forgejo.js';
 import { detectProvider, isGitHubReachable, pushToGitHub, createGitHubPR, getGitHubPRStatus } from './github.js';
 import { info, error as logError } from './logger.js';
@@ -629,11 +630,27 @@ export function createApp() {
     res.json(p);
   });
 
-  app.post('/projects', (req, res) => {
-    const { name, notes, workspace_id } = req.body ?? {};
+  app.post('/projects/:id/launch', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!getProject(id)) return res.status(404).json({ error: 'project not found' });
+    try {
+      const result = await launchProject(id);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/projects', async (req, res) => {
+    const { name, notes, workspace_id, goal } = req.body ?? {};
     if (!name) return res.status(400).json({ error: 'name required' });
     try {
-      const id = createProject({ name, notes: notes ?? '', workspace_id: workspace_id ?? null });
+      const id = createProject({ name, notes: notes ?? '', workspace_id: workspace_id ?? null, goal: goal ?? null });
+      if (goal) {
+        try { await launchProject(id); } catch (err) {
+          console.warn(`[projects] auto-launch failed for project ${id}: ${err.message}`);
+        }
+      }
       res.status(201).json(getProject(id));
     } catch (err) {
       if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'project name already exists' });
@@ -644,7 +661,7 @@ export function createApp() {
   app.patch('/projects/:id', (req, res) => {
     const id = Number(req.params.id);
     if (!getProject(id)) return res.status(404).json({ error: 'project not found' });
-    const { name, status, notes, workspace_id } = req.body ?? {};
+    const { name, status, notes, workspace_id, goal } = req.body ?? {};
     const VALID_STATUSES = ['active', 'paused', 'done', 'archived'];
     if (status !== undefined && !VALID_STATUSES.includes(status)) {
       return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
@@ -654,6 +671,7 @@ export function createApp() {
     if (status !== undefined) fields.status = status;
     if (notes !== undefined) fields.notes = notes;
     if (workspace_id !== undefined) fields.workspace_id = workspace_id ?? null;
+    if (goal !== undefined) fields.goal = goal ?? null;
     if (Object.keys(fields).length) updateProject(id, fields);
     res.json(getProject(id));
   });
