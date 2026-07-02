@@ -15,6 +15,9 @@ const FLINT_ROOT = join(__dirname, '..');
 
 function setNestedKey(obj, dotPath, value) {
   const keys = dotPath.split('.');
+  if (keys.some(k => k === '__proto__' || k === 'constructor' || k === 'prototype')) {
+    throw new Error(`Forbidden key in target path: ${dotPath}`);
+  }
   let cur = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     if (!cur[keys[i]]) cur[keys[i]] = {};
@@ -99,11 +102,13 @@ export function applyAuditReport(reportId) {
     ).run(reportId);
   })();
 
+  let restartFailed = false;
   if (process.env.FLINT_TEST_MODE !== '1') {
-    try { execSync('pm2 restart flint-dashboard', { stdio: 'ignore' }); } catch {}
+    try { execSync('pm2 restart flint-dashboard', { stdio: 'ignore' }); }
+    catch { restartFailed = true; }
   }
 
-  return { applied: items.length };
+  return { applied: items.length, restartFailed };
 }
 
 export function dismissAuditReport(reportId) {

@@ -122,10 +122,14 @@ function connect() {
 
       case 'model_audit_ready':
         if (currentView === 'audit') fetchAndRenderAudit();
-        else updateAuditBadge(1);
+        else if (msg.status === 'pending_review') updateAuditBadge(1);
         break;
       case 'model_audit_applied':
-        if (currentView === 'audit') fetchAndRenderAudit();
+        if (currentView === 'audit') {
+          document.getElementById('audit-view').innerHTML =
+            '<div style="color:#58a6ff;padding:24px">✅ Changes applied — server restarting…</div>';
+          setTimeout(() => fetchAndRenderAudit(), 4000);
+        }
         break;
     }
   });
@@ -2515,6 +2519,9 @@ async function loadAuditItems(reportId) {
         const r = await fetch(`/model-audit/reports/${reportId}/apply`, { method: 'POST' });
         const data = await r.json();
         if (!r.ok) { alert(data.error ?? 'Apply failed'); applyBtn.disabled = false; return; }
+        if (data.restartFailed) {
+          alert('Changes applied but server restart failed. Run: pm2 restart flint-dashboard');
+        }
         fetchAndRenderAudit();
       };
     }

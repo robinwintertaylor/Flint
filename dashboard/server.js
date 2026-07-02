@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 
-import { initDb, getTodayCost, getMonthCost, closeDb, upsertAgentLog, setAgentWorktree, getAgentWorktree, setAgentPR, clearAgentPR, getAgentPR, listOpenPRAgents, clearAgentWorktree, listWorkspaces, addWorkspace, removeWorkspace } from './db.js';
+import { initDb, getDb, getTodayCost, getMonthCost, closeDb, upsertAgentLog, setAgentWorktree, getAgentWorktree, setAgentPR, clearAgentPR, getAgentPR, listOpenPRAgents, clearAgentWorktree, listWorkspaces, addWorkspace, removeWorkspace } from './db.js';
 import { initAgents, registerAgent, listAgents, getAgent, addWsClient, removeWsClient, killAgent, removeAgent, broadcastToAgent, addGlobalWsClient, removeGlobalWsClient, updateAgentMeta, broadcastGlobal } from './agents.js';
 import { listSuggestions, updateSuggestion } from './suggestions.js';
 import { listWorktrees, createWorktree, discardWorktree } from './worktrees.js';
@@ -920,7 +920,11 @@ export function createApp() {
     if (!['approved', 'rejected', 'pending'].includes(status)) {
       return res.status(400).json({ error: 'status must be approved, rejected, or pending' });
     }
-    updateAuditItem(Number(req.params.id), status);
+    const itemId = Number(req.params.id);
+    const db = getDb();
+    const item = db.prepare(`SELECT id FROM model_audit_items WHERE id = ?`).get(itemId);
+    if (!item) return res.status(404).json({ error: 'item not found' });
+    updateAuditItem(itemId, status);
     res.json({ ok: true });
   });
 

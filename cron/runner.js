@@ -78,6 +78,22 @@ async function runApi(entry) {
 
   logStream.write(`\n=== ${new Date().toISOString()} Starting: ${entry.name} ===\n`);
 
+  if (entry.url) {
+    // Direct webhook — POST to the specified URL
+    try {
+      const res = await fetch(entry.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      logStream.write(`api webhook ${entry.url} → ${res.status}\n`);
+    } catch (err) {
+      logStream.write(`[cron] ERROR: ${err.message}\n`);
+    }
+    logStream.write(`=== ${new Date().toISOString()} Finished: ${entry.name} ===\n`);
+    logStream.end();
+    return;
+  }
+
   try {
     const res = await fetch('http://localhost:3001/llm/complete', {
       method: 'POST',
