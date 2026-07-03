@@ -853,11 +853,11 @@ export function createApp() {
     res.json(orch);
   });
 
-  app.post('/orchestrations', (req, res) => {
+  app.post('/orchestrations', async (req, res) => {
     const { goal, workdir, model, project_id } = req.body ?? {};
     if (!goal || !workdir) return res.status(400).json({ error: 'goal and workdir required' });
     try {
-      const result = createOrchestration({ goal, workdir, model, projectId: project_id });
+      const result = await createOrchestration({ goal, workdir, model, projectId: project_id });
       res.status(201).json({ ...result, goal, status: 'running' });
     } catch (err) {
       res.status(500).json({ error: err.message });

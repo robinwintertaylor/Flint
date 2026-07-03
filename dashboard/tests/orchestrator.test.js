@@ -79,19 +79,55 @@ test('orchestrations table has git columns', () => {
   assert.ok(cols.includes('pr_status'), 'pr_status column missing');
 });
 
-test('setOrchestrationBranch stores the branch name', () => {
+test('setOrchestrationBranch stores the branch name', async () => {
   initDb(':memory:');
-  const { id } = createOrchestration({ goal: 'test goal', workdir: process.cwd() });
+  const { id } = await createOrchestration({ goal: 'test goal', workdir: process.cwd() });
   setOrchestrationBranch(id, 'project/test-orch-1');
   assert.equal(getOrchestration(id).branch, 'project/test-orch-1');
 });
 
-test('setOrchestrationPR stores PR number, url, and status', () => {
+test('setOrchestrationPR stores PR number, url, and status', async () => {
   initDb(':memory:');
-  const { id } = createOrchestration({ goal: 'test goal', workdir: process.cwd() });
+  const { id } = await createOrchestration({ goal: 'test goal', workdir: process.cwd() });
   setOrchestrationPR(id, { prNumber: 5, prUrl: 'http://x/pulls/5', prStatus: 'open' });
   const orch = getOrchestration(id);
   assert.equal(orch.pr_number, 5);
   assert.equal(orch.pr_url, 'http://x/pulls/5');
   assert.equal(orch.pr_status, 'open');
+});
+
+test('createOrchestration creates and stores a branch for a project-linked run', async () => {
+  const { execSync } = await import('child_process');
+  const { mkdtempSync } = await import('fs');
+  const { tmpdir: osTmpdir } = await import('os');
+  const { join: pathJoin } = await import('path');
+  const { createProject } = await import('../projects.js');
+
+  initDb(':memory:');
+  const workdir = mkdtempSync(pathJoin(osTmpdir(), 'flint-orch-branch-'));
+  execSync('git init', { cwd: workdir });
+  execSync('git config user.email "t@t.local"', { cwd: workdir });
+  execSync('git config user.name "T"', { cwd: workdir });
+  execSync('git commit --allow-empty -m init', { cwd: workdir });
+  execSync('git remote add forgejo "http://u:t@localhost:3030/u/repo.git"', { cwd: workdir });
+
+  const projectId = createProject({ name: 'Branch Test Project' });
+
+  const prevTestMode = process.env.FLINT_TEST_MODE;
+  delete process.env.FLINT_TEST_MODE;
+  try {
+    const { id } = await createOrchestration({ goal: 'test goal', workdir, projectId });
+    const orch = getOrchestration(id);
+    assert.ok(orch.branch, 'branch should be set');
+    assert.match(orch.branch, /^project\/branch-test-project-orch-\d+$/);
+  } finally {
+    if (prevTestMode !== undefined) process.env.FLINT_TEST_MODE = prevTestMode;
+  }
+});
+
+test('createOrchestration leaves branch null when no projectId is given', async () => {
+  initDb(':memory:');
+  const { id } = await createOrchestration({ goal: 'ad-hoc goal', workdir: process.cwd() });
+  const orch = getOrchestration(id);
+  assert.equal(orch.branch, null);
 });

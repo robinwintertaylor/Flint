@@ -2,11 +2,14 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { execSync } from 'child_process';
 import { getDb } from './db.js';
 import { writeTasks } from './tasks.js';
 import { registerAgent, broadcastGlobal } from './agents.js';
 import { spawnAgent } from './terminal.js';
 import { listDocsWithContent } from './project_docs.js';
+import { ensureProjectRepo, slugify } from './projectGit.js';
+import { getProject } from './projects.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FLINT_ROOT = join(__dirname, '..');
@@ -224,8 +227,20 @@ export function readScratchpad(id) {
   return readFileSync(path, 'utf8');
 }
 
-export function createOrchestration({ goal, workdir, model, projectId, specialists = [], projectNotes = '', workspacePath = null } = {}) {
+function branchNameFor(projectId, orchestrationId) {
+  const project = getProject(projectId);
+  const slug = slugify(project?.name ?? `project-${projectId}`);
+  return `project/${slug}-orch-${orchestrationId}`;
+}
+
+export async function createOrchestration({ goal, workdir, model, projectId, specialists = [], projectNotes = '', workspacePath = null } = {}) {
   if (!goal || !workdir) throw new Error('goal and workdir required');
+
+  const TEST_MODE = process.env.FLINT_TEST_MODE === '1';
+
+  if (projectId != null && !TEST_MODE) {
+    await ensureProjectRepo(projectId, workdir);
+  }
 
   const db = getDb();
   const r = db.prepare(
@@ -234,6 +249,12 @@ export function createOrchestration({ goal, workdir, model, projectId, specialis
   const id = r.lastInsertRowid;
   const agentName = `orch-${id}`;
   db.prepare('UPDATE orchestrations SET agent_name = ? WHERE id = ?').run(agentName, id);
+
+  if (projectId != null && !TEST_MODE) {
+    const branch = branchNameFor(projectId, id);
+    execSync(`git checkout -b "${branch}"`, { cwd: workdir });
+    setOrchestrationBranch(id, branch);
+  }
 
   // Create scratchpad directory + file
   const orchDir = join(getTasksDir(), `orch-${id}`);
@@ -250,7 +271,6 @@ export function createOrchestration({ goal, workdir, model, projectId, specialis
   // Register the orchestrator agent
   registerAgent(agentName, 'spawn', workdir, null, model ?? '', 'claude');
 
-  const TEST_MODE = process.env.FLINT_TEST_MODE === '1';
   if (!TEST_MODE) {
     spawnAgent(agentName, workdir, model ?? null, {});
   }
