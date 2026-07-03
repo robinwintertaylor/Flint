@@ -7,7 +7,7 @@ import { execSync } from 'child_process';
 import { mkdtempSync, writeFileSync as writeFileSyncFs } from 'fs';
 import { tmpdir as osTmpdir } from 'os';
 import { createProject } from '../projects.js';
-import { registerAgent, setAgentStatus } from '../agents.js';
+import { registerAgent, setAgentStatus, initAgents } from '../agents.js';
 
 // Set tasks dir before importing modules that read it at startup
 const TEMP_TASKS = join(tmpdir(), `flint-queue-test-${Date.now()}`);
@@ -21,9 +21,19 @@ import {
 } from '../queue.js';
 import { writeTasks } from '../tasks.js';
 
+// Isolate agents file so registerAgent/setAgentStatus (used by the two tests below that
+// exercise the commit-hook path) don't overwrite the real agents.json. Calling initAgents()
+// with an explicit path works regardless of import ordering (unlike a plain
+// `process.env.FLINT_AGENTS_FILE = ...` assignment, which would be hoisted below the static
+// `import { registerAgent } from '../agents.js'` above and never take effect — see
+// autoPickup.test.js for the same trap). Applied unconditionally in before(); harmless for
+// the other tests in this file since none of them touch the agents registry.
+const TEMP_AGENTS = join(tmpdir(), `flint-queue-agents-test-${Date.now()}.json`);
+
 before(() => {
   initDb(':memory:');
   mkdirSync(TEMP_TASKS, { recursive: true });
+  initAgents(TEMP_AGENTS);
 });
 
 test('initDb creates task_queue table', () => {
