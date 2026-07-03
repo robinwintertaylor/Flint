@@ -7,20 +7,34 @@ import { mkdirSync } from 'fs';
 
 process.env.FLINT_TEST_MODE = '1';
 
-const { isForgejoReachable, pushBranch, createPR, getPRStatus, createRepo } = await import('../forgejo.js');
+const { isForgejoReachable, pushBranch, createPR, getPRStatus, createRepo, getForgejoRemoteInfo } = await import('../forgejo.js');
 
 const TMP_REPO = join(tmpdir(), `flint-forgejo-test-${Date.now()}`);
+const TMP_REPO_DOT = join(tmpdir(), `flint-forgejo-test-dot-${Date.now()}`);
+const TMP_REPO_NO_REMOTE = join(tmpdir(), `flint-forgejo-test-noremote-${Date.now()}`);
+
+function initGitRepo(dir) {
+  mkdirSync(dir, { recursive: true });
+  execSync('git init', { cwd: dir });
+  execSync('git config user.email "test@flint.local"', { cwd: dir });
+  execSync('git config user.name "Flint Test"', { cwd: dir });
+  execSync('git commit --allow-empty -m "init"', { cwd: dir });
+}
 
 before(() => {
-  mkdirSync(TMP_REPO, { recursive: true });
-  execSync('git init', { cwd: TMP_REPO });
-  execSync('git config user.email "test@flint.local"', { cwd: TMP_REPO });
-  execSync('git config user.name "Flint Test"', { cwd: TMP_REPO });
-  execSync('git commit --allow-empty -m "init"', { cwd: TMP_REPO });
+  initGitRepo(TMP_REPO);
   execSync(
     'git remote add forgejo "http://testuser:testtoken@localhost:3030/testuser/testrepo.git"',
     { cwd: TMP_REPO }
   );
+
+  initGitRepo(TMP_REPO_DOT);
+  execSync(
+    'git remote add forgejo "http://testuser:testtoken@localhost:3030/testuser/my.repo.git"',
+    { cwd: TMP_REPO_DOT }
+  );
+
+  initGitRepo(TMP_REPO_NO_REMOTE);
 });
 
 test('isForgejoReachable returns true in TEST_MODE', async () => {
@@ -49,4 +63,19 @@ test('getPRStatus accepts a workdir and returns open in TEST_MODE', async () => 
 test('createRepo returns a stub clone URL in TEST_MODE', async () => {
   const result = await createRepo('some-project');
   assert.ok(result.cloneUrl.includes('some-project'));
+});
+
+test('getForgejoRemoteInfo parses owner/repo from a forgejo remote', () => {
+  const info = getForgejoRemoteInfo(TMP_REPO);
+  assert.deepEqual(info, { owner: 'testuser', repo: 'testrepo' });
+});
+
+test('getForgejoRemoteInfo handles a repo name containing a dot', () => {
+  const info = getForgejoRemoteInfo(TMP_REPO_DOT);
+  assert.deepEqual(info, { owner: 'testuser', repo: 'my.repo' });
+});
+
+test('getForgejoRemoteInfo returns null when there is no forgejo remote', () => {
+  const info = getForgejoRemoteInfo(TMP_REPO_NO_REMOTE);
+  assert.equal(info, null);
 });

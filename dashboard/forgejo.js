@@ -28,7 +28,7 @@ function authHeaders() {
 
 // Parses owner/repo from the `forgejo` remote configured in a given workdir,
 // e.g. http://user:token@localhost:3030/owner/repo.git -> { owner: 'owner', repo: 'repo' }
-function getForgejoRemoteInfo(workdir) {
+export function getForgejoRemoteInfo(workdir) {
   let out;
   try {
     out = execSync('git remote -v', { cwd: workdir, encoding: 'utf8' });
@@ -39,7 +39,7 @@ function getForgejoRemoteInfo(workdir) {
   if (!line) return null;
   const urlMatch = line.match(/forgejo\t(\S+)/);
   if (!urlMatch) return null;
-  const parsed = urlMatch[1].match(/https?:\/\/(?:[^@/]+@)?[^/]+\/([^/]+)\/([^/.]+)(?:\.git)?/);
+  const parsed = urlMatch[1].match(/https?:\/\/(?:[^@/]+@)?[^/]+\/([^/]+)\/(.+?)(?:\.git)?$/);
   if (!parsed) return null;
   return { owner: parsed[1], repo: parsed[2] };
 }
