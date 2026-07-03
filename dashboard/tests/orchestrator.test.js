@@ -8,12 +8,19 @@ const TEMP_TASKS = join(tmpdir(), `flint-orch-test-${Date.now()}`);
 process.env.FLINT_TASKS_DIR = TEMP_TASKS;
 process.env.FLINT_TEST_MODE = '1'; // skip actual PTY spawn
 
-import { initDb } from '../db.js';
-import {
+// Isolate agents file so registerAgent (called internally by createOrchestration)
+// doesn't overwrite the real agents.json. Must be a dynamic import: static imports
+// are hoisted above this env var assignment, which would load orchestrator.js (and
+// transitively agents.js) against the real agents.json before AGENTS_FILE is set.
+const TEMP_AGENTS = join(tmpdir(), `flint-orch-agents-${Date.now()}.json`);
+process.env.FLINT_AGENTS_FILE = TEMP_AGENTS;
+
+const { initDb } = await import('../db.js');
+const {
   getOrchestration, listOrchestrations, updateOrchestrationStatus,
   buildOrchestratorTaskFile, appendScratchpad, readScratchpad,
   createOrchestration, setOrchestrationBranch, setOrchestrationPR,
-} from '../orchestrator.js';
+} = await import('../orchestrator.js');
 
 before(() => {
   initDb(':memory:');
