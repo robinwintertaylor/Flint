@@ -7,15 +7,19 @@ import { mkdirSync } from 'fs';
 const TEMP_TASKS = join(tmpdir(), `flint-autopickup-test-${Date.now()}`);
 process.env.FLINT_TASKS_DIR = TEMP_TASKS;
 
-// Isolate agents file so registerAgent/setAgentStatus don't overwrite real agents.json
+// Isolate agents file so registerAgent/setAgentStatus don't overwrite real agents.json.
+// Must be a dynamic import: static imports are hoisted above this env var assignment,
+// which would load agents.js against the real agents.json before AGENTS_FILE is overridden.
 const TEMP_AGENTS = join(tmpdir(), `flint-autopickup-agents-${Date.now()}.json`);
 process.env.FLINT_AGENTS_FILE = TEMP_AGENTS;
 
-import { initDb } from '../db.js';
-import { initAgents, registerAgent, setAgentStatus } from '../agents.js';
-import { createQueueTask } from '../queue.js';
-import { setSetting } from '../settings.js';
-import { autoAssignPendingTasks } from '../autoPickup.js';
+const { initDb, addWorkspace, getDb } = await import('../db.js');
+const { initAgents, registerAgent, setAgentStatus } = await import('../agents.js');
+const { createQueueTask } = await import('../queue.js');
+const { setSetting } = await import('../settings.js');
+const { createProject, updateProject } = await import('../projects.js');
+const { createSpecialist } = await import('../specialists.js');
+const { autoAssignPendingTasks } = await import('../autoPickup.js');
 
 before(() => {
   initDb(':memory:');
@@ -34,7 +38,7 @@ test('running agent with matching role gets the task assigned', async () => {
 
   const assigned = [];
   await autoAssignPendingTasks({
-    assignFn: (id, name) => { assigned.push({ id, name }); },
+    assignFn: (id, name) => { const a = { id, name }; assigned.push(a); return a; },
     spawnFn:  () => { throw new Error('spawnFn should not be called'); },
   });
 
@@ -51,7 +55,7 @@ test('stopped agent with matching role gets assigned and spawned', async () => {
   const assigned = [];
   const spawned = [];
   await autoAssignPendingTasks({
-    assignFn: (id, name) => { assigned.push({ id, name }); },
+    assignFn: (id, name) => { const a = { id, name }; assigned.push(a); return a; },
     spawnFn:  (name, workdir, model, opts) => { spawned.push(name); },
   });
 
@@ -68,7 +72,7 @@ test('task with no role and no default_agent is skipped', async () => {
 
   const assigned = [];
   await autoAssignPendingTasks({
-    assignFn: (id, name) => { assigned.push({ id, name }); },
+    assignFn: (id, name) => { const a = { id, name }; assigned.push(a); return a; },
     spawnFn:  () => {},
   });
 
@@ -83,7 +87,7 @@ test('task with no role uses default_agent when configured', async () => {
 
   const assigned = [];
   await autoAssignPendingTasks({
-    assignFn: (id, name) => { assigned.push({ id, name }); },
+    assignFn: (id, name) => { const a = { id, name }; assigned.push(a); return a; },
     spawnFn:  () => {},
   });
 
@@ -96,7 +100,7 @@ test('no agent matching role — task is skipped', async () => {
 
   const assigned = [];
   await autoAssignPendingTasks({
-    assignFn: (id, name) => { assigned.push({ id, name }); },
+    assignFn: (id, name) => { const a = { id, name }; assigned.push(a); return a; },
     spawnFn:  () => {},
   });
 
@@ -109,10 +113,49 @@ test('spawnFn error is caught — task stays pending (assign was called)', async
 
   const assigned = [];
   await autoAssignPendingTasks({
-    assignFn: (id, name) => { assigned.push({ id, name }); },
+    assignFn: (id, name) => { const a = { id, name }; assigned.push(a); return a; },
     spawnFn:  () => { throw new Error('PTY failed'); },
   });
 
   // assign was called before spawn; spawn error is caught
   assert.equal(assigned.length, 1);
+});
+
+test('pre-assigned task tied to a project spawns the specialist into the project workspace, not the default cwd', async () => {
+  setSetting('default_workdir', 'C:/flint-default');
+  addWorkspace('proj-a-ws', 'C:/workspaces/proj-a');
+  const projectId = createProject({ name: 'Proj A' });
+  updateProject(projectId, { workspace_id: 1 });
+  createSpecialist({ name: 'ws-builder', label: 'WS Builder' });
+  const task = createQueueTask({ title: 'Build it', role: 'ws-builder', project_id: projectId, created_by: 'human' });
+  // Simulate the agent having crashed and been auto-released back to 'pending'
+  // while keeping assigned_to (mirrors queue.js checkQueueTasks' stale-agent release).
+  getDb().prepare(`UPDATE task_queue SET status = 'pending', assigned_to = ? WHERE id = ?`).run('ws-builder', task.id);
+
+  const spawned = [];
+  await autoAssignPendingTasks({
+    assignFn: (id, name) => ({ id, name }),
+    spawnFn:  (name, workdir) => { spawned.push({ name, workdir }); },
+  });
+
+  assert.equal(spawned.length, 1);
+  assert.equal(spawned[0].workdir, 'C:/workspaces/proj-a');
+});
+
+test('role-matched task tied to a project auto-provisions the specialist into the project workspace', async () => {
+  setSetting('default_workdir', 'C:/flint-default');
+  addWorkspace('proj-b-ws', 'C:/workspaces/proj-b');
+  const projectId = createProject({ name: 'Proj B' });
+  updateProject(projectId, { workspace_id: 1 });
+  createSpecialist({ name: 'db-expert', label: 'DB Expert' });
+  createQueueTask({ title: 'Register table', role: 'db-expert', project_id: projectId, created_by: 'human' });
+
+  const spawned = [];
+  await autoAssignPendingTasks({
+    assignFn: (id, name) => ({ id, name }),
+    spawnFn:  (name, workdir) => { spawned.push({ name, workdir }); },
+  });
+
+  assert.equal(spawned.length, 1);
+  assert.equal(spawned[0].workdir, 'C:/workspaces/proj-b');
 });

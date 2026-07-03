@@ -1,4 +1,5 @@
-import { getDb } from './db.js';
+import { getDb, listWorkspaces } from './db.js';
+import { getSetting } from './settings.js';
 
 function projectCost(db, projectId, period) {
   const stmt = period === 'week'
@@ -41,6 +42,19 @@ export function getProject(id) {
   const row = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
   if (!row) return null;
   return hydrate(row);
+}
+
+// Resolves the working directory a project's agents should run in:
+// project's workspace path -> default_workdir setting -> process.cwd().
+export function resolveWorkdir(projectId) {
+  if (projectId != null) {
+    const project = getProject(projectId);
+    if (project?.workspace_id) {
+      const ws = listWorkspaces().find(w => w.id === project.workspace_id);
+      if (ws) return ws.path;
+    }
+  }
+  return getSetting('default_workdir') || process.cwd();
 }
 
 export function createProject({ name, notes = '', workspace_id = null, goal = null }) {

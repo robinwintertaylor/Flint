@@ -1,6 +1,7 @@
 import { listQueueTasks, assignQueueTask as _assignQueueTask, notifyAgent, createQueueTask } from './queue.js';
 import { listAgents, getAgent, registerAgent } from './agents.js';
 import { getSetting } from './settings.js';
+import { resolveWorkdir } from './projects.js';
 import { spawnAgent as _spawnAgent } from './terminal.js';
 import { getSpecialist } from './specialists.js';
 import { loadSpecialist } from '../agents/specialists/selector.js';
@@ -31,7 +32,7 @@ function modelForSpec(spec) {
 
 // Try to find (or create) an agent for a given role.
 // Returns { agentName, spawnOptions, workdir } or null if no specialist exists for the role.
-function provisionAgentForRole(role) {
+function provisionAgentForRole(role, projectId) {
   // Reuse a prior provisioned agent if it's still registered
   const prev = provisionedRoles.get(role);
   if (prev && getAgent(prev)) return { agentName: prev, spawnOptions: {} };
@@ -45,7 +46,7 @@ function provisionAgentForRole(role) {
   let n = 2;
   while (getAgent(agentName)) agentName = `${base}-${n++}`;
 
-  const workdir = getSetting('default_workdir') || process.cwd();
+  const workdir = resolveWorkdir(projectId);
   const runtime = runtimeForProvider(spec.preferred_provider);
   const model   = modelForSpec(spec);
   const loaded  = loadSpecialist(spec.name);
@@ -99,7 +100,7 @@ export async function autoAssignPendingTasks({
           console.log(`[auto-pickup] task #${task.id} assigned to "${task.assigned_to}" but no agent or specialist found — skipping`);
           continue;
         }
-        const workdir = getSetting('default_workdir') || process.cwd();
+        const workdir = resolveWorkdir(task.project_id);
         const runtime = runtimeForProvider(spec.preferred_provider);
         const model   = modelForSpec(spec);
         const loaded  = loadSoul(spec.name);
@@ -130,7 +131,7 @@ export async function autoAssignPendingTasks({
       const match = agents.find(a => a.role === task.role);
       if (!match) {
         // No existing agent — try to auto-provision one from a matching specialist
-        const result = provisionAgentForRole(task.role);
+        const result = provisionAgentForRole(task.role, task.project_id);
         if (!result) {
           if (!warnedRoles.has(task.role)) {
             console.log(`[auto-pickup] no specialist for role "${task.role}" — task #${task.id} pending; queuing builder task`);

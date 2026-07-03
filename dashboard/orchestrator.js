@@ -137,10 +137,12 @@ curl -s -X POST http://localhost:${process.env.PORT ?? 3000}/agents/spawn \\
 \`\`\`
 
 ### Create a queue task and assign it
+Always include \`"project_id":${projectId ?? 'null'}\` — this is how Flint knows to run the
+assigned specialist inside the project workspace instead of Flint's own root directory.
 \`\`\`bash
 curl -s -X POST http://localhost:${process.env.PORT ?? 3000}/queue/tasks \\
   -H "Content-Type: application/json" \\
-  -d '{"title":"<title>","description":"<desc — include workspace path and artifact file paths>","assigned_to":"<specialist-name>","role":"researcher","created_by":"orch-${id}"}'
+  -d '{"title":"<title>","description":"<desc — include workspace path and artifact file paths>","assigned_to":"<specialist-name>","role":"researcher","project_id":${projectId ?? 'null'},"created_by":"orch-${id}"}'
 \`\`\`
 
 ### Poll task queue progress
