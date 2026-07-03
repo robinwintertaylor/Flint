@@ -12,14 +12,15 @@ import { listSuggestions, updateSuggestion } from './suggestions.js';
 import { listWorktrees, createWorktree, discardWorktree } from './worktrees.js';
 import { spawnAgent, writeToAgent, observeLogFile } from './terminal.js';
 import { readTasks, writeTasks, appendTask } from './tasks.js';
-import { listProjects, getProject, createProject, updateProject, linkAgent, unlinkAgent } from './projects.js';
+import { listProjects, getProject, createProject, updateProject, linkAgent, unlinkAgent, resolveWorkdir } from './projects.js';
 import { launchProject } from './projectLauncher.js';
+import { ensureProjectRepo } from './projectGit.js';
 import { isForgejoReachable, pushBranch, createPR, getPRStatus } from './forgejo.js';
 import { detectProvider, isGitHubReachable, pushToGitHub, createGitHubPR, getGitHubPRStatus } from './github.js';
 import { info, error as logError } from './logger.js';
 import { listMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from './mcp.js';
 import { listQueueTasks, getQueueTask, createQueueTask, assignQueueTask, updateQueueTask, completeQueueTask, cancelQueueTask, deleteQueueTask, startQueuePoller, releaseOrphanedTasks } from './queue.js';
-import { createOrchestration, getOrchestration, listOrchestrations, appendScratchpad, readScratchpad } from './orchestrator.js';
+import { createOrchestration, getOrchestration, listOrchestrations, appendScratchpad, readScratchpad, updateOrchestrationStatus, setOrchestrationPR } from './orchestrator.js';
 import { listApiKeys, getApiKeyValue, createApiKey, updateApiKey, deleteApiKey, buildApiKeyEnv } from './apikeys.js';
 import { initSupabase, isSupabaseEnabled, upsertMemory, searchMemories, logSessionStart, logSessionEnd, pullMemories } from './supabase.js';
 import { initTelegram, notify } from './telegram.js';
@@ -645,6 +646,35 @@ export function createApp() {
     }
   });
 
+  app.post('/projects/:id/sync-repo', async (req, res) => {
+    const id = Number(req.params.id);
+    const project = getProject(id);
+    if (!project) return res.status(404).json({ error: 'project not found' });
+
+    const workdir = resolveWorkdir(id);
+    try {
+      const result = await ensureProjectRepo(id, workdir);
+      if (result.hasRemote) {
+        const pending = listOrchestrations().filter(
+          o => o.project_id === id && o.pr_status === 'no_remote' && o.branch
+        );
+        for (const orch of pending) {
+          try {
+            pushBranch(orch.branch, workdir);
+            const { prNumber, prUrl } = await createPR(orch.branch, orch.agent_name, workdir);
+            setOrchestrationPR(orch.id, { prNumber, prUrl, prStatus: 'open' });
+            broadcastGlobal({ type: 'orchestration_pr_opened', id: orch.id, prNumber, prUrl });
+          } catch (err) {
+            logError('sync-repo retry PR failed', { orchestrationId: orch.id, err: err.message });
+          }
+        }
+      }
+      res.json({ ok: true, hasRemote: result.hasRemote });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/projects', async (req, res) => {
     const { name, notes, workspace_id, goal } = req.body ?? {};
     if (!name) return res.status(400).json({ error: 'name required' });
@@ -877,6 +907,38 @@ export function createApp() {
     if (typeof text !== 'string') return res.status(400).json({ error: 'text required' });
     appendScratchpad(Number(req.params.id), text);
     res.json({ ok: true });
+  });
+
+  app.post('/orchestrations/:id/complete', async (req, res) => {
+    const id = Number(req.params.id);
+    const orch = getOrchestration(id);
+    if (!orch) return res.status(404).json({ error: 'orchestration not found' });
+
+    const { summary } = req.body ?? {};
+    if (summary) appendScratchpad(id, `\n## Synthesis\n\n${summary}`);
+    updateOrchestrationStatus(id, 'done');
+
+    if (!orch.branch) {
+      return res.json({ ok: true, pr_status: null });
+    }
+
+    const workdir = resolveWorkdir(orch.project_id);
+    try {
+      const remoteCheck = execSync('git remote -v', { cwd: workdir, encoding: 'utf8' }).trim();
+      if (!remoteCheck) {
+        setOrchestrationPR(id, { prNumber: null, prUrl: null, prStatus: 'no_remote' });
+        return res.json({ ok: true, pr_status: 'no_remote' });
+      }
+      pushBranch(orch.branch, workdir);
+      const { prNumber, prUrl } = await createPR(orch.branch, orch.agent_name, workdir);
+      setOrchestrationPR(id, { prNumber, prUrl, prStatus: 'open' });
+      broadcastGlobal({ type: 'orchestration_pr_opened', id, prNumber, prUrl });
+      res.json({ ok: true, pr_status: 'open', prNumber, prUrl });
+    } catch (err) {
+      setOrchestrationPR(id, { prNumber: null, prUrl: null, prStatus: 'failed' });
+      logError('orchestration PR creation failed', { id, err: err.message });
+      res.json({ ok: true, pr_status: 'failed' });
+    }
   });
 
   // ── Model Audit ──────────────────────────────────────────────────────────
@@ -1206,6 +1268,20 @@ export function createApp() {
           }
         } catch (err) {
           logError('PR poll failed', { agent: name, err: err.message });
+        }
+      }
+
+      const openOrchestrations = listOrchestrations().filter(o => o.pr_status === 'open' && o.pr_number);
+      for (const orch of openOrchestrations) {
+        try {
+          const workdir = resolveWorkdir(orch.project_id);
+          const status = await getPRStatus(orch.pr_number, workdir);
+          if (status !== orch.pr_status) {
+            setOrchestrationPR(orch.id, { prNumber: orch.pr_number, prUrl: orch.pr_url, prStatus: status });
+            broadcastGlobal({ type: 'orchestration_pr_status', id: orch.id, status });
+          }
+        } catch (err) {
+          logError('orchestration PR poll failed', { id: orch.id, err: err.message });
         }
       }
     }, 30_000);

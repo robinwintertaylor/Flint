@@ -280,6 +280,26 @@ test('POST /orchestrations with missing workdir returns 400', async () => {
   assert.equal(r.status, 400);
 });
 
+test('POST /orchestrations/:id/complete marks status done and returns pr_status null when not project-linked', async () => {
+  const created = await req('POST', '/orchestrations', {
+    goal: 'ad-hoc', workdir: process.cwd(),
+  }).then(r => r.json());
+  const res = await req('POST', `/orchestrations/${created.id}/complete`, { summary: 'done' });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.pr_status, null);
+});
+
+test('POST /orchestrations/:id/complete 404s for an unknown orchestration', async () => {
+  const res = await req('POST', '/orchestrations/999999/complete', {});
+  assert.equal(res.status, 404);
+});
+
+test('POST /projects/:id/sync-repo 404s for an unknown project', async () => {
+  const res = await req('POST', '/projects/999999/sync-repo', {});
+  assert.equal(res.status, 404);
+});
+
 // --- API Key routes ---
 
 test('GET /api-keys returns 6 seeded rows with no key_value field', async () => {
