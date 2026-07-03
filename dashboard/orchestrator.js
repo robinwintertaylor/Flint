@@ -27,6 +27,16 @@ export function updateOrchestrationStatus(id, status) {
   getDb().prepare('UPDATE orchestrations SET status = ? WHERE id = ?').run(status, id);
 }
 
+export function setOrchestrationBranch(id, branch) {
+  getDb().prepare('UPDATE orchestrations SET branch = ? WHERE id = ?').run(branch, id);
+}
+
+export function setOrchestrationPR(id, { prNumber, prUrl, prStatus }) {
+  getDb().prepare(
+    'UPDATE orchestrations SET pr_number = ?, pr_url = ?, pr_status = ? WHERE id = ?'
+  ).run(prNumber, prUrl, prStatus, id);
+}
+
 export function buildOrchestratorTaskFile({ goal, id, workdir, scratchpadPath, projectDocs = [], specialists = [], projectNotes = '', workspacePath = null, projectId = null }) {
   const docsSection = projectDocs.length > 0
     ? `\n## Project Documents\n\nThe following reference documents are attached to this project. Use them to inform your plan.\n\n${projectDocs.map(d => `### ${d.title}\n\n${d.content}`).join('\n\n---\n\n')}\n`

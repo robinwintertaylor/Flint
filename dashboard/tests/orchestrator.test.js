@@ -12,6 +12,7 @@ import { initDb } from '../db.js';
 import {
   getOrchestration, listOrchestrations, updateOrchestrationStatus,
   buildOrchestratorTaskFile, appendScratchpad, readScratchpad,
+  createOrchestration, setOrchestrationBranch, setOrchestrationPR,
 } from '../orchestrator.js';
 
 before(() => {
@@ -67,4 +68,30 @@ test('updateOrchestrationStatus changes status', () => {
   updateOrchestrationStatus(42, 'done');
   const row = getOrchestration(42);
   assert.equal(row.status, 'done');
+});
+
+test('orchestrations table has git columns', () => {
+  const db = initDb(':memory:');
+  const cols = db.prepare(`PRAGMA table_info(orchestrations)`).all().map(c => c.name);
+  assert.ok(cols.includes('branch'), 'branch column missing');
+  assert.ok(cols.includes('pr_number'), 'pr_number column missing');
+  assert.ok(cols.includes('pr_url'), 'pr_url column missing');
+  assert.ok(cols.includes('pr_status'), 'pr_status column missing');
+});
+
+test('setOrchestrationBranch stores the branch name', () => {
+  initDb(':memory:');
+  const { id } = createOrchestration({ goal: 'test goal', workdir: process.cwd() });
+  setOrchestrationBranch(id, 'project/test-orch-1');
+  assert.equal(getOrchestration(id).branch, 'project/test-orch-1');
+});
+
+test('setOrchestrationPR stores PR number, url, and status', () => {
+  initDb(':memory:');
+  const { id } = createOrchestration({ goal: 'test goal', workdir: process.cwd() });
+  setOrchestrationPR(id, { prNumber: 5, prUrl: 'http://x/pulls/5', prStatus: 'open' });
+  const orch = getOrchestration(id);
+  assert.equal(orch.pr_number, 5);
+  assert.equal(orch.pr_url, 'http://x/pulls/5');
+  assert.equal(orch.pr_status, 'open');
 });
