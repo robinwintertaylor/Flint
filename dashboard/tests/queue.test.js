@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
+import { execSync } from 'child_process';
+import { mkdtempSync, writeFileSync as writeFileSyncFs } from 'fs';
+import { tmpdir as osTmpdir } from 'os';
+import { createProject } from '../projects.js';
+import { registerAgent, setAgentStatus } from '../agents.js';
 
 // Set tasks dir before importing modules that read it at startup
 const TEMP_TASKS = join(tmpdir(), `flint-queue-test-${Date.now()}`);
@@ -134,4 +139,40 @@ test('checkQueueTasks does not complete task when title is still unchecked', asy
   writeTasks('lazy-agent', `# Tasks — lazy-agent\n\n- [ ] Still pending task\n`);
   await checkQueueTasks();
   assert.equal(getQueueTask(task.id).status, 'in_progress');
+});
+
+test('checkQueueTasks commits to the project workspace when a project-linked task completes', async () => {
+  initDb(':memory:');
+  const workdir = mkdtempSync(join(osTmpdir(), 'flint-queue-commit-'));
+  execSync('git init', { cwd: workdir });
+  execSync('git config user.email "t@t.local"', { cwd: workdir });
+  execSync('git config user.name "T"', { cwd: workdir });
+  execSync('git commit --allow-empty -m init', { cwd: workdir });
+
+  const projectId = createProject({ name: 'Commit Hook Project' });
+  const { setSetting } = await import('../settings.js');
+  setSetting('default_workdir', workdir); // resolveWorkdir falls back here since no workspace_id set
+
+  registerAgent('builder-1', 'spawn', workdir, null, '', 'claude', null);
+  setAgentStatus('builder-1', 'running');
+
+  const task = createQueueTask({ title: 'Write the docs', assigned_to: 'builder-1', project_id: projectId, created_by: 'human' });
+  writeFileSyncFs(join(workdir, 'new-file.txt'), 'content');
+  writeTasks('builder-1', `- [x] Write the docs\n`);
+
+  await checkQueueTasks();
+
+  const log = execSync('git log --pretty=%s', { cwd: workdir, encoding: 'utf8' });
+  assert.match(log, /Write the docs \(#\d+, builder-1\)/);
+});
+
+test('checkQueueTasks does not attempt a commit for a task with no project_id', async () => {
+  initDb(':memory:');
+  registerAgent('builder-2', 'spawn', process.cwd(), null, '', 'claude', null);
+  setAgentStatus('builder-2', 'running');
+  const task = createQueueTask({ title: 'No project task', assigned_to: 'builder-2', created_by: 'human' });
+  writeTasks('builder-2', `- [x] No project task\n`);
+
+  await assert.doesNotReject(() => checkQueueTasks());
+  assert.equal(getQueueTask(task.id).status, 'done');
 });

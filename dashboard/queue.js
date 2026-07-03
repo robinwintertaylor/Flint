@@ -5,6 +5,8 @@ import { broadcastGlobal, listAgents, getAgent } from './agents.js';
 import { notify } from './telegram.js';
 import { autoAssignPendingTasks } from './autoPickup.js';
 import { writeToAgent } from './terminal.js';
+import { resolveWorkdir } from './projects.js';
+import { commitTaskForProject } from './projectGit.js';
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -147,7 +149,13 @@ export async function checkQueueTasks() {
     try {
       const content = readTasks(task.assigned_to);
       const re = new RegExp(`^- \\[x\\] ${escapeRegex(task.title)}`, 'im');
-      if (re.test(content)) completeQueueTask(task.id, '');
+      if (re.test(content)) {
+        completeQueueTask(task.id, '');
+        if (task.project_id != null && process.env.FLINT_TEST_MODE !== '1') {
+          const workdir = resolveWorkdir(task.project_id);
+          commitTaskForProject(workdir, `${task.title} (#${task.id}, ${task.assigned_to})`);
+        }
+      }
     } catch { /* task file unreadable — skip */ }
   }
 }
