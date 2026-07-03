@@ -138,3 +138,14 @@ test('createOrchestration leaves branch null when no projectId is given', async 
   const orch = getOrchestration(id);
   assert.equal(orch.branch, null);
 });
+
+test('buildOrchestratorTaskFile instructs the orchestrator to call the complete endpoint', () => {
+  const content = buildOrchestratorTaskFile({
+    goal: 'Build a REST API with JWT auth',
+    id: 1,
+    workdir: 'C:\\Projects\\myapp',
+    scratchpadPath: 'tasks/orch-1/scratchpad.md',
+  });
+  assert.ok(content.includes('/orchestrations/1/complete'), 'complete endpoint missing');
+  assert.ok(content.includes('"summary"'), 'summary field missing from complete example');
+});

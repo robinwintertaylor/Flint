@@ -79,7 +79,7 @@ Your job:
 3. Ensure mandatory artifacts exist (see Artifacts section).
 4. Spawn specialists and assign tasks to execute the plan.
 5. Monitor the queue and scratchpad for progress.
-6. When all tasks are done, write a synthesis to the scratchpad.
+6. When all tasks are done, call the Mark Orchestration Complete endpoint below with your synthesis.
 
 ## Available Specialists
 
@@ -175,6 +175,17 @@ curl -s -X PATCH http://localhost:${process.env.PORT ?? 3000}/queue/tasks/<task-
 curl -s -X POST http://localhost:${process.env.PORT ?? 3000}/orchestrations/${id}/scratchpad \\
   -H "Content-Type: application/json" \\
   -d '{"text":"\\n## Synthesis\\n\\n<your synthesis>"}'
+\`\`\`
+
+### Mark orchestration complete
+Call this once, as your final action, when the goal is fully done. It records
+your synthesis, marks the project done, and — for project-linked runs — pushes
+your branch and opens a PR automatically (or marks it for later sync if
+Forgejo isn't reachable right now).
+\`\`\`bash
+curl -s -X POST http://localhost:${process.env.PORT ?? 3000}/orchestrations/${id}/complete \\
+  -H "Content-Type: application/json" \\
+  -d '{"summary":"<your synthesis — what was built, key decisions, anything for the reviewer>"}'
 \`\`\`
 
 ## On-Demand Specialist Creation
