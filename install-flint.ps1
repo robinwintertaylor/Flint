@@ -238,14 +238,21 @@ Write-Ok "Services started (flint-dashboard on :3000, flint-router on :3001)"
 
 Write-Step "Configuring boot persistence..."
 try {
-  npm install -g pm2-startup --silent 2>$null
+  npm install -g pm2-windows-startup --silent 2>$null
   pm2-startup install
   pm2 save
-  Write-Ok "Boot persistence configured (Windows Task Scheduler)"
 } catch {
   Write-Warn "Could not auto-configure boot persistence."
-  Write-Warn "Run 'pm2 startup' manually and follow the printed instructions."
+  Write-Warn "Run 'pm2-startup install' manually and follow the printed instructions."
   pm2 save
+}
+
+$pm2RunKey = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'PM2' -ErrorAction SilentlyContinue
+if ($pm2RunKey) {
+  Write-Ok "Boot persistence configured (Windows startup registry entry)"
+} else {
+  Write-Warn "Boot persistence registry entry not found after setup."
+  Write-Warn "Run 'pm2-startup install' manually as Administrator, then 'pm2 save'."
 }
 
 # ── 5. Wait for dashboard ──────────────────────────────────────────────────────
