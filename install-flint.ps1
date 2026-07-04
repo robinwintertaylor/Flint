@@ -55,6 +55,34 @@ function Refresh-Path {
               [System.Environment]::GetEnvironmentVariable('PATH', 'User')
 }
 
+function Wait-For-Docker([bool]$freshInstall) {
+  Write-Step "Waiting for Docker Desktop to be ready..."
+  $dockerDesktopExe = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+  if (Test-Path $dockerDesktopExe) {
+    Start-Process $dockerDesktopExe -ErrorAction SilentlyContinue
+  }
+  for ($i = 1; $i -le 60; $i++) {
+    docker info 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+      Write-Ok "Docker is ready"
+      return $true
+    }
+    Start-Sleep -Seconds 2
+  }
+  Write-Host ""
+  if ($freshInstall) {
+    Write-Host "  Docker Desktop was just installed and needs a restart to finish" -ForegroundColor Red
+    Write-Host "  enabling virtualization features (WSL2/Hyper-V)." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  Restart your PC, then re-run:  .\install-flint.ps1" -ForegroundColor Red
+    Write-Host "  It will pick up where it left off." -ForegroundColor Red
+  } else {
+    Write-Host "  Docker Desktop did not become ready after 2 minutes." -ForegroundColor Red
+    Write-Host "  Start Docker Desktop manually and re-run this installer." -ForegroundColor Red
+  }
+  exit 1
+}
+
 function Wait-For-Dashboard {
   Write-Step "Waiting for dashboard to start..."
   for ($i = 0; $i -lt 30; $i++) {
@@ -202,6 +230,22 @@ if (-not $SkipPrereqs) {
     }
   }
   Write-Ok "Claude Code CLI installed"
+
+  # Docker Desktop (for Forgejo)
+  $dockerFreshInstall = $false
+  if (-not (Test-Command 'docker')) {
+    Write-Host "   Installing Docker Desktop via winget..." -ForegroundColor Yellow
+    winget install --id Docker.DockerDesktop --silent `
+      --accept-package-agreements --accept-source-agreements
+    Refresh-Path
+    $dockerFreshInstall = $true
+    if (-not (Test-Command 'docker')) {
+      Write-Host "   ERROR: Docker Desktop install failed. Install manually from https://www.docker.com/products/docker-desktop/ then re-run with -SkipPrereqs" -ForegroundColor Red
+      exit 1
+    }
+  }
+  Write-Ok "Docker CLI present"
+  $dockerReady = Wait-For-Docker -freshInstall $dockerFreshInstall
 }
 
 # ── 3. npm install ────────────────────────────────────────────────────────────
