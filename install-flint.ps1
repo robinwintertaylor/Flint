@@ -274,6 +274,17 @@ try {
   exit 1
 }
 
+# ── 3b. Start Forgejo ──────────────────────────────────────────────────────────
+
+if ($dockerReady) {
+  Write-Step "Starting Forgejo (self-hosted Git)..."
+  docker compose up -d
+  Write-Step "Bootstrapping Forgejo (admin user, token, repo, remote)..."
+  & "$PSScriptRoot\scripts\forgejo-init.ps1"
+} else {
+  Write-Warn "Skipping Forgejo setup — Docker was not ready."
+}
+
 # ── 4. Start PM2 services ─────────────────────────────────────────────────────
 
 Write-Step "Starting Flint services..."
