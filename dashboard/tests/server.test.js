@@ -2,7 +2,8 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { rmSync } from 'fs';
+import { rmSync, mkdirSync } from 'fs';
+import { execSync } from 'child_process';
 
 // Point to temp files so tests don't touch real data
 const TEMP_DB = join(tmpdir(), `flint-test-${Date.now()}.sqlite`);
@@ -14,6 +15,21 @@ process.env.FLINT_TASKS_DIR = TEMP_TASKS;
 process.env.FLINT_TEST_MODE = '1'; // skip actual claude spawn in tests
 
 const { createApp, closeDb } = await import('../server.js');
+const { setOrchestrationBranch, setOrchestrationPR } = await import('../orchestrator.js');
+
+// Creates a real temp git repo with a github.com remote, so detectProvider()/
+// hasAnyRemote() (both plain `git remote -v`/`git rev-parse` calls, unaffected
+// by FLINT_TEST_MODE) see a genuine GitHub-backed workdir.
+function freshGitHubWorkdir() {
+  const dir = join(tmpdir(), `flint-server-gh-ws-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  mkdirSync(dir, { recursive: true });
+  execSync('git init', { cwd: dir });
+  execSync('git config user.email "t@t.local"', { cwd: dir });
+  execSync('git config user.name "T"', { cwd: dir });
+  execSync('git remote add origin https://github.com/fake/fake.git', { cwd: dir });
+  execSync('git commit --allow-empty -m init', { cwd: dir });
+  return dir;
+}
 
 let server;
 let baseUrl;
@@ -298,6 +314,41 @@ test('POST /orchestrations/:id/complete 404s for an unknown orchestration', asyn
 test('POST /projects/:id/sync-repo 404s for an unknown project', async () => {
   const res = await req('POST', '/projects/999999/sync-repo', {});
   assert.equal(res.status, 404);
+});
+
+test('POST /orchestrations/:id/complete takes the GitHub path when the project workspace has a github.com remote', async () => {
+  const workdir = freshGitHubWorkdir();
+  const ws = await req('POST', '/workspaces', { name: `gh-ws-${Date.now()}`, path: workdir }).then(r => r.json());
+  const project = await req('POST', '/projects', { name: `GH Project ${Date.now()}`, workspace_id: ws.id }).then(r => r.json());
+  const created = await req('POST', '/orchestrations', {
+    goal: 'GH complete test', workdir: process.cwd(), project_id: project.id,
+  }).then(r => r.json());
+  setOrchestrationBranch(created.id, 'some-branch');
+
+  const res = await req('POST', `/orchestrations/${created.id}/complete`, { summary: 'done' });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.pr_status, 'open');
+  assert.ok(body.prUrl.includes('github.com'), `expected a github.com PR url, got ${body.prUrl}`);
+});
+
+test('POST /projects/:id/sync-repo takes the GitHub path and retries a no_remote orchestration PR when the workspace has a github.com remote', async () => {
+  const workdir = freshGitHubWorkdir();
+  const ws = await req('POST', '/workspaces', { name: `gh-ws-sync-${Date.now()}`, path: workdir }).then(r => r.json());
+  const project = await req('POST', '/projects', { name: `GH Sync Project ${Date.now()}`, workspace_id: ws.id }).then(r => r.json());
+  const created = await req('POST', '/orchestrations', {
+    goal: 'GH sync test', workdir: process.cwd(), project_id: project.id,
+  }).then(r => r.json());
+  setOrchestrationBranch(created.id, 'some-branch');
+  setOrchestrationPR(created.id, { prNumber: null, prUrl: null, prStatus: 'no_remote' });
+
+  const res = await req('POST', `/projects/${project.id}/sync-repo`, {});
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).ok, true);
+
+  const orch = await req('GET', `/orchestrations/${created.id}`).then(r => r.json());
+  assert.equal(orch.pr_status, 'open');
+  assert.ok(orch.pr_url.includes('github.com'), `expected a github.com PR url, got ${orch.pr_url}`);
 });
 
 // --- API Key routes ---

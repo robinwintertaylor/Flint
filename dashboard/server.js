@@ -14,7 +14,7 @@ import { spawnAgent, writeToAgent, observeLogFile } from './terminal.js';
 import { readTasks, writeTasks, appendTask } from './tasks.js';
 import { listProjects, getProject, createProject, updateProject, linkAgent, unlinkAgent, resolveWorkdir } from './projects.js';
 import { launchProject } from './projectLauncher.js';
-import { ensureProjectRepo } from './projectGit.js';
+import { ensureProjectRepo, hasAnyRemote } from './projectGit.js';
 import { isForgejoReachable, pushBranch, createPR, getPRStatus } from './forgejo.js';
 import { detectProvider, isGitHubReachable, pushToGitHub, createGitHubPR, getGitHubPRStatus } from './github.js';
 import { info, error as logError } from './logger.js';
@@ -654,14 +654,24 @@ export function createApp() {
     const workdir = resolveWorkdir(id);
     try {
       const result = await ensureProjectRepo(id, workdir);
-      if (result.hasRemote) {
+      // Check the workdir directly rather than trusting only `result.hasRemote`
+      // — ensureProjectRepo short-circuits under FLINT_TEST_MODE, but a remote
+      // may genuinely already be present on the workdir itself.
+      if (hasAnyRemote(workdir)) {
+        const provider = detectProvider(workdir);
         const pending = listOrchestrations().filter(
           o => o.project_id === id && o.pr_status === 'no_remote' && o.branch
         );
         for (const orch of pending) {
           try {
-            pushBranch(orch.branch, workdir);
-            const { prNumber, prUrl } = await createPR(orch.branch, orch.agent_name, workdir);
+            let prNumber, prUrl;
+            if (provider === 'github') {
+              pushToGitHub(orch.branch, workdir);
+              ({ prNumber, prUrl } = await createGitHubPR(orch.branch, orch.agent_name, workdir));
+            } else {
+              pushBranch(orch.branch, workdir);
+              ({ prNumber, prUrl } = await createPR(orch.branch, orch.agent_name, workdir));
+            }
             setOrchestrationPR(orch.id, { prNumber, prUrl, prStatus: 'open' });
             broadcastGlobal({ type: 'orchestration_pr_opened', id: orch.id, prNumber, prUrl });
           } catch (err) {
@@ -924,13 +934,19 @@ export function createApp() {
 
     const workdir = resolveWorkdir(orch.project_id);
     try {
-      const remoteCheck = execSync('git remote -v', { cwd: workdir, encoding: 'utf8' }).trim();
-      if (!remoteCheck) {
+      if (!hasAnyRemote(workdir)) {
         setOrchestrationPR(id, { prNumber: null, prUrl: null, prStatus: 'no_remote' });
         return res.json({ ok: true, pr_status: 'no_remote' });
       }
-      pushBranch(orch.branch, workdir);
-      const { prNumber, prUrl } = await createPR(orch.branch, orch.agent_name, workdir);
+      const provider = detectProvider(workdir);
+      let prNumber, prUrl;
+      if (provider === 'github') {
+        pushToGitHub(orch.branch, workdir);
+        ({ prNumber, prUrl } = await createGitHubPR(orch.branch, orch.agent_name, workdir));
+      } else {
+        pushBranch(orch.branch, workdir);
+        ({ prNumber, prUrl } = await createPR(orch.branch, orch.agent_name, workdir));
+      }
       setOrchestrationPR(id, { prNumber, prUrl, prStatus: 'open' });
       broadcastGlobal({ type: 'orchestration_pr_opened', id, prNumber, prUrl });
       res.json({ ok: true, pr_status: 'open', prNumber, prUrl });
