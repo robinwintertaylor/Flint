@@ -2,9 +2,11 @@ import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { execSync } from 'child_process';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { mkdirSync, rmSync, existsSync } from 'fs';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMP_DB = join(tmpdir(), `flint-projectgit-test-${Date.now()}.sqlite`);
 process.env.FLINT_DB_PATH = TEMP_DB;
 
@@ -93,6 +95,67 @@ test('ensureProjectRepo creates a repo and pushes when Forgejo is reachable (onl
     const remotes = execSync('git remote -v', { cwd: workdir, encoding: 'utf8' });
     assert.ok(remotes.includes('forgejo'), 'expected a forgejo remote to be present');
     assert.ok(remotes.includes(fakeCloneUrl), 'expected the forgejo remote to point at the fake clone URL');
+  } finally {
+    if (wasTestMode === undefined) delete process.env.FLINT_TEST_MODE;
+    else process.env.FLINT_TEST_MODE = wasTestMode;
+  }
+});
+
+test('ensureProjectRepo pushes the ORIGINAL base branch, not a later-checked-out orchestration branch, on a deferred sync call', async () => {
+  const wasTestMode = process.env.FLINT_TEST_MODE;
+  delete process.env.FLINT_TEST_MODE;
+  try {
+    const workdir = freshWorkdir();
+    const projectId = createProject({ name: 'Deferred Sync Project' });
+
+    // First call: Forgejo unreachable at launch — blank workspace only gets
+    // git-init'd, no remote. This is the "offline" path.
+    const first = await ensureProjectRepo(projectId, workdir, {
+      isForgejoReachableFn: async () => false,
+    });
+    assert.equal(first.hasRemote, false);
+
+    const originalBaseBranch = execSync('git symbolic-ref --short HEAD', { cwd: workdir, encoding: 'utf8' }).trim();
+
+    // Simulate what createOrchestration does: check out a work branch and
+    // commit onto it. This happens BETWEEN the two ensureProjectRepo calls.
+    execSync('git config user.email "t@t.local"', { cwd: workdir });
+    execSync('git config user.name "T"', { cwd: workdir });
+    execSync('git checkout -b project/deferred-sync-orch-1', { cwd: workdir });
+    execSync(`node -e "require('fs').writeFileSync('work.txt', 'work')"`, { cwd: workdir });
+    execSync('git add -A', { cwd: workdir });
+    execSync('git commit -m "orchestration work"', { cwd: workdir });
+
+    // Second call: Forgejo is now reachable (deferred sync-repo call). This
+    // must push the ORIGINAL base branch, not the orchestration branch that
+    // is currently checked out.
+    let pushedBranch = null;
+    const fakeCloneUrl = 'http://u:t@localhost:3030/u/deferred-sync-project.git';
+    const second = await ensureProjectRepo(projectId, workdir, {
+      isForgejoReachableFn: async () => true,
+      createRepoFn: async () => ({ cloneUrl: fakeCloneUrl }),
+      pushFn: (_repoWorkdir, baseBranch) => { pushedBranch = baseBranch; },
+    });
+
+    assert.equal(second.hasRemote, true);
+    assert.equal(pushedBranch, originalBaseBranch, 'expected the push to target the original base branch, not the orchestration branch');
+    assert.notEqual(pushedBranch, 'project/deferred-sync-orch-1', 'must not push the orchestration work branch to master');
+  } finally {
+    if (wasTestMode === undefined) delete process.env.FLINT_TEST_MODE;
+    else process.env.FLINT_TEST_MODE = wasTestMode;
+  }
+});
+
+test('ensureProjectRepo rejects when workdir resolves to Flint\'s own application root, without running any git command there', async () => {
+  const wasTestMode = process.env.FLINT_TEST_MODE;
+  delete process.env.FLINT_TEST_MODE;
+  try {
+    const flintRoot = join(__dirname, '..', '..');
+    const projectId = createProject({ name: 'Flint Root Guard Project' });
+    await assert.rejects(
+      () => ensureProjectRepo(projectId, flintRoot),
+      /Flint's own application root/
+    );
   } finally {
     if (wasTestMode === undefined) delete process.env.FLINT_TEST_MODE;
     else process.env.FLINT_TEST_MODE = wasTestMode;

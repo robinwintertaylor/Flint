@@ -1,8 +1,11 @@
 import { execSync, execFileSync } from 'child_process';
-import { resolve } from 'path';
+import { resolve, dirname, join } from 'path';
 import { realpathSync } from 'fs';
+import { fileURLToPath } from 'url';
 import { getProject } from './projects.js';
 import { isForgejoReachable, createRepo } from './forgejo.js';
+
+const FLINT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const TEST_MODE = () => process.env.FLINT_TEST_MODE === '1';
 
@@ -45,13 +48,36 @@ function gitToplevel(workdir) {
   }
 }
 
-function hasAnyRemote(workdir) {
+export function hasAnyRemote(workdir) {
   try {
     const out = execSync('git remote -v', { cwd: workdir, encoding: 'utf8' });
     return out.trim().length > 0;
   } catch {
     return false;
   }
+}
+
+// Returns the repo's persisted "base" branch — the branch that was checked out
+// the first time ensureProjectRepo ever examined this workdir (whether it just
+// git-init'd it or found it already existing) — captured once and stored via
+// git config so it survives later calls even if something else (e.g. an
+// orchestration's `git checkout -b project/<slug>-orch-N`) has since switched
+// HEAD to a different branch. Without this persistence, a deferred sync call
+// (Forgejo unreachable at launch, reachable later) would derive the push
+// target from whatever branch happens to be checked out AT SYNC TIME rather
+// than the branch that should actually be Forgejo's `master`.
+function getOrPersistBaseBranch(workdir) {
+  try {
+    const existing = execSync('git config --local --get flint.baseBranch', {
+      cwd: workdir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+    if (existing) return existing;
+  } catch {
+    // no persisted value yet — fall through and capture the current one
+  }
+  const current = execSync('git symbolic-ref --short HEAD', { cwd: workdir, encoding: 'utf8' }).trim();
+  execSync(`git config --local flint.baseBranch "${current}"`, { cwd: workdir });
+  return current;
 }
 
 // Idempotent: safe to call on every project launch/relaunch/sync.
@@ -63,12 +89,25 @@ function hasAnyRemote(workdir) {
 export async function ensureProjectRepo(projectId, workdir, {
   isForgejoReachableFn = isForgejoReachable,
   createRepoFn = createRepo,
-  pushFn = (repoWorkdir) => execSync('git push forgejo HEAD:master', { cwd: repoWorkdir }),
+  pushFn = (repoWorkdir, baseBranch) => execSync(`git push forgejo ${baseBranch}:master`, { cwd: repoWorkdir }),
 } = {}) {
   if (TEST_MODE()) return { hasRemote: false };
 
-  const toplevel = gitToplevel(workdir);
   const resolvedWorkdir = normalizePath(workdir);
+  const resolvedFlintRoot = normalizePath(FLINT_ROOT);
+
+  if (resolvedWorkdir === resolvedFlintRoot) {
+    // resolveWorkdir() falls back to process.cwd() when a project has no
+    // workspace configured — in production that's Flint's own application
+    // root, which is itself a real git repo with its own real `forgejo`
+    // remote. Proceeding here would run orchestration checkouts/commits
+    // against Flint's own repository. Fire this BEFORE any git command runs.
+    throw new Error(
+      `Workdir ${workdir} resolves to Flint's own application root — refusing to run project git operations there. Configure a workspace for this project.`
+    );
+  }
+
+  const toplevel = gitToplevel(workdir);
 
   if (toplevel && toplevel !== resolvedWorkdir) {
     // workdir is inside a git repo, but is NOT that repo's root — e.g. it
@@ -91,6 +130,13 @@ export async function ensureProjectRepo(projectId, workdir, {
     }
   }
 
+  // Capture (and persist, on first examination) the base branch BEFORE
+  // checking for a remote — this must happen regardless of which path below
+  // is taken, so a later deferred call (after an orchestration branch has
+  // been checked out) still resolves to the original base branch rather than
+  // whatever happens to be checked out at that later point.
+  const baseBranch = getOrPersistBaseBranch(workdir);
+
   if (hasAnyRemote(workdir)) return { hasRemote: true };
 
   const reachable = await isForgejoReachableFn();
@@ -100,7 +146,7 @@ export async function ensureProjectRepo(projectId, workdir, {
   const repoName = slugify(project?.name ?? `project-${projectId}`);
   const { cloneUrl } = await createRepoFn(repoName);
   execSync(`git remote add forgejo "${cloneUrl}"`, { cwd: workdir });
-  pushFn(workdir);
+  pushFn(workdir, baseBranch);
   return { hasRemote: true };
 }
 
