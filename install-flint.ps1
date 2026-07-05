@@ -67,8 +67,19 @@ function Wait-For-Docker([bool]$freshInstall) {
     Start-Process $dockerDesktopExe -ErrorAction SilentlyContinue
   }
   for ($i = 1; $i -le 60; $i++) {
-    docker info 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
+    # Wrapped in try/catch: with $ErrorActionPreference = 'Stop' set script-wide,
+    # docker info writing anything to stderr (2>&1) while Docker isn't ready yet
+    # gets escalated into a terminating exception instead of just a non-zero
+    # $LASTEXITCODE - which would crash this retry loop on its very first
+    # failed attempt instead of actually retrying for up to 2 minutes.
+    $dockerUp = $false
+    try {
+      docker info 2>&1 | Out-Null
+      $dockerUp = ($LASTEXITCODE -eq 0)
+    } catch {
+      $dockerUp = $false
+    }
+    if ($dockerUp) {
       Write-Ok "Docker is ready"
       return $true
     }
@@ -100,7 +111,14 @@ function Wait-For-Dashboard {
   }
   Write-Host ""
   Write-Host "   Dashboard did not respond after 30 seconds. Last PM2 logs:" -ForegroundColor Red
-  pm2 logs flint-dashboard --lines 20 --nostream 2>&1 | ForEach-Object { Write-Host "   $_" }
+  # Wrapped in try/catch: same $ErrorActionPreference = 'Stop' + native-stderr
+  # caveat as elsewhere in this script - if pm2 logs writes anything to stderr,
+  # this would otherwise replace the intended diagnostic output with a crash.
+  try {
+    pm2 logs flint-dashboard --lines 20 --nostream 2>&1 | ForEach-Object { Write-Host "   $_" }
+  } catch {
+    Write-Host "   (could not retrieve PM2 logs: $($_.Exception.Message))"
+  }
   throw "Startup timed out. Fix the error above and re-run the installer."
 }
 
@@ -139,8 +157,18 @@ if (-not (Test-Command 'gh')) {
   exit 1
 }
 
-$null = gh auth status 2>&1
-if ($LASTEXITCODE -ne 0) {
+# Wrapped in try/catch: with $ErrorActionPreference = 'Stop' set script-wide,
+# gh auth status writing anything to stderr when not authenticated gets
+# escalated into a terminating exception instead of just a non-zero
+# $LASTEXITCODE, which would replace this friendly error with a raw crash.
+$ghAuthed = $false
+try {
+  gh auth status 2>&1 | Out-Null
+  $ghAuthed = ($LASTEXITCODE -eq 0)
+} catch {
+  $ghAuthed = $false
+}
+if (-not $ghAuthed) {
   Write-Host @"
 
   ERROR: gh is installed but not authenticated.
@@ -256,8 +284,16 @@ if (-not $SkipPrereqs) {
   # trying to install it), so Forgejo bootstrap isn't skipped unnecessarily.
   Write-Step "Checking Docker status..."
   if (Test-Command 'docker') {
-    docker info 2>&1 | Out-Null
-    $dockerReady = ($LASTEXITCODE -eq 0)
+    # Wrapped in try/catch: see the note in Wait-For-Docker above - docker info's
+    # stderr output when the daemon isn't running gets escalated into a
+    # terminating exception under $ErrorActionPreference = 'Stop', not just a
+    # non-zero $LASTEXITCODE.
+    try {
+      docker info 2>&1 | Out-Null
+      $dockerReady = ($LASTEXITCODE -eq 0)
+    } catch {
+      $dockerReady = $false
+    }
   } else {
     $dockerReady = $false
   }
