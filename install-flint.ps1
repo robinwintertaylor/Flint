@@ -3,7 +3,7 @@
   One-command Flint installer for Windows.
 
 .DESCRIPTION
-  Run this after cloning the Flint repo to C:\Flint:
+  Run this after cloning the Flint repo anywhere you like:
 
     gh repo clone <owner>/<repo> C:\Flint
     Set-Location C:\Flint
@@ -272,7 +272,7 @@ if (-not $SkipPrereqs) {
 
 Write-Step "Installing dashboard dependencies..."
 try {
-  Push-Location C:\Flint\dashboard
+  Push-Location (Join-Path $PSScriptRoot 'dashboard')
   npm install
   Pop-Location
   Write-Ok "dashboard/node_modules ready"
@@ -284,7 +284,7 @@ try {
 
 Write-Step "Installing router dependencies..."
 try {
-  Push-Location C:\Flint\router
+  Push-Location (Join-Path $PSScriptRoot 'router')
   npm install
   Pop-Location
   Write-Ok "router/node_modules ready"
@@ -308,7 +308,7 @@ if ($dockerReady) {
 # -- 4. Start PM2 services ------------------------------------------------------
 
 Write-Step "Starting Flint services..."
-pm2 start C:\Flint\ecosystem.config.cjs
+pm2 start (Join-Path $PSScriptRoot 'ecosystem.config.cjs')
 Write-Ok "Services started (flint-dashboard on :3000, flint-router on :3001)"
 
 Write-Step "Configuring boot persistence..."
@@ -415,5 +415,5 @@ Write-Host "    - Add remaining API keys via the API Keys tab"
 Write-Host "    - Set a default agent in the Queue tab for auto-pickup"
 Write-Host ""
 Write-Host "  To update Flint:"
-Write-Host "    cd C:\Flint; git pull; pm2 restart all"
+Write-Host "    cd '$PSScriptRoot'; git pull; pm2 restart all"
 Write-Host ("-" * 60) -ForegroundColor Cyan
