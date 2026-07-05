@@ -22,6 +22,14 @@
 
 ## Installation
 
+The fastest path is the automated installer — see the
+[README](../README.md#first-time-setup). It performs every step below
+automatically, in order, and is safe to re-run if interrupted (e.g. by a
+required reboot after installing Docker Desktop).
+
+The steps below are for manual setup or repairing a specific part of a
+broken install.
+
 ### 0. Install Windows Build Tools (first-time only)
 
 Open PowerShell **as Administrator** and run both commands in order:
@@ -106,11 +114,27 @@ pm2 start ecosystem.config.cjs
 
 ```powershell
 npm install -g pm2-windows-startup   # one-time: installs the Windows startup helper
-pm2-windows-startup install          # registers PM2 in Windows Task Scheduler
+pm2-startup install                  # registers a Windows startup registry entry
 pm2 save                             # saves the current process list
 ```
 
-> `pm2 startup` (the built-in command) targets Linux init systems and fails on Windows with "Init system not found". Use `pm2-windows-startup` instead.
+> `pm2 startup` (the built-in command) targets Linux init systems and fails on Windows with "Init system not found". Use `pm2-windows-startup` instead — note the package name (`pm2-windows-startup`) and the command it installs (`pm2-startup`) differ.
+>
+> This registers a value named `PM2` under
+> `HKCU:\Software\Microsoft\Windows\CurrentVersion\Run` that runs an
+> invisible script calling `pm2 resurrect` at login — **not** a Windows
+> Task Scheduler task, despite what older versions of this doc said. Verify
+> it's present with:
+> ```powershell
+> Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name PM2
+> ```
+>
+> **Keep `pm2 save` current.** The saved process list only reflects PM2's
+> state at the moment you last ran `pm2 save` — if you later add, remove, or
+> restart processes and don't re-save, a reboot resurrects the *stale*
+> snapshot. Flint's own model-audit apply flow re-saves automatically after
+> restarting the dashboard; if you manually run `pm2 restart`/`pm2 start`/`pm2 delete`
+> for any other reason, run `pm2 save` again afterward.
 
 ### 7. Add API keys
 
@@ -419,6 +443,72 @@ pm2 restart flint-dashboard
 
 ---
 
+## Model Audit
+
+A weekly cron job (`.cron/schedule.json`, Sunday 09:00) triggers
+`POST /model-audit/trigger`, which spawns an agent to compare Flint's
+current model configuration (`router.json`, specialist `preferred_model`
+values) against current OpenRouter pricing/capability data, and submits
+structured recommendations via `POST /model-audit/reports/:id/submit`.
+
+Reports live in two tables: `model_audit_reports` (one row per run, with a
+`status` of `running` → `pending_review` → `applied`/`dismissed`, or
+`no_change` if nothing needs changing) and `model_audit_items` (one row per
+recommended change, each independently `pending`/`approved`/`rejected`).
+
+Review recommendations in the dashboard's **🔍 Audit** tab — approve or
+reject each item, then **Apply Approved** to write changes to `router.json`
+and/or the specialists table and restart `flint-dashboard`. The apply step
+also re-runs `pm2 save` afterward so the restarted process list survives a
+future reboot.
+
+REST routes:
+```powershell
+POST   /model-audit/trigger              # manually trigger a run
+GET    /model-audit/reports              # list all reports
+GET    /model-audit/reports/:id          # one report + its items
+POST   /model-audit/reports/:id/submit   # agent submits recommendations (internal)
+PATCH  /model-audit/items/:id            # approve/reject one item
+POST   /model-audit/reports/:id/apply    # write approved changes, restart dashboard
+DELETE /model-audit/reports/:id          # dismiss a report
+```
+
+---
+
+## Project Git Integration
+
+Project-linked orchestrations get a real git lifecycle. When a project is
+launched, Flint checks its workspace: if it's already a git repo with a
+remote (Forgejo or GitHub), nothing changes; if it's blank, Flint creates a
+matching repo in Forgejo, `git init`s the workspace, and pushes an initial
+commit. If Forgejo is unreachable at that moment, the workspace is still
+git-initialized locally with no remote — nothing blocks the launch — and the
+remote gets attached automatically on the next launch, or on demand via
+`POST /projects/:id/sync-repo`.
+
+Each orchestration run gets its own branch. Every completed, project-linked
+queue task is committed individually. When the orchestrator finishes (it
+calls `POST /orchestrations/:id/complete`), Flint pushes that branch and
+opens a pull request — routed to GitHub or Forgejo automatically depending
+on which remote the project's workspace actually uses.
+
+The `orchestrations` table's `pr_status` column reflects what happened:
+
+| `pr_status` | Meaning |
+|---|---|
+| `open` | PR successfully opened |
+| `merged` / `closed` | PR lifecycle, polled every 30s |
+| `no_remote` | Completed, but the workspace has no remote yet (Forgejo was unreachable when it needed one) — resolves itself on the next sync |
+| `failed` | A remote existed but the push or PR-creation API call itself errored — check `pm2 logs flint-dashboard` |
+
+REST routes:
+```powershell
+POST /orchestrations/:id/complete   # push branch + open PR (called by the orchestrator agent)
+POST /projects/:id/sync-repo        # retry attaching a remote + any pending no_remote PRs
+```
+
+---
+
 ## Specialists — File Layout
 
 Each specialist has a directory at `agents/specialists/<name>/`:
@@ -540,6 +630,17 @@ $env:E2E_FULL = "1"; node --test tests/e2e.test.js
 ---
 
 ## Troubleshooting
+
+### Quick health check
+
+```powershell
+.\scripts\flint-doctor.ps1
+```
+
+Checks Node/Git/PM2/Claude CLI, Docker, Forgejo reachability and token
+validity, the `forgejo` git remote, PM2 boot-persistence registration, both
+PM2 processes' status, and the dashboard health endpoint — one command
+instead of checking each manually.
 
 | Symptom | Check | Fix |
 |---------|-------|-----|
