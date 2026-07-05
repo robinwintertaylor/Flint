@@ -18,8 +18,11 @@ Flint is a personal agentic operating system for running multiple Claude Code ag
 
 ## Prerequisites
 
+`install-flint.ps1` installs all of these automatically if they're missing —
+this list is for reference, not something you need to do yourself first.
+
 - **PowerShell** — run all commands below in **PowerShell** (not cmd.exe)
-- **Node.js LTS** — `winget install OpenJS.NodeJS.LTS` *(v20, v22, or v24 all work)*
+- **Node.js LTS** *(v20, v22, or v24 all work)*
 - **Windows Build Tools** — required for `node-pty` (native module). Run both commands:
   ```powershell
   # Step 1 — install base toolset
@@ -36,65 +39,30 @@ Flint is a personal agentic operating system for running multiple Claude Code ag
 
 ## First-Time Setup
 
-### 1. Clone and install dependencies
-
 ```powershell
 git clone <your-repo-url> "C:\Flint"
 cd "C:\Flint"
-
-cd dashboard
-npm install
-cd ..
-cd router
-npm install
-cd ..
+.\install-flint.ps1
 ```
 
-### 2. Start Forgejo
+That's it — the installer detects and installs everything it needs (Node.js,
+Git, PM2, Claude Code CLI, Docker Desktop, Forgejo), bootstraps Forgejo,
+starts the full stack, configures it to survive a reboot, and prompts for
+your API keys.
 
-```powershell
-docker compose up -d
-```
+If Docker Desktop was just installed for the first time, your PC may need a
+restart to finish enabling virtualization features — the installer will tell
+you clearly if this happens. Just restart and re-run `.\install-flint.ps1`;
+it picks up where it left off.
 
-Wait ~10 seconds, then bootstrap (first time only):
+Run `.\scripts\flint-doctor.ps1` anytime to check the health of an existing
+install.
 
-```powershell
-# Default admin username is "flintadmin" — pass -AdminUser to use your own name
-.\scripts\forgejo-init.ps1
-# or: .\scripts\forgejo-init.ps1 -AdminUser yourname -AdminPassword yourpassword
-```
+### Advanced / manual setup
 
-This creates the admin user (default `admin`), saves an API token to `forgejo.token`, creates the `flint` repo, adds the `forgejo` git remote, and pushes `master`.
-Forgejo login: `admin / changeme123` — **change this password** at `http://localhost:3030/user/settings/account`.
-
-### 3. Start the full stack
-
-```powershell
-pm2 start ecosystem.config.cjs
-```
-
-### 4. Set up boot persistence
-
-```powershell
-npm install -g pm2-windows-startup   # one-time: installs the Windows startup helper
-pm2-windows-startup install          # registers PM2 in Windows Task Scheduler
-pm2 save                             # saves the current process list
-```
-
-### 5. Add your API keys
-
-Open `http://localhost:3000` → **API Keys** tab. Add keys for the providers you want to use (Anthropic, OpenAI, Google, Azure, OpenRouter). Keys are stored encrypted in the local SQLite database — no `.env` file needed.
-
-### 6. Verify
-
-```powershell
-Invoke-RestMethod http://localhost:3000/health | ConvertTo-Json
-```
-
-Expected:
-```json
-{ "status": "ok", "db": "connected", "forgejo": "reachable" }
-```
+If you'd rather run each step yourself (or are repairing a partially broken
+install), see [`docs/admin-manual.md`](docs/admin-manual.md#installation) for
+the full manual walkthrough.
 
 ---
 
