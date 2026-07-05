@@ -8,6 +8,7 @@
 
 | Requirement | Minimum | Notes |
 |-------------|---------|-------|
+| GitHub CLI (`gh`) | Latest | Install from [cli.github.com](https://cli.github.com), then `gh auth login` — **not** auto-installed by the installer, see note below |
 | OS | Windows 10/11 | Windows 11 Pro recommended |
 | Node.js | 20 LTS | `winget install OpenJS.NodeJS.LTS` — v20, v22, or v24 all work |
 | Windows Build Tools | VS 2022 Build Tools + Windows 11 SDK | Required for `better-sqlite3` and `node-pty` — see Installation step 0 |
@@ -26,6 +27,13 @@ The fastest path is the automated installer — see the
 [README](../README.md#first-time-setup). It performs every step below
 automatically, in order, and is safe to re-run if interrupted (e.g. by a
 required reboot after installing Docker Desktop).
+
+> **One prerequisite is not automated:** the GitHub CLI (`gh`). The installer
+> checks for `gh` and a valid `gh auth status` as its very first step and
+> exits immediately if either is missing — it does not install or
+> authenticate `gh` on your behalf. Install it from
+> [cli.github.com](https://cli.github.com) and run `gh auth login` before
+> running `install-flint.ps1`.
 
 The steps below are for manual setup or repairing a specific part of a
 broken install.

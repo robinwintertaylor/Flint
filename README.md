@@ -21,6 +21,13 @@ Flint is a personal agentic operating system for running multiple Claude Code ag
 `install-flint.ps1` installs all of these automatically if they're missing —
 this list is for reference, not something you need to do yourself first.
 
+> **Exception: GitHub CLI (`gh`).** Unlike everything else below, the
+> installer does **not** install or authenticate `gh` for you — it's an
+> early precondition the script checks and exits if missing. Install it
+> yourself first from [cli.github.com](https://cli.github.com) and run
+> `gh auth login` before running `install-flint.ps1`.
+
+- **GitHub CLI (`gh`)** — install from [cli.github.com](https://cli.github.com), then run `gh auth login` *(not auto-installed — see note above)*
 - **PowerShell** — run all commands below in **PowerShell** (not cmd.exe)
 - **Node.js LTS** *(v20, v22, or v24 all work)*
 - **Windows Build Tools** — required for `node-pty` (native module). Run both commands:
