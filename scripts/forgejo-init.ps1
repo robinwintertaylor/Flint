@@ -44,12 +44,24 @@ if (-not $ready) { Write-Error "Forgejo not ready after 60s - is Docker running?
 Write-Host " ready."
 
 # 2. Create admin user (ignore if already exists)
-$createOut = docker exec -u git flint-forgejo forgejo admin user create `
-    --username $AdminUser `
-    --password $AdminPassword `
-    --email    $AdminEmail `
-    --admin 2>&1
-if ($LASTEXITCODE -ne 0) {
+# Wrapped in try/catch: under $ErrorActionPreference = 'Stop', a native command's
+# stderr output (redirected here via 2>&1) can be escalated by PowerShell into a
+# terminating exception instead of just setting a non-zero $LASTEXITCODE - even
+# for routine, expected output like "user already exists". Catching it lets the
+# same already-exists handling below run either way.
+$createFailed = $false
+try {
+    $createOut = docker exec -u git flint-forgejo forgejo admin user create `
+        --username $AdminUser `
+        --password $AdminPassword `
+        --email    $AdminEmail `
+        --admin 2>&1
+    $createFailed = ($LASTEXITCODE -ne 0)
+} catch {
+    $createOut = $_.Exception.Message
+    $createFailed = $true
+}
+if ($createFailed) {
     $msg = "$createOut"
     if ($msg -match 'already exists') {
         Write-Host "Admin user already exists, continuing..."
@@ -90,9 +102,16 @@ if (Test-Path $tokenPath) {
 # Generate a fresh token only when we don't have a valid one
 if (-not $token) {
     $tokenName  = "flint-$(Get-Date -Format 'yyyyMMddHHmmss')"
-    $tokenOutput = @(docker exec -u git flint-forgejo forgejo admin user generate-access-token `
-        --username $AdminUser --token-name $tokenName --raw `
-        --scopes 'write:repository,write:issue,write:user,read:misc' 2>&1)
+    # Same $ErrorActionPreference = 'Stop' + native-stderr caveat as the admin-user
+    # create step above: catch it so any stderr chatter still reaches the parsing
+    # loop below instead of crashing the script outright.
+    try {
+        $tokenOutput = @(docker exec -u git flint-forgejo forgejo admin user generate-access-token `
+            --username $AdminUser --token-name $tokenName --raw `
+            --scopes 'write:repository,write:issue,write:user,read:misc' 2>&1)
+    } catch {
+        $tokenOutput = @($_.Exception.Message)
+    }
     foreach ($line in $tokenOutput) {
         $l = $line.Trim()
         if ($l -match ':\s*(\S+)$') { $token = $Matches[1] }
