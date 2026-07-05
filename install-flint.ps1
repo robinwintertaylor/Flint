@@ -24,7 +24,7 @@ param(
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
   Write-Host ""
   Write-Host "  ERROR: This installer must be run as Administrator." -ForegroundColor Red
-  Write-Host "  Right-click PowerShell → 'Run as Administrator', then re-run." -ForegroundColor Red
+  Write-Host "  Right-click PowerShell -> 'Run as Administrator', then re-run." -ForegroundColor Red
   Write-Host ""
   exit 1
 }
@@ -32,18 +32,23 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── Helpers ─────────────────────────────────────────────────────────────────
+# Whether Docker is confirmed ready to run Forgejo. Set either by the full
+# prerequisite-install path below, or by the lightweight probe used when
+# -SkipPrereqs is passed.
+$dockerReady = $false
+
+# -- Helpers ------------------------------------------------------------------
 
 function Write-Step([string]$msg) {
-  Write-Host "`n▶  $msg" -ForegroundColor Cyan
+  Write-Host "`n>> $msg" -ForegroundColor Cyan
 }
 
 function Write-Ok([string]$msg) {
-  Write-Host "   ✓ $msg" -ForegroundColor Green
+  Write-Host "   $msg" -ForegroundColor Green
 }
 
 function Write-Warn([string]$msg) {
-  Write-Host "   ⚠ $msg" -ForegroundColor Yellow
+  Write-Host "   WARNING: $msg" -ForegroundColor Yellow
 }
 
 function Test-Command([string]$name) {
@@ -104,7 +109,7 @@ function Post-ApiKey([string]$name, [string]$label, [string]$envVar, [string]$ke
   try {
     $null = Invoke-RestMethod http://localhost:3000/api-keys `
       -Method POST -ContentType 'application/json' -Body $body -ErrorAction Stop
-    Write-Ok "Stored $name → $envVar"
+    Write-Ok "Stored $name -> $envVar"
   } catch {
     Write-Warn "Failed to store ${name}: $($_.Exception.Message)"
   }
@@ -117,7 +122,7 @@ function Prompt-Key([string]$prompt, [string]$name, [string]$label, [string]$env
   }
 }
 
-# ── 1. Guard: gh CLI ─────────────────────────────────────────────────────────
+# -- 1. Guard: gh CLI -----------------------------------------------------
 
 Write-Step "Checking GitHub CLI..."
 
@@ -147,7 +152,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Ok "gh CLI authenticated"
 
-# ── 2. Prerequisites ─────────────────────────────────────────────────────────
+# -- 2. Prerequisites -------------------------------------------------------
 
 if (-not $SkipPrereqs) {
   Write-Step "Installing prerequisites..."
@@ -190,7 +195,7 @@ if (-not $SkipPrereqs) {
       --add Microsoft.VisualStudio.Component.Windows11SDK.22621 `
       --quiet --norestart
   } else {
-    Write-Warn "VS Installer not found at expected path — node-pty may fail to compile. Run the step manually per the admin manual."
+    Write-Warn "VS Installer not found at expected path - node-pty may fail to compile. Run the step manually per the admin manual."
   }
   Write-Ok "Windows Build Tools ready"
 
@@ -246,9 +251,24 @@ if (-not $SkipPrereqs) {
   }
   Write-Ok "Docker CLI present"
   $dockerReady = Wait-For-Docker -freshInstall $dockerFreshInstall
+} else {
+  # -SkipPrereqs still checks whether Docker is currently responsive (without
+  # trying to install it), so Forgejo bootstrap isn't skipped unnecessarily.
+  Write-Step "Checking Docker status..."
+  if (Test-Command 'docker') {
+    docker info 2>&1 | Out-Null
+    $dockerReady = ($LASTEXITCODE -eq 0)
+  } else {
+    $dockerReady = $false
+  }
+  if ($dockerReady) {
+    Write-Ok "Docker is ready"
+  } else {
+    Write-Warn "Docker is not ready (not installed or not running)."
+  }
 }
 
-# ── 3. npm install ────────────────────────────────────────────────────────────
+# -- 3. npm install -----------------------------------------------------------
 
 Write-Step "Installing dashboard dependencies..."
 try {
@@ -274,7 +294,7 @@ try {
   exit 1
 }
 
-# ── 3b. Start Forgejo ──────────────────────────────────────────────────────────
+# -- 3b. Start Forgejo ---------------------------------------------------------
 
 if ($dockerReady) {
   Write-Step "Starting Forgejo (self-hosted Git)..."
@@ -282,10 +302,10 @@ if ($dockerReady) {
   Write-Step "Bootstrapping Forgejo (admin user, token, repo, remote)..."
   & "$PSScriptRoot\scripts\forgejo-init.ps1"
 } else {
-  Write-Warn "Skipping Forgejo setup — Docker was not ready."
+  Write-Warn "Skipping Forgejo setup - Docker was not ready."
 }
 
-# ── 4. Start PM2 services ─────────────────────────────────────────────────────
+# -- 4. Start PM2 services ------------------------------------------------------
 
 Write-Step "Starting Flint services..."
 pm2 start C:\Flint\ecosystem.config.cjs
@@ -310,23 +330,23 @@ if ($pm2RunKey) {
   Write-Warn "Run 'pm2-startup install' manually as Administrator, then 'pm2 save'."
 }
 
-# ── 5. Wait for dashboard ──────────────────────────────────────────────────────
+# -- 5. Wait for dashboard -------------------------------------------------------
 
 Wait-For-Dashboard
 
-# ── 6. Configure API keys ──────────────────────────────────────────────────────
+# -- 6. Configure API keys --------------------------------------------------------
 
 Write-Step "Configuring API keys..."
 Write-Host "   Press Enter to skip any key you don't have yet." -ForegroundColor Gray
 Write-Host "   Skipped keys can be added later via the API Keys tab in the dashboard." -ForegroundColor Gray
 Write-Host ""
 
-# GitHub token — required for agent PR creation
-$ghToken = Read-Host "   GitHub Personal Access Token (repo scope — required for PR creation)"
+# GitHub token - required for agent PR creation
+$ghToken = Read-Host "   GitHub Personal Access Token (repo scope - required for PR creation)"
 if ($ghToken -and $ghToken.Trim() -ne '') {
   Post-ApiKey 'github-token' 'GitHub' 'GITHUB_TOKEN' $ghToken.Trim()
 } else {
-  Write-Warn "GitHub token skipped — agent PR creation will not work until added via the API Keys tab"
+  Write-Warn "GitHub token skipped - agent PR creation will not work until added via the API Keys tab"
 }
 
 Write-Host ""
@@ -337,7 +357,7 @@ Prompt-Key "OpenRouter API key"   'openrouter'  'OpenRouter'   'OPENROUTER_API_K
 Prompt-Key "Mammouth AI API key"  'mammouth'    'Mammouth AI'  'MAMMOUTH_API_KEY'
 Prompt-Key "Google AI API key"    'google'      'Google AI'    'GOOGLE_API_KEY'
 
-# Azure — three values
+# Azure - three values
 $azureKey = Read-Host "   Azure OpenAI key (Enter to skip)"
 if ($azureKey -and $azureKey.Trim() -ne '') {
   Post-ApiKey 'azure-key' 'Azure OpenAI Key' 'AZURE_OPENAI_KEY' $azureKey.Trim()
@@ -357,8 +377,8 @@ Prompt-Key "LM Studio base URL (e.g. http://localhost:1234)" 'lmstudio-url'  'LM
 Write-Host ""
 Write-Host "   Optional integrations:" -ForegroundColor Gray
 
-# Supabase — URL + key pair
-$supabaseUrl = Read-Host "   Supabase project URL (e.g. https://xyz.supabase.co — Enter to skip)"
+# Supabase - URL + key pair
+$supabaseUrl = Read-Host "   Supabase project URL (e.g. https://xyz.supabase.co - Enter to skip)"
 if ($supabaseUrl -and $supabaseUrl.Trim() -ne '') {
   Post-ApiKey 'supabase-url'  'Supabase URL'      'SUPABASE_URL'      $supabaseUrl.Trim()
   $supabaseKey = Read-Host "   Supabase anon key"
@@ -369,7 +389,7 @@ if ($supabaseUrl -and $supabaseUrl.Trim() -ne '') {
 
 Prompt-Key "Telegram Bot token" 'telegram-bot' 'Telegram Bot Token' 'TELEGRAM_BOT_TOKEN'
 
-# ── 7. Verify + open ───────────────────────────────────────────────────────────
+# -- 7. Verify + open ---------------------------------------------------------
 
 Write-Step "Verifying installation..."
 try {
@@ -383,17 +403,17 @@ try {
 Write-Step "Opening dashboard in browser..."
 Start-Process "http://localhost:3000"
 
-# ── 8. Summary ─────────────────────────────────────────────────────────────────
+# -- 8. Summary -----------------------------------------------------------------
 
 Write-Host ""
-Write-Host ("━" * 60) -ForegroundColor Cyan
+Write-Host ("-" * 60) -ForegroundColor Cyan
 Write-Host "  Flint is running at http://localhost:3000" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Next steps:"
-Write-Host "    • Spawn an agent from the Agents tab"
-Write-Host "    • Add remaining API keys via the API Keys tab"
-Write-Host "    • Set a default agent in the Queue tab for auto-pickup"
+Write-Host "    - Spawn an agent from the Agents tab"
+Write-Host "    - Add remaining API keys via the API Keys tab"
+Write-Host "    - Set a default agent in the Queue tab for auto-pickup"
 Write-Host ""
 Write-Host "  To update Flint:"
 Write-Host "    cd C:\Flint; git pull; pm2 restart all"
-Write-Host ("━" * 60) -ForegroundColor Cyan
+Write-Host ("-" * 60) -ForegroundColor Cyan
