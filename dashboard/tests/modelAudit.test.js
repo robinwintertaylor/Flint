@@ -12,11 +12,11 @@ process.env.FLINT_AGENTS_FILE = TEMP_AGENTS;
 process.env.FLINT_TASKS_DIR   = TEMP_TASKS;
 process.env.FLINT_TEST_MODE   = '1';
 
-import { initDb } from '../db.js';
+import { initDb, getDb } from '../db.js';
 import {
   createAuditReport, getAuditReport, listAuditReports,
   submitAuditReport, updateAuditItem, applyAuditReport,
-  dismissAuditReport, buildAuditTaskFile,
+  dismissAuditReport, buildAuditTaskFile, releaseOrphanedAuditReports,
 } from '../modelAudit.js';
 const { createApp, closeDb } = await import('../server.js');
 
@@ -273,4 +273,41 @@ test('DELETE /model-audit/reports/:id dismisses report', async () => {
   assert.equal(r.status, 200);
   const { report } = getAuditReport(id);
   assert.equal(report.status, 'dismissed');
+});
+
+// Note: this file shares one real SQLite DB across every test in it (initDb
+// is only called once, in before()), so earlier tests' reports can be left at
+// status='running'. These tests check the specific report they created,
+// rather than the aggregate count releaseOrphanedAuditReports returns, since
+// that count legitimately includes whatever else is left over from earlier
+// tests in the file.
+
+test('releaseOrphanedAuditReports marks a running report failed when its agent is not actually running', () => {
+  const id = createAuditReport();
+  getDb().prepare(`UPDATE model_audit_reports SET agent_name = ? WHERE id = ?`).run('model-auditor-99', id);
+
+  releaseOrphanedAuditReports({ listAgentsFn: () => [] });
+
+  const { report } = getAuditReport(id);
+  assert.equal(report.status, 'failed');
+  assert.match(report.summary, /restarted/i);
+  assert.ok(report.completed_at);
+});
+
+test('releaseOrphanedAuditReports leaves a report alone if its agent really is still running', () => {
+  const id = createAuditReport();
+  getDb().prepare(`UPDATE model_audit_reports SET agent_name = ? WHERE id = ?`).run('model-auditor-100', id);
+
+  releaseOrphanedAuditReports({
+    listAgentsFn: () => [{ name: 'model-auditor-100', status: 'running' }],
+  });
+
+  const { report } = getAuditReport(id);
+  assert.equal(report.status, 'running');
+});
+
+test('releaseOrphanedAuditReports returns 0 on a second call once everything is already reconciled', () => {
+  releaseOrphanedAuditReports({ listAgentsFn: () => [] }); // clean up anything currently orphaned
+  const count = releaseOrphanedAuditReports({ listAgentsFn: () => [] }); // nothing left to reconcile
+  assert.equal(count, 0);
 });

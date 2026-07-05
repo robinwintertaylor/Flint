@@ -35,6 +35,7 @@ import { getSetting, setSetting } from './settings.js';
 import {
   runModelAudit, listAuditReports, getAuditReport,
   submitAuditReport, updateAuditItem, applyAuditReport, dismissAuditReport,
+  releaseOrphanedAuditReports,
 } from './modelAudit.js';
 import { getHeartbeatLog, runHeartbeatCycle, startHeartbeat } from './heartbeat.js';
 import { flintChat } from './chat.js';
@@ -119,6 +120,11 @@ export function createApp() {
   Object.assign(process.env, buildApiKeyEnv());
   initSupabase();
   initAgents(process.env.FLINT_AGENTS_FILE);
+  // Reconcile any model-audit report left stuck at status='running' by an
+  // agent that died with the previous process instance (e.g. this dashboard
+  // was just restarted mid-audit) - otherwise it blocks any new audit from
+  // ever starting (runModelAudit only allows one 'running' report at a time).
+  if (!TEST_MODE) releaseOrphanedAuditReports();
   if (!TEST_MODE) startQueuePoller();
   if (!TEST_MODE) initTelegram({ writeToAgent, createQueueTask });
 

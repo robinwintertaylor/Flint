@@ -6,7 +6,7 @@ import { getDb } from './db.js';
 import { getSetting } from './settings.js';
 import { listSpecialists } from './specialists.js';
 import { writeTasks } from './tasks.js';
-import { registerAgent } from './agents.js';
+import { registerAgent, listAgents } from './agents.js';
 import { spawnAgent } from './terminal.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -243,4 +243,28 @@ export async function runModelAudit() {
   }
 
   return { reportId };
+}
+
+// Reconciles model_audit_reports left stuck at status='running' by an agent
+// that no longer actually exists/isn't running - e.g. the dashboard restarted
+// while an audit was in progress, killing the spawned agent process without
+// ever getting a chance to update the report. Without this, runModelAudit()'s
+// own "one audit at a time" guard (`if (running) return`) would block any new
+// audit from ever starting again. Safe to call repeatedly; a no-op once
+// nothing is orphaned.
+export function releaseOrphanedAuditReports({ listAgentsFn = listAgents } = {}) {
+  const db = getDb();
+  const running = db.prepare(`SELECT id, agent_name FROM model_audit_reports WHERE status = 'running'`).all();
+  if (running.length === 0) return 0;
+
+  const runningAgentNames = new Set(listAgentsFn().filter(a => a.status === 'running').map(a => a.name));
+  const orphaned = running.filter(r => !r.agent_name || !runningAgentNames.has(r.agent_name));
+  if (orphaned.length === 0) return 0;
+
+  const summary = 'Interrupted — the Flint dashboard restarted (or the audit agent stopped) while this audit was in progress. Click Run Now to start a fresh audit.';
+  const ids = orphaned.map(r => r.id);
+  db.prepare(
+    `UPDATE model_audit_reports SET status = 'failed', summary = ?, completed_at = CURRENT_TIMESTAMP WHERE id IN (${ids.map(() => '?').join(',')})`
+  ).run(summary, ...ids);
+  return ids.length;
 }
