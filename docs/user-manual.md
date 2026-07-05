@@ -87,14 +87,42 @@ The queue lets you pre-stage work that agents pick up automatically.
 
 ## Projects
 
-Projects group agents and track shared costs.
+Projects group agents, track shared costs, and can run an autonomous
+orchestrator against a goal.
 
 1. Click **Projects** in the header nav.
-2. Click **+ New Project**, give it a name and notes.
-3. Link agents to the project from the project card's **Link agent** dropdown.
+2. Click **+ New Project**, give it a name, notes, and optionally a
+   **workspace** (the folder its agents will work in — if you skip this,
+   agents fall back to a configured default working directory).
+3. Link agents to the project from the project card's **Link agent**
+   dropdown, or set a **Goal** and click **Launch** to spin up an
+   orchestrator automatically.
 4. Optionally upload reference documents (PDF, text) the agents can read.
 
-The project card shows cost broken down by agent and a rolling session summary from each agent's last exit.
+The project card shows cost broken down by agent, a rolling session summary
+from each agent's last exit, and — once a goal has been launched — an
+orchestration status chip (running/done/failed).
+
+### Launching a goal
+
+Setting a **Goal** and clicking **Launch** spawns an orchestrator agent that
+plans and executes the work: it researches (for anything non-trivial),
+writes a plan, spawns whatever specialists it needs, and tracks progress
+against a shared scratchpad. Click the status chip to open a live scratchpad
+viewer and watch its plan and findings as they're written.
+
+### Project work and git
+
+If the project's workspace is (or becomes) a git repository, the
+orchestrator's work is committed automatically as each task completes, on
+its own branch. When the orchestrator finishes, it pushes that branch and
+opens a pull request for review — against Forgejo if this is a fresh
+project (Flint creates the repo for you automatically), or against GitHub if
+the workspace already points there.
+
+If Forgejo happens to be unreachable when a brand-new project's workspace
+needs a repo, none of this blocks you — work still gets committed locally,
+and the remote/PR catches up automatically the next time you launch.
 
 ---
 
