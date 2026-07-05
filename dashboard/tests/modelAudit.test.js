@@ -127,6 +127,59 @@ test('applyAuditReport returns count of applied items and marks report applied',
   assert.equal(report.status, 'applied');
 });
 
+test('applyAuditReport calls pm2 save after a successful restart', () => {
+  const id = createAuditReport();
+  submitAuditReport(id, {
+    status: 'pending_review',
+    summary: 'test',
+    items: [{ scope: 'specialist', target: 'specialist:researcher', label: 'Researcher model', current_value: 'gpt-4o-mini', recommended_value: 'moonshotai/kimi-k2', rationale: 'Better research', evidence: [] }],
+  });
+  const { items } = getAuditReport(id);
+  updateAuditItem(items[0].id, 'approved');
+
+  const calls = [];
+  const fakeExecFn = (cmd) => { calls.push(cmd); };
+
+  const prevTestMode = process.env.FLINT_TEST_MODE;
+  delete process.env.FLINT_TEST_MODE;
+  try {
+    applyAuditReport(id, { execFn: fakeExecFn });
+  } finally {
+    if (prevTestMode !== undefined) process.env.FLINT_TEST_MODE = prevTestMode;
+  }
+
+  assert.deepEqual(calls, ['pm2 restart flint-dashboard', 'pm2 save']);
+});
+
+test('applyAuditReport still returns restartFailed:true and does not call pm2 save if restart throws', () => {
+  const id = createAuditReport();
+  submitAuditReport(id, {
+    status: 'pending_review',
+    summary: 'test',
+    items: [{ scope: 'specialist', target: 'specialist:researcher', label: 'Researcher model', current_value: 'gpt-4o-mini', recommended_value: 'moonshotai/kimi-k2', rationale: 'Better research', evidence: [] }],
+  });
+  const { items } = getAuditReport(id);
+  updateAuditItem(items[0].id, 'approved');
+
+  const calls = [];
+  const fakeExecFn = (cmd) => {
+    calls.push(cmd);
+    if (cmd.includes('restart')) throw new Error('pm2 not running');
+  };
+
+  const prevTestMode = process.env.FLINT_TEST_MODE;
+  delete process.env.FLINT_TEST_MODE;
+  let result;
+  try {
+    result = applyAuditReport(id, { execFn: fakeExecFn });
+  } finally {
+    if (prevTestMode !== undefined) process.env.FLINT_TEST_MODE = prevTestMode;
+  }
+
+  assert.equal(result.restartFailed, true);
+  assert.deepEqual(calls, ['pm2 restart flint-dashboard']);
+});
+
 test('dismissAuditReport sets status to dismissed', () => {
   const id = createAuditReport();
   dismissAuditReport(id);

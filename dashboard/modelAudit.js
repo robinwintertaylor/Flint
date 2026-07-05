@@ -71,7 +71,7 @@ export function updateAuditItem(itemId, status) {
   getDb().prepare(`UPDATE model_audit_items SET status = ? WHERE id = ?`).run(status, itemId);
 }
 
-export function applyAuditReport(reportId) {
+export function applyAuditReport(reportId, { execFn = execSync } = {}) {
   const db = getDb();
   const items = db.prepare(
     `SELECT * FROM model_audit_items WHERE report_id = ? AND status = 'approved'`
@@ -104,8 +104,10 @@ export function applyAuditReport(reportId) {
 
   let restartFailed = false;
   if (process.env.FLINT_TEST_MODE !== '1') {
-    try { execSync('pm2 restart flint-dashboard', { stdio: 'ignore' }); }
-    catch { restartFailed = true; }
+    try {
+      execFn('pm2 restart flint-dashboard', { stdio: 'ignore' });
+      execFn('pm2 save', { stdio: 'ignore' });
+    } catch { restartFailed = true; }
   }
 
   return { applied: items.length, restartFailed };
