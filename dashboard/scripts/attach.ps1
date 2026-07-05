@@ -28,7 +28,7 @@ if (-not (Test-Path $LogsDir)) {
 if (Test-Path $LogFile) { Clear-Content $LogFile }
 
 Write-Host ""
-Write-Host "⚡ Flint — Observe Mode" -ForegroundColor Cyan
+Write-Host "Flint - Observe Mode" -ForegroundColor Cyan
 Write-Host "Agent   : $AgentName"
 Write-Host "Log file: $LogFile"
 Write-Host ""
