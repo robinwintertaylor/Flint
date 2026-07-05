@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Diagnoses a Flint installation — checks every prerequisite and reports
+    Diagnoses a Flint installation - checks every prerequisite and reports
     pass/fail with the specific fix command for anything failing.
 
 .EXAMPLE
@@ -29,7 +29,7 @@ function Check-Item([string]$label, [scriptblock]$test, [string]$fixHint) {
 }
 
 Write-Host "Flint Doctor" -ForegroundColor Cyan
-Write-Host ("─" * 40)
+Write-Host ("-" * 40)
 
 Check-Item "Node.js" { [bool](Get-Command node -ErrorAction SilentlyContinue) } `
   "Install from https://nodejs.org or: winget install OpenJS.NodeJS.LTS"
@@ -79,7 +79,7 @@ Check-Item "PM2 boot-persistence registry key" {
 } "pm2-startup install; pm2 save  (run as Administrator)"
 
 Check-Item "flint-dashboard running" {
-  # Note: intentionally not using `pm2 jlist | ConvertFrom-Json` here — on Windows,
+  # Note: intentionally not using `pm2 jlist | ConvertFrom-Json` here - on Windows,
   # pm2_env always contains both the native "USERNAME" env var and pm2's own
   # lowercase "username" metadata field, which ConvertFrom-Json rejects as
   # duplicate keys (case-insensitive) on both PS 5.1 and PS 7+. `pm2 describe`
@@ -100,10 +100,10 @@ Check-Item "Dashboard health endpoint" {
   } catch { $false }
 } "pm2 restart flint-dashboard, then check: pm2 logs flint-dashboard"
 
-Write-Host ("─" * 40)
+Write-Host ("-" * 40)
 if ($failures -eq 0) {
   Write-Host "All checks passed." -ForegroundColor Green
 } else {
-  Write-Host "$failures check(s) failed — see fixes above." -ForegroundColor Red
+  Write-Host "$failures check(s) failed - see fixes above." -ForegroundColor Red
   exit 1
 }
