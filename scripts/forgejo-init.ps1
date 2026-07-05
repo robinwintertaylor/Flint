@@ -108,6 +108,13 @@ try {
     $me = Invoke-RestMethod -Uri 'http://localhost:3030/api/v1/user' `
         -Headers @{ Authorization = "token $token" } -ErrorAction Stop
     Write-Host "Token valid for user: $($me.login)"
+    # A reused pre-existing token may belong to a different account than the
+    # requested/default -AdminUser (e.g. an earlier bootstrap ran under a
+    # different username). Every subsequent step (repo lookup/creation, the
+    # git remote URL) must operate as the token's actual owner, not the
+    # requested default, or repo/remote paths will point at the wrong
+    # namespace and pushes will 403.
+    $AdminUser = $me.login
 } catch {
     Write-Error "Token still invalid after regeneration: $($_.Exception.Message)"; exit 1
 }
